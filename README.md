@@ -33,6 +33,6 @@ AI玩家能够：
 | 沈矜娴 | 组长 | @Xiann127 |
 | 文就南 | 成员 | @wenjiunan |
 | 杨策华 | 成员 | @chuizichaoren |
-| 白纹菲 | 成员 | @username |
+| 白纹菲 | 成员 | @KPBLKPBL |
 | 范盛颉 | 成员 | @username |
 | 雷熙澎 | 成员 | @username |
