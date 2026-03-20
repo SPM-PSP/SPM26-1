@@ -34,5 +34,5 @@ AI玩家能够：
 | 文就南 | 成员 | @wenjiunan |
 | 杨策华 | 成员 | @chuizichaoren |
 | 白纹菲 | 成员 | @KPBLKPBL |
-| 范盛颉 | 成员 | @username |
-| 雷熙澎 | 成员 | @username |
+| 范盛颉 | 成员 | @Louis-Dejavu |
+| 雷熙澎 | 成员 | @ray-055 |
