@@ -25,7 +25,72 @@
 6. **实时通信层**  ：实时通信层负责处理游戏过程中的高频、低延迟消息同步与状态推送，包括房间成员变化、阶段切换、倒计时广播、投票结果、放逐结果、系统提示等。由于狼人杀对局具有较强的实时性，若仅依赖轮询式 HTTP 接口将难以满足多人同步体验，因此系统将通过 WebSocket 建立双向通信机制，实现服务端主动推送与客户端状态即时更新。
 7. **辅助支撑层** ：辅助层为系统运行提供必要的支撑能力，主要包括 NodeCache、日志组件和权限中间件等。其中NodeCache 用于保存倒计时等短周期临时状态；日志组件用于记录运行过程中的关键操作和异常信息，为对局记录与后续排障提供支持；权限中间件则负责基础的身份校验与访问控制。虽然这些能力不直接参与业务规则处理，但它们对于满足系统稳定性、安全性和可维护性要求至关重要。
 
+## 4.数据结构设计
+### 4.1 全局数据常量
+1. **配置文件中的常量**：
+   - config.json 文件中定义了数据库配置、日志路径等全局常量。
+   - 通过 `initConstants` 方法加载的 `constants`，包括游戏角色、技能、票数等相关配置。
 
+2. **前端常量**：
+   - constants.js 中定义了游戏相关的常量，如：
+     - `witchSaveOptions`：女巫救人选项。
+     - `winConditionOptions`：胜利条件选项。
+     - `flatTicketOptions`：平票选项。
+     - `playerCountOptions`：玩家数量选项。
+
+3. **日志配置**：
+   - log4.js 中定义了日志路径和日志级别。
+
+### 4.2 全局变量
+1. **后端全局变量**：
+   - index.js 中的 `Application` 类：
+     - `this.$config`：全局配置。
+     - `this.$constants`：全局常量。
+     - `this.$errorCode`：错误码。
+     - `this.$nodeCache`：全局缓存。
+     - `this.$middleware`：中间件实例。
+     - `this.$log4`：日志系统。
+     - `this.$model`：数据库模型。
+     - `this.$service`：服务实例。
+     - `this.$controller`：控制器实例。
+     - `this.$router`：路由实例。
+     - `this.$ws`：WebSocket 实例。
+     - `this.$timer`：定时器对象。
+
+2. **前端全局变量**：
+   - index.jsx 中的 React 状态变量：
+     - `roomDetail`：房间详情。
+     - `seatInfo`：座位信息。
+     - `gameDetail`：游戏详情。
+     - `playerInfo`：玩家信息。
+     - `currentRole`：当前角色。
+     - `skillInfo`：技能信息。
+     - `actionInfo`：行动信息。
+
+### 4.3 数据结构设计
+1. **数据库模型**：
+   - mysqlModel 文件夹中定义了数据库表的模型，包括：
+     - `game.js`：游戏相关数据。
+     - `player.js`：玩家数据。
+     - `room.js`：房间数据。
+     - `role.js`：角色数据。
+     - `record.js`：游戏记录。
+
+2. **后端服务层**：
+   - service 文件夹中定义了服务层逻辑，封装了对数据库的操作。
+
+3. **前端组件状态**：
+   - 使用 React 的 `useState` 和 `useMemo` 管理组件状态。
+   - 例如，`gameReady` 组件中管理了游戏设置和玩家准备状态。
+
+4. **路由设计**：
+   - index.js 中定义了后端 API 路由，包括用户、房间、游戏相关的接口。
+
+5. **中间件**：
+   - middleware 文件夹中定义了认证、缓存等中间件。
+
+6. **工具函数**：
+   - utils.js 中定义了常用工具函数，如 URL 处理、日期格式化、验证邮箱和手机号格式等。
 
 
 ## 5. 核心模块设计
