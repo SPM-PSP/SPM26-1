@@ -27,146 +27,138 @@
 
 
 
+
 ## 5. 核心模块设计
 
 ### 5.1 用户/鉴权模块
-1. 模块职责：
-1. 登录鉴权、JWT 发放、接口鉴权校验、用户信息查询。
+1. 模块职责：登录鉴权、JWT 发放、接口鉴权校验、用户信息查询。
 2. 主要输入输出：
-1. 输入：`username/password`、`Authorization`。
-2. 输出：统一响应结构 `{success,data,errorCode,errorMessage}`。
+（1）输入：`username/password`、`Authorization`。
+（2）输出：统一响应结构 `{success,data,errorCode,errorMessage}`。
 3. 核心实现：
-1. [server/controller/authController.js](f:/werewolf/server/controller/authController.js)
-2. [server/middleware/auth.js](f:/werewolf/server/middleware/auth.js)
-3. [server/service/userService.js](f:/werewolf/server/service/userService.js)
+（1）[server/controller/authController.js](f:/werewolf/server/controller/authController.js)
+（2）[server/middleware/auth.js](f:/werewolf/server/middleware/auth.js)
+（3）[server/service/userService.js](f:/werewolf/server/service/userService.js)
 4. 当前实现情况：
-1. `[已实现]` 登录与 JWT。
-2. `[已实现]` 接口鉴权中间件
+（1） `[已实现]` 登录与 JWT。
+（2）`[已实现]` 接口鉴权中间件
 5. 可改进点：
-1. 密码加密方式升级
-2. 完善权限校验体系
+（1）密码加密方式升级
+（2）完善权限校验体系
 
 ### 5.2 房间管理模块
-1. 模块职责：
-1. 创建/加入/退出房间，入座、踢人、观战、房间信息聚合。
+1. 模块职责：创建/加入/退出房间，入座、踢人、观战、房间信息聚合。
 2. 主要输入输出：
-1. 输入：房间名、房间码、座位号、房间ID。
-2. 输出：房间状态、座位信息、等待区、游戏ID。
+（1）输入：房间名、房间码、座位号、房间ID。
+（2）输出：房间状态、座位信息、等待区、游戏ID。
 3. 核心实现：
-1. [server/controller/roomController.js](f:/werewolf/server/controller/roomController.js)
-2. [server/service/roomService.js](f:/werewolf/server/service/roomService.js)
+（1）[server/controller/roomController.js](f:/werewolf/server/controller/roomController.js)
+（2）[server/service/roomService.js](f:/werewolf/server/service/roomService.js)
 3. 当前实现情况：
-1. `[已实现]` 房间全流程管理
-2. `[已实现]` 观战功能
+（1）`[已实现]` 房间全流程管理
+（2）`[已实现]` 观战功能
 3. 可改进点：
-1. 规范 REST 接口风格
-2. 并发入座/踢人缺少事务或锁控制，存在竞态风险。
+（1）规范 REST 接口风格
+（2）并发入座/踢人缺少事务或锁控制，存在竞态风险。
 
 ### 5.3 游戏状态机/流程控制模块
-1. 模块职责：
-1. 阶段推进、阶段结算、倒计时控制、日夜循环。
+1. 模块职责：阶段推进、阶段结算、倒计时控制、日夜循环。
 2. 主要输入输出：
-1. 输入：`gameId`、当前阶段、动作数据。
-2. 输出：下一阶段状态、结算记录、推送事件。
+（1）输入：`gameId`、当前阶段、动作数据。
+（2）输出：下一阶段状态、结算记录、推送事件。
 3. 核心实现：
-1. [server/service/gameService.js](f:/werewolf/server/service/gameService.js)
-2. [server/service/stageService.js](f:/werewolf/server/service/stageService.js)
+（1）[server/service/gameService.js](f:/werewolf/server/service/gameService.js)
+（2）[server/service/stageService.js](f:/werewolf/server/service/stageService.js)
 3. 当前实现情况：
-1. `[已实现]` `0->1->2->3->4->5->6->(6.5)->7->0`。
-2. `[已实现]` 夜晚三阶段定时器（预言家/狼人/女巫）。
-3. `[已实现]` 平票 PK（可配置）。
+（1）`[已实现]` `0->1->2->3->4->5->6->(6.5)->7->0`。
+（2）`[已实现]` 夜晚三阶段定时器（预言家/狼人/女巫）。
+（3）`[已实现]` 平票 PK（可配置）。
 4. 可改进点：
-1. 部分业务校验依赖前端，服务端阶段校验不完全一致。
-2. 状态推进与多表写入缺少事务边界。
+（1）部分业务校验依赖前端，服务端阶段校验不完全一致。
+（2）状态推进与多表写入缺少事务边界。
 
 ### 5.4 角色分配模块
-1. 模块职责：
-1. 按人数板子分配角色，初始化玩家信息。
+1. 模块职责：按人数板子分配角色，初始化玩家信息。
 2. 主要输入输出：
-1. 输入：房间座位、角色配置、技能映射。
-2. 输出：`player`、`state`、`game` 初始状态。
+（1）输入：房间座位、角色配置、技能映射。
+（2）输出：`player`、`state`、`game` 初始状态。
 3. 核心实现：
-1. [server/controller/gameController.js](f:/werewolf/server/controller/gameController.js) `gameStart`
-2. [common/constants.js](f:/werewolf/common/constants.js) `gameModeMap/skillMap`
+（1）[server/controller/gameController.js](f:/werewolf/server/controller/gameController.js) `gameStart`
+（2）[common/constants.js](f:/werewolf/common/constants.js) `gameModeMap/skillMap`
 3. 当前实现情况：
-1. `[已实现]` 多人数角色配置
+（1）`[已实现]` 多人数角色配置
 
 ### 5.5 白天发言/投票模块
-1. 模块职责：
-1. 发言顺序生成、投票记录、平票处理、放逐结算、平票PK处理。
+1. 模块职责：发言顺序生成、投票记录、平票处理、放逐结算、平票PK处理。
 2. 主要输入输出：
-1. 输入：gameId、投票目标、投票阶段
-2. 输出：票型记录、放逐结果、PK 玩家列表
+（1）输入：gameId、投票目标、投票阶段
+（2）输出：票型记录、放逐结果、PK 玩家列表
 3. 核心实现：
-1. [server/service/stageService.js](f:/werewolf/server/service/stageService.js) `preSpeakStage`、`voteStage`
-2. [server/controller/gameController.js](f:/werewolf/server/controller/gameController.js) `votePlayer`
+（1）[server/service/stageService.js](f:/werewolf/server/service/stageService.js) `preSpeakStage`、`voteStage`
+（2）[server/controller/gameController.js](f:/werewolf/server/controller/gameController.js) `votePlayer`
 3. 当前实现情况：
-1. `[已实现]` 随机发言顺序
-2. `[已实现]` 投票与票型记录
-3. `[已实现]` 平票可直接过夜或进入 PK。
+（1）`[已实现]` 随机发言顺序
+（2）`[已实现]` 投票与票型记录
+（3）`[已实现]` 平票可直接过夜或进入 PK。
 4. 可改进点：
-1. 服务端对 PK 阶段投票资格约束不足（主要在前端限制）。
-2. 发言内容本身未进入结构化输入（当前以流程控制为主，非语义推理）。
+（1）服务端对 PK 阶段投票资格约束不足（主要在前端限制）。
+（2）发言内容本身未进入结构化输入（当前以流程控制为主，非语义推理）。
 
 ### 5.6 夜晚行动模块
-1. 模块职责：
-1. 预言家查验、狼人袭击、女巫解药/毒药、夜晚死亡结算。
+1. 模块职责：预言家查验、狼人袭击、女巫解药/毒药、夜晚死亡结算。
 2. 主要输入输出：
-1. 输入：gameId、技能类型、目标玩家
-2. 输出：玩家状态变更。
+（1）输入：gameId、技能类型、目标玩家
+（2）输出：玩家状态变更。
 3. 核心实现：
-1. [server/controller/gameController.js](f:/werewolf/server/controller/gameController.js) `checkPlayer/assaultPlayer/antidotePlayer/poisonPlayer`
-2. [server/service/stageService.js](f:/werewolf/server/service/stageService.js) `wolfStage/witchStage`
+（1）[server/controller/gameController.js](f:/werewolf/server/controller/gameController.js) `checkPlayer/assaultPlayer/antidotePlayer/poisonPlayer`
+（2）[server/service/stageService.js](f:/werewolf/server/service/stageService.js) `wolfStage/witchStage`
 3. 当前实现情况：
-1. `[已实现]` 全角色夜晚技能
-2. `[已实现]` 统一死亡结算
+（1）`[已实现]` 全角色夜晚技能
+（2）`[已实现]` 统一死亡结算
 3. 可改进点：
-1. 个别动作接口缺少严格阶段校验（可被越阶段调用）。
-2. 女巫自救规则校验分散，建议统一在服务端规则引擎收口。
+（1）个别动作接口缺少严格阶段校验（可被越阶段调用）。
+（2）女巫自救规则校验分散，建议统一在服务端规则引擎收口。
 
 ### 5.7 胜负判定模块
-1. 模块职责：
-1. 阵营存活统计、屠边 / 屠城判定、游戏结束、胜利广播。
+1. 模块职责：阵营存活统计、屠边 / 屠城判定、游戏结束、胜利广播。
 2. 主要输入输出：
-1. 输入：玩家状态、阵营、胜利条件
-2. 输出：游戏结果、胜者阵营、结束广播
+（1）输入：玩家状态、阵营、胜利条件
+（2）输出：游戏结果、胜者阵营、结束广播
 3. 核心实现：
-1. [server/service/gameService.js](f:/werewolf/server/service/gameService.js) `settleGameOver/setGameWin`
+（1）[server/service/gameService.js](f:/werewolf/server/service/gameService.js) `settleGameOver/setGameWin`
 4. 当前实现情况：
-1. `[已实现]` 屠边/屠城配置支持。
-2. `[已实现]` 夜晚结算后与投票结算后均触发判定。
+（1）`[已实现]` 屠边/屠城配置支持。
+（2）`[已实现]` 夜晚结算后与投票结算后均触发判定。
 3. 可改进点：
-1. 建议补充更细粒度“终局原因”字段，便于复盘分析。
+（1）建议补充更细粒度“终局原因”字段，便于复盘分析。
 
 ### 5.8 实时通信模块
-1. 模块职责：
-1. 房间内状态变更广播、阶段切换通知、倒计时推送。
+1. 模块职责：房间内状态变更广播、阶段切换通知、倒计时推送。
 2. 主要输入输出：
-1. 输入：状态变更事件
-2. 输出：stageChange、refreshGame、gameOver 等消息
+（1）输入：状态变更事件
+（2）输出：stageChange、refreshGame、gameOver 等消息
 3. 核心实现：
-1. [server/application/loader.js](f:/werewolf/server/application/loader.js) `initWs`
-2. [client/src/pages/views/room/index.jsx](f:/werewolf/client/src/pages/views/room/index.jsx) `wsMessage`
+（1）[server/application/loader.js](f:/werewolf/server/application/loader.js) `initWs`
+（2）[client/src/pages/views/room/index.jsx](f:/werewolf/client/src/pages/views/room/index.jsx) `wsMessage`
 3. 当前实现情况：
-1. `[已实现]` 实时事件广播
-2. `[已实现]` 倒计时推送
+（1）`[已实现]` 实时事件广播
+（2）`[已实现]` 倒计时推送
 3. 可改进点：
-1. 当前协议无事件版本与签名，建议升级为结构化事件模型。
-2. 连接鉴权与断线恢复机制尚不完整。
+（1）当前协议无事件版本与签名，建议升级为结构化事件模型。
+（2）连接鉴权与断线恢复机制尚不完整。
 
 ### 5.9 数据存储模块
-1. 模块职责：
-1. 数据持久化、CRUD、事务、日志、归档管理。
+1. 模块职责：数据持久化、CRUD、事务、日志、归档管理。
 2. 主要输入输出：
-1. 输入：业务实体对象
-2. 输出：数据库存储结果
+（1）输入：业务实体对象
+（20输出：数据库存储结果
 3. 核心实现：
-1. [server/mysqlModel](f:/werewolf/server/mysqlModel)
-2. [server/service/baseService.js](f:/werewolf/server/service/baseService.js)
-3. [sql/mysql_schema.sql](f:/werewolf/sql/mysql_schema.sql)
+（1）[server/mysqlModel](f:/werewolf/server/mysqlModel)
+（2）[server/service/baseService.js](f:/werewolf/server/service/baseService.js)
+（3）[sql/mysql_schema.sql](f:/werewolf/sql/mysql_schema.sql)
 4. 当前实现情况：
-1. `[已实现]` 核心业务表与索引。
-2. `[已实现]` JSON 字段承载技能、可见性、事件内容。
+（1）`[已实现]` 核心业务表与索引。
+（2）`[已实现]` JSON 字段承载技能、可见性、事件内容。
 3. 可改进点：
-1. 完善事务与外键约束
-2. 大表归档与索引优化
+（1）完善事务与外键约束
+（2）大表归档与索引优化
