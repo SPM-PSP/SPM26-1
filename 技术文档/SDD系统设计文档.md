@@ -222,7 +222,7 @@
 ### 5.1 用户/鉴权模块
 1. 模块职责：登录鉴权、JWT 发放、接口鉴权校验、用户信息查询。
 2. 主要输入输出：
-（1）**输入**：`username/password`、`Authorization`。
+   - **输入**：`username/password`、`Authorization`。
 （2）输出：统一响应结构 `{success,data,errorCode,errorMessage}`。
 3. 核心实现：
 （1）[server/controller/authController.js](f:/werewolf/server/controller/authController.js)
