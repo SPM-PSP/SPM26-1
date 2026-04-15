@@ -188,71 +188,378 @@
    在输出链路上，当 AI 玩家完成发言生成，或系统需要播报阶段提示、结果通知时，后端业务处理子系统会将对应的文本内容连同音色、语速、播报类型等参数发送至语音服务端。语音 TTS 模块将调用语音合成能力将其转换为可播放的音频流或音频文件地址，并将生成结果返回后端，由后端通过 WebSocket 推送给前端客户端。前端在接收到播报消息后，根据游戏进程控制播放顺序，将 AI 发言语音、系统提示音和阶段播报按既定时序输出，并同步展示对应文本内容。
 
 ## 4.数据结构设计
-### 4.1 全局数据常量
-1. **配置文件中的常量**：
-   - config.json 文件中定义了数据库配置、日志路径等全局常量。
-   - 通过 `initConstants` 方法加载的 `constants`，包括游戏角色、技能、票数等相关配置。
+### 4.1 数据库基本信息
+| 项次 | 信息 |
+| ---- | ---- |
+| 数据库名称 | werewolf |
+| 字符集 | utf8mb4（支持emoji表情） |
+| 排序规则 | utf8mb4_unicode_ci |
+| 兼容版本 | MySQL 8.0+，MySQL 5.7（需支持JSON类型） |
+| 存储引擎 | InnoDB |
+| 设计模式 | 逻辑删除（`isDelete`字段）、审计字段（创建/修改时间、操作人） |
 
-2. **前端常量**：
-   - constants.js 中定义了游戏相关的常量，如：
-     - `witchSaveOptions`：女巫救人选项。
-     - `winConditionOptions`：胜利条件选项。
-     - `flatTicketOptions`：平票选项。
-     - `playerCountOptions`：玩家数量选项。
+### 4.2 数据表总览
+本数据库共**12张表**，分为**系统权限管理**和**狼人杀核心业务**两大模块：
 
-3. **日志配置**：
-   - log4.js 中定义了日志路径和日志级别。
+#### 4.2.1 系统权限管理模块（5张）
+| 表名 | 表注释 |
+| ---- | ---- |
+| lcoco_user | 系统用户表 |
+| lcoco_role | 系统角色表 |
+| lcoco_route | 前端路由表 |
+| lcoco_ui_permission | UI界面权限表 |
+| lcoco_url_permission | 后端接口权限表 |
 
-### 4.2 全局变量
-1. **后端全局变量**：
-   - index.js 中的 `Application` 类：
-     - `this.$config`：全局配置。
-     - `this.$constants`：全局常量。
-     - `this.$errorCode`：错误码。
-     - `this.$nodeCache`：全局缓存。
-     - `this.$middleware`：中间件实例。
-     - `this.$log4`：日志系统。
-     - `this.$model`：数据库模型。
-     - `this.$service`：服务实例。
-     - `this.$controller`：控制器实例。
-     - `this.$router`：路由实例。
-     - `this.$ws`：WebSocket 实例。
-     - `this.$timer`：定时器对象。
+#### 4.2.2 狼人杀核心业务模块（7张）
+| 表名 | 表注释 |
+| ---- | ---- |
+| lcoco_room | 游戏房间表 |
+| lcoco_game | 游戏对局表 |
+| lcoco_player | 游戏玩家表 |
+| lcoco_vision | 玩家视野权限表 |
+| lcoco_action | 玩家行为记录表 |
+| lcoco_game_tag | 游戏状态标签表 |
+| lcoco_record | 游戏流程记录表 |
 
-2. **前端全局变量**：
-   - index.jsx 中的 React 状态变量：
-     - `roomDetail`：房间详情。
-     - `seatInfo`：座位信息。
-     - `gameDetail`：游戏详情。
-     - `playerInfo`：玩家信息。
-     - `currentRole`：当前角色。
-     - `skillInfo`：技能信息。
-     - `actionInfo`：行动信息。
+---
 
-### 4.3 数据结构设计
-1. **数据库模型**：
-   - mysqlModel 文件夹中定义了数据库表的模型，包括：
-     - `game.js`：游戏相关数据。
-     - `player.js`：玩家数据。
-     - `room.js`：房间数据。
-     - `role.js`：角色数据。
-     - `record.js`：游戏记录。
+### 4.3 详细表结构设计
+#### 4.3.1 系统权限管理模块
+##### 4.3.1.1 lcoco_user（系统用户表）
+存储系统后台/游戏用户的基础信息、角色权限、状态等。
 
-2. **后端服务层**：
-   - service 文件夹中定义了服务层逻辑，封装了对数据库的操作。
+| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
+| ---- | ---- | ---- | ---- | ---- |
+| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
+| username | VARCHAR(64) | NOT NULL, UNIQUE | - | 用户名（唯一） |
+| password | VARCHAR(255) | NOT NULL | - | 密码（加密存储） |
+| name | VARCHAR(64) | NOT NULL | 空字符串 | 昵称/真实姓名 |
+| roles | JSON | NULL | - | 绑定的角色列表 |
+| defaultRoleName | VARCHAR(32) | NULL | - | 默认角色名称 |
+| defaultRole | VARCHAR(32) | NULL | - | 默认角色标识 |
+| remark | VARCHAR(255) | NULL | - | 备注 |
+| status | INT | NOT NULL | 1 | 状态（1-正常，0-禁用） |
+| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
+| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+| createId | INT | NOT NULL | 1 | 创建人ID |
+| modifyId | INT | NOT NULL | 1 | 修改人ID |
+| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除（0-未删除，1-已删除） |
 
-3. **前端组件状态**：
-   - 使用 React 的 `useState` 和 `useMemo` 管理组件状态。
-   - 例如，`gameReady` 组件中管理了游戏设置和玩家准备状态。
+**索引**：
+- 主键：`PRIMARY KEY (_id)`
+- 唯一索引：`uk_user_username (username)`
+- 普通索引：`idx_user_status (status)`
 
-4. **路由设计**：
-   - index.js 中定义了后端 API 路由，包括用户、房间、游戏相关的接口。
+---
 
-5. **中间件**：
-   - middleware 文件夹中定义了认证、缓存等中间件。
+##### 4.3.1.2 lcoco_role（系统角色表）
+存储系统权限角色，用于权限分组管理。
 
-6. **工具函数**：
-   - utils.js 中定义了常用工具函数，如 URL 处理、日期格式化、验证邮箱和手机号格式等。
+| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
+| ---- | ---- | ---- | ---- | ---- |
+| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
+| key | VARCHAR(32) | NOT NULL, UNIQUE | - | 角色唯一标识 |
+| name | VARCHAR(32) | NOT NULL | 空字符串 | 角色名称 |
+| status | INT | NOT NULL | 1 | 状态（1-正常，0-禁用） |
+| remark | VARCHAR(255) | NULL | - | 备注 |
+| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
+| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+| createId | INT | NOT NULL | 1 | 创建人ID |
+| modifyId | INT | NOT NULL | 1 | 修改人ID |
+| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+**索引**：
+- 主键：`PRIMARY KEY (_id)`
+- 唯一索引：`uk_role_key (key)`
+- 普通索引：`idx_role_status (status)`
+
+---
+
+##### 4.3.1.3 lcoco_route（前端路由表）
+存储前端页面路由，控制页面访问权限。
+
+| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
+| ---- | ---- | ---- | ---- | ---- |
+| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
+| key | VARCHAR(64) | NOT NULL | 空字符串 | 路由标识 |
+| path | VARCHAR(128) | NOT NULL, UNIQUE | - | 路由路径 |
+| name | VARCHAR(64) | NOT NULL | 管理后台 | 路由名称 |
+| roles | JSON | NULL | - | 允许访问的角色列表 |
+| exact | TINYINT(1) | NOT NULL | 1 | 精准匹配标识 |
+| backUrl | VARCHAR(128) | NOT NULL | /403 | 无权限跳转地址 |
+| status | INT | NOT NULL | 1 | 状态 |
+| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
+| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+| createId | INT | NOT NULL | 1 | 创建人ID |
+| modifyId | INT | NOT NULL | 1 | 修改人ID |
+| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+**索引**：
+- 主键：`PRIMARY KEY (_id)`
+- 唯一索引：`uk_route_path (path)`
+- 普通索引：`idx_route_status (status)`
+
+---
+
+##### 4.3.1.4 lcoco_ui_permission（UI界面权限表）
+存储前端按钮、组件等UI元素的权限控制。
+
+| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
+| ---- | ---- | ---- | ---- | ---- |
+| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
+| key | VARCHAR(64) | NOT NULL, UNIQUE | - | 权限唯一标识 |
+| name | VARCHAR(64) | NOT NULL | 空字符串 | 权限名称 |
+| roles | JSON | NULL | - | 拥有权限的角色列表 |
+| type | VARCHAR(32) | NOT NULL | button | 权限类型（按钮/组件） |
+| status | INT | NOT NULL | 1 | 状态 |
+| remark | VARCHAR(255) | NULL | - | 备注 |
+| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
+| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+| createId | INT | NOT NULL | 1 | 创建人ID |
+| modifyId | INT | NOT NULL | 1 | 修改人ID |
+| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+**索引**：
+- 主键：`PRIMARY KEY (_id)`
+- 唯一索引：`uk_ui_permission_key (key)`
+- 普通索引：`idx_ui_permission_status (status)`
+
+---
+
+##### 4.3.1.5 lcoco_url_permission（后端接口权限表）
+存储后端API接口的访问权限控制。
+
+| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
+| ---- | ---- | ---- | ---- | ---- |
+| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
+| key | VARCHAR(64) | NOT NULL, UNIQUE | - | 接口权限标识 |
+| name | VARCHAR(64) | NOT NULL | 空字符串 | 接口名称 |
+| roles | JSON | NULL | - | 允许访问的角色列表 |
+| type | VARCHAR(32) | NOT NULL | button | 权限类型 |
+| status | INT | NOT NULL | 1 | 状态 |
+| remark | VARCHAR(255) | NULL | - | 备注 |
+| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
+| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+| createId | INT | NOT NULL | 1 | 创建人ID |
+| modifyId | INT | NOT NULL | 1 | 修改人ID |
+| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+**索引**：
+- 主键：`PRIMARY KEY (_id)`
+- 唯一索引：`uk_url_permission_key (key)`
+- 普通索引：`idx_url_permission_status (status)`
+
+---
+
+### 4.4 狼人杀核心业务模块
+#### 4.4.1 lcoco_room（游戏房间表）
+存储狼人杀游戏房间的基础信息、玩家席位、状态等。
+
+| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
+| ---- | ---- | ---- | ---- | ---- |
+| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
+| name | VARCHAR(64) | NOT NULL | 狼人杀房间 | 房间名称 |
+| status | INT | NOT NULL | 0 | 房间状态 |
+| gameId | BIGINT UNSIGNED | NULL | - | 关联对局ID |
+| password | VARCHAR(16) | NOT NULL | - | 房间密码 |
+| owner | VARCHAR(64) | NOT NULL | - | 房主用户名 |
+| v1~v12 | VARCHAR(64) | NULL | - | 1-12号席位玩家用户名 |
+| count | INT | NOT NULL | 12 | 最大玩家数 |
+| wait | JSON | NULL | - | 等待列表 |
+| ob | JSON | NULL | - | 观战列表 |
+| remark | VARCHAR(255) | NULL | - | 备注 |
+| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
+| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+| createId | INT | NOT NULL | 1 | 创建人ID |
+| modifyId | INT | NOT NULL | 1 | 修改人ID |
+| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+**索引**：
+- 主键：`PRIMARY KEY (_id)`
+- 普通索引：`idx_room_password (password)`、`idx_room_owner (owner)`、`idx_room_status (status)`
+
+---
+
+#### 4.4.2 lcoco_game（游戏对局表）
+存储单局狼人杀游戏的配置、进程、结果等核心信息。
+
+| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
+| ---- | ---- | ---- | ---- | ---- |
+| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
+| roomId | BIGINT UNSIGNED | NOT NULL | - | 关联房间ID |
+| owner | VARCHAR(64) | NOT NULL | - | 房主 |
+| status | INT | NOT NULL | 1 | 对局状态 |
+| stage | DECIMAL(4,1) | NOT NULL | 0.0 | 当前游戏阶段 |
+| day | INT | NOT NULL | 1 | 当前天数 |
+| v1~v12 | VARCHAR(64) | NULL | - | 1-12号玩家身份配置 |
+| winner | INT | NOT NULL | -1 | 获胜方（-1-未结束） |
+| mode | VARCHAR(32) | NOT NULL | standard_9 | 游戏模式 |
+| playerCount | INT | NOT NULL | 9 | 玩家数量 |
+| witchSaveSelf | INT | NOT NULL | 1 | 女巫是否能自救 |
+| winCondition | INT | NOT NULL | 1 | 胜利条件 |
+| flatTicket | INT | NOT NULL | 1 | 平票规则 |
+| p1/p2/p3 | INT | NOT NULL | 30/45/30 | 阶段计时配置 |
+| remark | VARCHAR(255) | NULL | - | 备注 |
+| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
+| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+| createId | INT | NOT NULL | 1 | 创建人ID |
+| modifyId | INT | NOT NULL | 1 | 修改人ID |
+| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+**索引**：
+- 主键：`PRIMARY KEY (_id)`
+- 普通索引：`idx_game_room (roomId)`、`idx_game_status (status)`、`idx_game_day_stage (day, stage)`
+
+---
+
+#### 4.4.3 lcoco_player（游戏玩家表）
+存储单局游戏中每个玩家的身份、阵营、状态、位置等信息。
+
+| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
+| ---- | ---- | ---- | ---- | ---- |
+| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
+| roomId | BIGINT UNSIGNED | NOT NULL | - | 关联房间ID |
+| gameId | BIGINT UNSIGNED | NOT NULL | - | 关联对局ID |
+| userId | BIGINT UNSIGNED | NULL | - | 关联用户ID |
+| username | VARCHAR(64) | NOT NULL | - | 用户名 |
+| name | VARCHAR(64) | NULL | - | 玩家昵称 |
+| role | VARCHAR(32) | NOT NULL | - | 身份标识 |
+| roleName | VARCHAR(32) | NULL | - | 身份名称 |
+| camp | INT | NOT NULL | 0 | 阵营标识 |
+| campName | VARCHAR(32) | NULL | - | 阵营名称 |
+| status | INT | NOT NULL | 1 | 玩家状态（存活/死亡） |
+| outReason | VARCHAR(32) | NULL | - | 出局原因 |
+| position | INT | NOT NULL | - | 座位号 |
+| skill | JSON | NULL | - | 技能状态 |
+| remark | VARCHAR(255) | NULL | - | 备注 |
+| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
+| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+| createId | INT | NOT NULL | 1 | 创建人ID |
+| modifyId | INT | NOT NULL | 1 | 修改人ID |
+| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+**索引**：
+- 主键：`PRIMARY KEY (_id)`
+- 唯一索引：`uk_player_game_username (gameId, username)`、`uk_player_game_position (gameId, position)`
+- 普通索引：`idx_player_room_game (roomId, gameId)`、`idx_player_status (status)`
+
+---
+
+#### 4.4.4 lcoco_vision（玩家视野权限表）
+控制游戏中玩家之间的可见性、视野权限。
+
+| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
+| ---- | ---- | ---- | ---- | ---- |
+| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
+| roomId | BIGINT UNSIGNED | NOT NULL | - | 关联房间ID |
+| gameId | BIGINT UNSIGNED | NOT NULL | - | 关联对局ID |
+| from | VARCHAR(64) | NOT NULL | - | 视野发起者 |
+| to | VARCHAR(64) | NOT NULL | - | 视野目标 |
+| status | INT | NOT NULL | 0 | 视野状态 |
+| remark | VARCHAR(255) | NULL | - | 备注 |
+| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
+| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+| createId | INT | NOT NULL | 1 | 创建人ID |
+| modifyId | INT | NOT NULL | 1 | 修改人ID |
+| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+**索引**：
+- 主键：`PRIMARY KEY (_id)`
+- 唯一索引：`uk_vision_game_from_to (gameId, from, to)`
+- 普通索引：`idx_vision_room_game (roomId, gameId)`
+
+---
+
+#### 4.4.5 lcoco_action（玩家行为记录表）
+记录游戏中玩家的所有操作行为（投票、杀人、用药等）。
+
+| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
+| ---- | ---- | ---- | ---- | ---- |
+| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
+| roomId | BIGINT UNSIGNED | NOT NULL | - | 关联房间ID |
+| gameId | BIGINT UNSIGNED | NOT NULL | - | 关联对局ID |
+| day | INT | NOT NULL | 1 | 天数 |
+| stage | DECIMAL(4,1) | NOT NULL | 0.0 | 游戏阶段 |
+| from | VARCHAR(64) | NOT NULL | - | 行为发起者 |
+| to | VARCHAR(64) | NOT NULL | - | 行为目标 |
+| action | VARCHAR(32) | NOT NULL | - | 行为类型 |
+| remark | VARCHAR(255) | NULL | - | 备注 |
+| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
+| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+| createId | INT | NOT NULL | 1 | 创建人ID |
+| modifyId | INT | NOT NULL | 1 | 修改人ID |
+| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+**索引**：
+- 主键：`PRIMARY KEY (_id)`
+- 普通索引：`idx_action_room_game_stage (roomId, gameId, day, stage)`、`idx_action_from (from)`、`idx_action_type (action)`
+
+---
+
+#### 4.4.6 lcoco_game_tag（游戏状态标签表）
+存储游戏过程中的状态标记、临时数据、扩展信息。
+
+| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
+| ---- | ---- | ---- | ---- | ---- |
+| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
+| roomId | BIGINT UNSIGNED | NOT NULL | - | 关联房间ID |
+| gameId | BIGINT UNSIGNED | NOT NULL | - | 关联对局ID |
+| day | INT | NOT NULL | 1 | 天数 |
+| stage | DECIMAL(4,1) | NOT NULL | 0.0 | 游戏阶段 |
+| target | VARCHAR(64) | NOT NULL | - | 标签目标 |
+| name | VARCHAR(64) | NULL | - | 标签名称 |
+| position | INT | NULL | - | 座位号 |
+| dayStatus | INT | NOT NULL | - | 当日状态 |
+| desc | VARCHAR(32) | NOT NULL | - | 标签描述 |
+| mode | INT | NOT NULL | - | 标签模式 |
+| value | VARCHAR(255) | NULL | - | 标签值 |
+| value2 | JSON | NULL | - | 扩展值1 |
+| value3 | JSON | NULL | - | 扩展值2 |
+| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
+| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+| createId | INT | NOT NULL | 1 | 创建人ID |
+| modifyId | INT | NOT NULL | 1 | 修改人ID |
+| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+**索引**：
+- 主键：`PRIMARY KEY (_id)`
+- 普通索引：`idx_tag_room_game (roomId, gameId)`、`idx_tag_day_stage_mode (day, stage, mode)`、`idx_tag_desc (desc)`
+
+---
+
+#### 4.4.7 lcoco_record（游戏流程记录表）
+记录游戏全流程日志、公告、关键事件，用于复盘和展示。
+
+| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
+| ---- | ---- | ---- | ---- | ---- |
+| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
+| roomId | BIGINT UNSIGNED | NOT NULL | - | 关联房间ID |
+| gameId | BIGINT UNSIGNED | NOT NULL | - | 关联对局ID |
+| content | JSON | NOT NULL | - | 记录内容 |
+| view | JSON | NULL | - | 可见范围 |
+| isCommon | INT | NOT NULL | 0 | 是否公共记录 |
+| stage | DECIMAL(4,1) | NOT NULL | 0.0 | 游戏阶段 |
+| day | INT | NOT NULL | 1 | 天数 |
+| isTitle | INT | NOT NULL | 0 | 是否标题记录 |
+| remark | VARCHAR(255) | NULL | - | 备注 |
+| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
+| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+| createId | INT | NOT NULL | 1 | 创建人ID |
+| modifyId | INT | NOT NULL | 1 | 修改人ID |
+| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+**索引**：
+- 主键：`PRIMARY KEY (_id)`
+- 普通索引：`idx_record_room_game (roomId, gameId)`、`idx_record_day_stage (day, stage)`、`idx_record_common (isCommon)`
+
+---
+
+## 4. 设计规范说明
+1. **主键规范**：所有表主键统一为 `_id`，类型为 `BIGINT UNSIGNED`，自增；
+2. **通用字段**：所有表包含 `createTime`、`modifyTime`、`createId`、`modifyId`、`isDelete` 审计/逻辑删除字段；
+3. **权限设计**：基于**用户-角色-权限**的RBAC权限模型，支持路由、UI、接口三级权限控制；
+4. **数据类型**：使用 `JSON` 类型存储列表/扩展数据，适配游戏动态配置需求；
+5. **关联关系**：业务表通过 `roomId`、`gameId` 关联核心对局数据，无物理外键，通过业务逻辑保证完整性。
 
 
 ## 5. 核心模块设计
