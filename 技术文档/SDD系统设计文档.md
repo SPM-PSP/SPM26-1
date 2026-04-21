@@ -1,4 +1,4 @@
-﻿# 多智能体在线语音狼人杀系统 软件设计说明书（SDD）
+# 多智能体在线语音狼人杀系统 软件设计说明书（SDD）
 
 ## 1. 引言
 
@@ -947,6 +947,168 @@ lcoco_action, lcoco_game_tag, lcoco_record, lcoco_vision
 ```
 
 ## 6. 接口设计
+
+本章基于需求分析文档（PRD）中的接口需求（SRS-IF 系列），结合前后端分离架构与微服务模块划分，详细定义系统内部通信、前后端交互以及第三方外部服务调用的接口规范与数据契约。
+
+### 6.1 总体接口架构与设计规范
+
+为了保证系统接口的安全性、一致性与可维护性，全系统接口遵循以下统一规范：
+
+#### 6.1.1 通信协议与数据格式
+1. **常规业务交互**：采用 **HTTP/1.1 RESTful API**。请求内容（Request Body）与响应内容（Response Body）统一使用 `application/json` 格式。
+2. **实时状态同步**：采用 **WebSocket** 协议，基于发布/订阅模型进行游戏状态的高频下发与事件广播。
+3. **跨服务调用**：Node.js 游戏引擎与 Python AI/Voice 服务之间采用内部 **HTTP (FastAPI) + Webhook 回调** 机制，以解决大模型推理耗时导致的阻塞问题。
+
+#### 6.1.2 统一响应结构（RESTful）
+所有后端 REST API 无论成功与否，均返回统一的信封结构（Envelope），前端通过 HTTP 状态码与 `code` 字段进行业务流转：
+```json
+{
+  "code": 200,             // 业务状态码：200-成功，401-未授权，403-无权限，500-服务器内部错误，400x-业务异常
+  "message": "操作成功",     // 给前端展示的提示信息
+  "data": { ... },         // 具体的业务数据负载，失败时可为空或 null
+  "timestamp": 1682345678  // 服务器响应时间戳
+}
+```
+
+#### 6.1.3 接口鉴权与安全 (JWT & 分布式锁)
+1. **HTTP 鉴权**：除登录/注册外的所有接口，必须在 HTTP Request Header 中携带 JWT：`Authorization: Bearer <AccessToken>`。
+2. **WebSocket 鉴权**：建立连接时的握手阶段，需在 URL 参数或协议头中携带 Token（如 `ws://domain/ws?token=<AccessToken>&roomId=123`），Node.js 层拦截校验后方可升级协议。
+3. **防重放与防抖**：针对游戏内的关键操作（如投票、开枪），前端生成唯一 `requestId`，后端使用 Redis 分布式锁 `lock:action:{gameId}:{userId}` 拦截 5 秒内的重复提交。
+
+
+
+### 6.2 内部 RESTful API 设计 (前端 $\leftrightarrow$ 游戏业务后端)
+该层接口主要由 **CSCI-01 (前端)** 调用 **CSCI-02 (游戏逻辑服务)**，处理低频、重事务的业务请求。
+
+#### 6.2.1 用户管理模块 API
+| 接口路径 | 方法 | 功能描述 | 权限校验 | 核心输入数据 (Body) | 核心输出数据 (Data) |
+| --- | --- | --- | --- | --- | --- |
+| `/api/user/login` | POST | 账号密码登录 | 无 | `username`, `password` | `token`, `userInfo` |
+| `/api/user/register` | POST | 注册新用户 | 无 | `username`, `password`, `name` | `userId` |
+| `/api/user/info` | GET | 获取当前用户信息 | 需登录 | 无 | `username`, `roles`, `status` |
+
+#### 6.2.2 房间管理模块 API
+| 接口路径 | 方法 | 功能描述 | 权限校验 | 核心输入数据 (Body) | 核心输出数据 (Data) |
+| --- | --- | --- | --- | --- | --- |
+| `/api/room/create` | POST | 创建房间 | 需登录 | `name`, `password`, `count`, `config` | `roomId`, `roomCode` |
+| `/api/room/join` | POST | 房间码加入房间 | 需登录 | `roomCode`, `password` | 房间详情、当前分配的座位号 |
+| `/api/room/seat` | PUT | 换座操作 | 需登录 | `roomId`, `targetPosition` | 换座结果布尔值 |
+| `/api/game/start` | POST | 房主发起开局 | 仅房主 | `roomId` | 游戏 ID (`gameId`)、初始阶段信息 |
+
+#### 6.2.3 游戏操作指令 API
+*注：为了保证强事务一致性，玩家的投票和技能释放通过 REST 请求触发，后端处理完成后通过 WebSocket 广播结果。*
+
+**1. 玩家行动接口 (`POST /api/game/action`)**
+*   **功能**：处理玩家的投票、技能使用（查验、毒杀、救人等）。
+*   **请求参数**：
+    ```json
+    {
+      "gameId": 10024,
+      "actionType": "vote", // vote, check, poison, antidote, kill
+      "targetPosition": 5   // 目标玩家座位号
+    }
+    ```
+*   **实现逻辑**：控制器接收请求 -> 校验 JWT -> `gameService` 校验当前阶段（stage）与玩家存活状态 -> 执行对应逻辑记录 `lcoco_action` 表 -> Redis 标记已操作 -> 返回成功响应。
+
+
+### 6.3 WebSocket 实时通信协议设计
+该协议负责维持前端界面与后端游戏状态机的一致性，满足低延迟（SRS-PERF-06）的实时推送需求。
+
+#### 6.3.1 通信信封标准
+**服务端下发（Server -> Client）统一结构**：
+```json
+{
+  "event": "stageChange",  // 事件路由标识
+  "gameId": 10024,
+  "data": { ... },         // 事件专属负载数据
+  "timestamp": 1682345678
+}
+```
+
+#### 6.3.2 核心下发事件定义 (Server -> Client)
+
+| 事件标识 (`event`) | 触发时机 | `data` 负载数据结构示例 | 视图层响应逻辑 |
+| --- | --- | --- | --- |
+| `roomUpdate` | 玩家加入/离开/换座时 | `[{position: 1, user: 'A'}, {position: 2, user: null}]` | 刷新座位图展示状态 |
+| `stageChange` | 游戏阶段推进（如天亮、天黑） | `{ stage: 1, stageName: "预言家", countdown: 30 }` | 切换 UI 面板，启动倒计时，禁用/启用操作按钮 |
+| `privateInfo` | 开局身份发放、预言家查验结果 | `{ role: "witch", vision: [2, 3] }` | 仅向特定玩家推送私密数据，更新个人卡牌与视野 |
+| `actionBroadcast`| 玩家发言、投票票型公布 | `{ from: 2, to: 5, action: "vote", time: "12:00" }` | 在界面右侧消息流中新增记录，展示票型连线动画 |
+| `audioPlay` | 轮到 AI 发言或系统提示时 | `{ type: "ai_speech", url: "http://.../audio.mp3" }` | 触发前端 Audio 播放器播报，并展示对应玩家的发光特效 |
+| `gameOver` | 触发胜利条件时 | `{ winnerCamp: 1, winCondition: 1, details: [...] }` | 弹出结算面板，展示所有人真实身份，并提供复盘入口 |
+
+#### 6.3.3 前端上报事件定义 (Client -> Server)
+除心跳包外，前端主要通过 WS 上报状态确认，如：
+*   `heartbeat`：每 15 秒发送 `{"event": "ping"}`，后端返回 `pong`。
+*   `voiceState`：上报当前麦克风状态 `{"event": "mic", "data": {"isSpeaking": true}}`，用于在头像上展示音频波形特效。
+
+
+
+### 6.4 内部微服务通信设计 (Node.js $\leftrightarrow$ Python AI/Voice)
+该层涉及 **CSCI-02 (游戏逻辑服务)** 与 **CSCI-03 (AI推理)**、**CSCI-04 (语音处理)** 的交互。由于大模型推理耗时较长，接口采用 **异步触发 + Webhook 回调** 设计。
+
+#### 6.4.1 AI Agent 调度接口
+**1. 触发 AI 动作 (Node.js -> Python FastAPI)**
+*   **URL**: `POST http://ai-service:8000/agent/invoke`
+*   **描述**：轮到 AI 发言或夜晚行动时，Node.js 构建游戏上下文并异步调用该接口。
+*   **请求体**：
+    ```json
+    {
+      "gameId": 10024,
+      "aiId": "ai_user_001",
+      "aiRole": "wolf",
+      "aiPersonality": "aggressive", // 激进型
+      "currentStage": 5, // 发言阶段
+      "historyLog": ["玩家1: 我是好人...", "系统: 玩家2昨晚死亡"], // 仅包含AI可见上下文
+      "callbackUrl": "http://node-backend:3000/api/internal/ai/callback"
+    }
+    ```
+
+**2. AI 动作回调 (Python -> Node.js webhook)**
+*   **URL**: 由 `callbackUrl` 决定
+*   **描述**：Python 端 LLM 推理完成后，将生成的动作或文本回调给主服务。
+*   **请求体**：
+    ```json
+    {
+      "gameId": 10024,
+      "aiId": "ai_user_001",
+      "actionType": "speech", 
+      "speechText": "我觉得1号玩家发言很退水，我今天投1号。", // 发言内容
+      "targetPosition": 1 // 夜晚技能或投票的目标（若当前阶段适用）
+    }
+    ```
+*   **处理机制**：Node.js 收到回调后，将 `speechText` 发送给 TTS 服务获取音频，并最终通过 WebSocket 将文字和音频 URL 广播给所有玩家。
+
+#### 6.4.2 语音转写 (STT) 接口
+*   **通信流转**：前端录音结束后，生成 `Blob` 对象。由于语音文件较大，前端直接将音频表单（`multipart/form-data`）上传给 Node.js，Node.js 转发至 Python 语音服务。
+*   **URL**: `POST http://voice-service:8001/stt/transcribe`
+*   **输入**：音频二进制流 (支持 `mp3/wav/ogg`)。
+*   **输出**：`{ "text": "我是预言家，昨晚查了3号是金水。", "confidence": 0.92 }`。
+
+#### 6.4.3 语音合成 (TTS) 接口
+*   **URL**: `POST http://voice-service:8001/tts/synthesize`
+*   **输入**：
+    ```json
+    {
+      "text": "天黑请闭眼，狼人请睁眼。",
+      "voiceId": "system_female_01",
+      "speed": 1.0
+    }
+    ```
+*   **输出**：返回音频文件的可访问静态 URL（例如：`http://voice-service/static/audio/xxx.mp3`），Node.js 获取后分发给前端播放。
+
+
+
+### 6.5 外部第三方接口设计 (External APIs)
+系统内部封装了针对外部基座大模型的调用，这部分主要由 CSCI-03 (AI 推理服务) 内部实现。
+
+#### 6.5.1 大语言模型 (LLM) 接口调用规范
+*   **协议栈**：HTTPS 请求，遵循 OpenAI API 标准格式规范。
+*   **System Prompt 注入**：
+    每次请求外部 LLM 时，Python 服务需将性格模型与规则作为系统提示词传入。
+    *示例*：`"你正在玩狼人杀。你的身份是【狼人】，性格是【保守】。你不能暴露自己。请根据以下局势发言..."`
+*   **输出约束 (Function Calling)**：
+    为防止 AI 输出冗余废话，必须要求大模型以 JSON 格式输出，接口调用时设定 `response_format: { "type": "json_object" }`。约束字段包括：`{"thought_process": "内部推理...", "action_type": "...", "target": "...", "speak_content": "..."}`。
+*   **容错与降级机制**：若外部 LLM 接口超时（>5秒）或返回 500，AI 服务需捕获异常，并使用本地预设的“兜底文本”（如：“我今天过麦，听听后面怎么说”或执行随机弃票）进行回调，确保游戏主流程状态机不被阻塞 (满足 SRS-PERF-07)。
 
 
 ## 7. 性能指标设计
