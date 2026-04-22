@@ -1423,10 +1423,10 @@ graph TD
 | 5.2 CSC-02-06 夜晚技能执行 | SRS-F-05，SRS-UR-06 | 夜间技能与天亮结算 |
 | 5.2 CSC-02-07 胜负判定 | SRS-F-07，SRS-UR-09 | 阵营判定与终局控制 |
 | 5.2 CSC-02-08 实时通信 | SRS-IF-INT-02，SRS-UR-07/11，SRS-PERF-06/08 | WS 推送与状态同步 |
-| 5.2 CSC-02-09 AI Agent 调度 | SRS-F-08~12，SRS-IF-INT-03，SRS-UR-10 | AI 行为调度与回灌（规划中） |
-| 5.2 CSC-02-10 语音服务调度 | SRS-F-13~15，SRS-IF-EXT-02/03，SRS-UR-10/12 | STT/TTS 编排（规划中） |
-| 5.3 CSCI-03 AI 推理服务 | SRS-F-09~12/17，SRS-IF-EXT-01，SRS-UR-10 | 记忆、推理、复盘（规划中） |
-| 5.4 CSCI-04 语音 STT/TTS 服务 | SRS-F-13~15，SRS-IF-EXT-02/03，SRS-PERF-03/05/09 | 语音识别与合成（规划中） |
+| 5.2 CSC-02-09 AI Agent 调度 | SRS-F-08~12，SRS-IF-INT-03，SRS-UR-10 | AI 行为调度与回灌 |
+| 5.2 CSC-02-10 语音服务调度 | SRS-F-13~15，SRS-IF-EXT-02/03，SRS-UR-10/12 | STT/TTS 编排 |
+| 5.3 CSCI-03 AI 推理服务 | SRS-F-09~12/17，SRS-IF-EXT-01，SRS-UR-10 | 记忆、推理、复盘 |
+| 5.4 CSCI-04 语音 STT/TTS 服务 | SRS-F-13~15，SRS-IF-EXT-02/03，SRS-PERF-03/05/09 | 语音识别与合成 |
 | 5.5 CSC-05-01 数据存储模块 | SRS-F-16/17，SRS-IF-EXT-04，SRS-OR-08，SRS-UR-08 | 持久化、日志、复盘数据底座 |
 | 6. 接口设计 | SRS-IF-EXT-*，SRS-IF-INT-*，SRS-UR-07/10 | 外部与内部接口协议 |
 | 7. 性能指标设计 | SRS-PERF-01~09，SRS-UR-12 | 响应、并发、稳定性 |
