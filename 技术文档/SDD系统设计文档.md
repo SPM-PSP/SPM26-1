@@ -1286,12 +1286,12 @@ sequenceDiagram
     participant P as 玩家前端
     participant B as Fastify 业务中枢
     participant R as Redis 内存快照
-    participant A as AI/语音服务层 (Python)
+    participant A as AI/语音层 (Python)
 
     P->>B: 发送语音发言/决策指令
     B->>R: 更新房间状态 (状态锁定)
     B-->>P: 立即返回 ACK (响应延时 < 50ms)
-
+    
     rect rgb(240, 240, 240)
     Note over B,A: 异步计算链路
     B->>A: 投递异步任务 (HTTP/gRPC)
@@ -1300,7 +1300,7 @@ sequenceDiagram
     end
     
     B->>R: 解锁并更新状态
-    B->)P: WebSocket 增量广播结果
+    B->>P: WebSocket 增量广播结果
 ```
 
 ### 7.2 实时性与并发控制规约
