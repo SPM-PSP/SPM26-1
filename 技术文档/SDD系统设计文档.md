@@ -1301,6 +1301,7 @@ sequenceDiagram
     
     B->>R: 解锁并更新状态
     B->)P: WebSocket 增量广播结果
+```
 
 ### 7.2 实时性与并发控制规约
 
