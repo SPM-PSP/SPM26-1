@@ -56,6 +56,10 @@
 | **GameTag** | 关键事件标签（如死亡事件、发言顺序、PK信息等结构化数据）。 | 业务 |
 | **性格预设** | AI 玩家的行为倾向：<br>- **激进型**：倾向于冒险、主动发言与带节奏；<br>- **保守型**：倾向于谨慎、低调发言与随大流；<br>- **逻辑型**：倾向于严谨推理与数据驱动决策。 | 业务 |
 
+<p align="center">
+  <em>表1-1 术语定义表</em>
+</p>
+
 ### 1.5 参考资料
 本文档的编写与设计决策主要参考以下资料：
 1. 《多智能体在线语音狼人杀系统 需求分析文档 / PRD》（内部文档，前置产出物）
@@ -80,7 +84,11 @@
 | --- | --- | --- | --- |
 | V1.0.0 | 2026-04-07 | 编写团队 | 初始版本草案完成，确立核心架构。 |
 | V2.0.0 | 2026-04-20 | 编写团队 | 完成系统架构的建设，以及核心功能、接口的详细设计内容。 |
+| V3.0.0 | 2026-04-25 | 编写团队 | 修正文档格式，更改HWCI配置，完善内容细节。 |
 
+<p align="center">
+  <em>表1-2 版本更新记录</em>
+</p>
 
 ## 2. 系统设计目标与范围
 本章明确本多智能体在线语音狼人杀系统的设计目标、当前实现范围及未实现的扩展范围，结合总体设计思路，界定系统设计的核心边界，为后续详细设计、开发实现及扩展迭代提供明确依据，确保设计工作与需求目标、实际开发进度保持一致。
@@ -143,7 +151,7 @@
 <p align="center">
   <img src="../figure/system_architecture.jpg" alt="图1 系统架构图" width="90%">
   <br>
-  <em>图1 系统架构图</em>
+  <em>图3-1 系统架构图</em>
 </p>
 
 #### 3.2.2 各层功能概述
@@ -167,6 +175,12 @@
 | CSCI－04 | 语音STT/TTS服务 | 负责玩家语音输入的语音转文字（STT）处理，以及 AI 发言和系统提示的文本转语音（TTS）处理；负责降噪、分片处理和播放控制相关能力 | Python 3.10+、FastAPI、OpenAI Whisper | 接收前端上传的音频或经游戏逻辑服务转发的语音请求；向游戏逻辑服务返回转写文本或语音结果；回写音频处理状态与文本结果 |
 | CSCI－05 | 数据存储与缓存服务 | 负责系统结构化数据持久化、实时状态缓存与共享；支撑房间状态、对局记录、日志、AI 临时记忆和复盘结果的存储 | MySQL 8.0、Redis | 为游戏逻辑服务提供用户、房间、对局、日志读写；为 AI 服务提供上下文与结果存取；为语音服务提供转写文本、音频状态和索引存储 |
 
+
+<p align="center">
+  <em>表3-1 软件配置项 CSCI</em>
+</p>
+
+
 ### 3.4 硬件配置项HWCI
 根据当前组内部署安排，系统将采用 4 个自建节点，按照实际占用的独立主机统计HWCI配置。
 
@@ -177,6 +191,11 @@
 | HWCI-03 | AI 推理服务器 | 8 核 GPU / 32GB 内存 / 500GB SSD | 部署 AI Agent 推理服务，负责上下文构建、发言生成、投票与夜间行动决策。 |
 | HWCI-04 | 语音处理服务器 | 8 核 GPU / 16GB 内存 / 300GB SSD | 部署语音模块（重点为 STT 本地处理链路），负责语音分片接收、识别与结果回传。 |
 
+<p align="center">
+  <em>表3-2 硬件配置项 HWCI</em>
+</p>
+
+
 ### 3.5 CSCI/HWCI部署关系表
 | CSCI编号 | CSCI名称 | 部署HWCI |　部署关系说明　|
 | --- | --- | --- | --- |
@@ -186,7 +205,9 @@
 | CSCI－04 | 语音STT/TTS服务 | HWCI-04 | 语音服务独立部署于语音处理服务器，接收前端语音输入或后端 TTS 请求，并将处理结果返回游戏逻辑服务 | 
 | CSCI－05 | 数据存储与缓存服务 | HWCI-02 | MySQL 与 Redis 与后端服务同机部署，为游戏逻辑服务、AI 推理服务和语音服务提供结构化数据存储支撑，同时为 AI 推理服务提供临时记忆和状态共享支持 |
 
-
+<p align="center">
+  <em>表3-3 CSCI/HWCI 部署关系表</em>
+</p>
 
 ## 4.数据结构设计
 ### 4.1 数据库基本信息
@@ -198,6 +219,10 @@
 | 兼容版本 | MySQL 8.0+，MySQL 5.7（需支持JSON类型） |
 | 存储引擎 | InnoDB |
 | 设计模式 | 逻辑删除（`isDelete`字段）、审计字段（创建/修改时间、操作人） |
+
+<p align="center">
+  <em>表4-1 数据库基本信息</em>
+</p>
 
 ### 4.2 数据表总览
 本数据库共**12张表**，分为**系统权限管理**和**狼人杀核心业务**两大模块：
@@ -211,6 +236,10 @@
 | lcoco_ui_permission | UI界面权限表 |
 | lcoco_url_permission | 后端接口权限表 |
 
+<p align="center">
+  <em>表4-2 系统权限管理模块分类</em>
+</p>
+
 #### 4.2.2 狼人杀核心业务模块（7张）
 | 表名 | 表注释 |
 | ---- | ---- |
@@ -222,7 +251,9 @@
 | lcoco_game_tag | 游戏状态标签表 |
 | lcoco_record | 游戏流程记录表 |
 
----
+<p align="center">
+  <em>表4-3 狼人杀核心业务模块分类</em>
+</p>
 
 ### 4.3 详细表结构设计
 #### 4.3.1 系统权限管理模块
@@ -246,6 +277,10 @@
 | modifyId | INT | NOT NULL | 1 | 修改人ID |
 | isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除（0-未删除，1-已删除） |
 
+<p align="center">
+  <em>表4-4 系统用户表</em>
+</p>
+
 **索引**：
 - 主键：`PRIMARY KEY (_id)`
 - 唯一索引：`uk_user_username (username)`
@@ -268,6 +303,10 @@
 | createId | INT | NOT NULL | 1 | 创建人ID |
 | modifyId | INT | NOT NULL | 1 | 修改人ID |
 | isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+<p align="center">
+  <em>表4-5 系统角色表</em>
+</p>
 
 **索引**：
 - 主键：`PRIMARY KEY (_id)`
@@ -295,6 +334,10 @@
 | modifyId | INT | NOT NULL | 1 | 修改人ID |
 | isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
 
+<p align="center">
+  <em>表4-6 前端路由表</em>
+</p>
+
 **索引**：
 - 主键：`PRIMARY KEY (_id)`
 - 唯一索引：`uk_route_path (path)`
@@ -320,6 +363,10 @@
 | modifyId | INT | NOT NULL | 1 | 修改人ID |
 | isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
 
+<p align="center">
+  <em>表4-7 UI界面权限表</em>
+</p>
+
 **索引**：
 - 主键：`PRIMARY KEY (_id)`
 - 唯一索引：`uk_ui_permission_key (key)`
@@ -344,6 +391,10 @@
 | createId | INT | NOT NULL | 1 | 创建人ID |
 | modifyId | INT | NOT NULL | 1 | 修改人ID |
 | isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+<p align="center">
+  <em>表4-8 后端接口权限表</em>
+</p>
 
 **索引**：
 - 主键：`PRIMARY KEY (_id)`
@@ -374,6 +425,10 @@
 | createId | INT | NOT NULL | 1 | 创建人ID |
 | modifyId | INT | NOT NULL | 1 | 修改人ID |
 | isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+<p align="center">
+  <em>表4-9 游戏房间表</em>
+</p>
 
 **索引**：
 - 主键：`PRIMARY KEY (_id)`
@@ -407,6 +462,10 @@
 | modifyId | INT | NOT NULL | 1 | 修改人ID |
 | isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
 
+<p align="center">
+  <em>表4-10 游戏对局表</em>
+</p>
+
 **索引**：
 - 主键：`PRIMARY KEY (_id)`
 - 普通索引：`idx_game_room (roomId)`、`idx_game_status (status)`、`idx_game_day_stage (day, stage)`
@@ -439,6 +498,10 @@
 | modifyId | INT | NOT NULL | 1 | 修改人ID |
 | isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
 
+<p align="center">
+  <em>表4-11 游戏玩家表</em>
+</p>
+
 **索引**：
 - 主键：`PRIMARY KEY (_id)`
 - 唯一索引：`uk_player_game_username (gameId, username)`、`uk_player_game_position (gameId, position)`
@@ -463,6 +526,10 @@
 | createId | INT | NOT NULL | 1 | 创建人ID |
 | modifyId | INT | NOT NULL | 1 | 修改人ID |
 | isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+<p align="center">
+  <em>表4-12 玩家视野权限表</em>
+</p>
 
 **索引**：
 - 主键：`PRIMARY KEY (_id)`
@@ -490,6 +557,10 @@
 | createId | INT | NOT NULL | 1 | 创建人ID |
 | modifyId | INT | NOT NULL | 1 | 修改人ID |
 | isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+<p align="center">
+  <em>表4-13 玩家行为记录表</em>
+</p>
 
 **索引**：
 - 主键：`PRIMARY KEY (_id)`
@@ -522,6 +593,10 @@
 | modifyId | INT | NOT NULL | 1 | 修改人ID |
 | isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
 
+<p align="center">
+  <em>表4-14 游戏状态标签表</em>
+</p>
+
 **索引**：
 - 主键：`PRIMARY KEY (_id)`
 - 普通索引：`idx_tag_room_game (roomId, gameId)`、`idx_tag_day_stage_mode (day, stage, mode)`、`idx_tag_desc (desc)`
@@ -548,6 +623,10 @@
 | createId | INT | NOT NULL | 1 | 创建人ID |
 | modifyId | INT | NOT NULL | 1 | 修改人ID |
 | isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+
+<p align="center">
+  <em>表4-15 游戏流程记录表</em>
+</p>
 
 **索引**：
 - 主键：`PRIMARY KEY (_id)`
@@ -652,6 +731,10 @@
 }
 ```
 
+---
+
+
+
 #### CSC-02-03 游戏状态机 / 流程控制组件
 **1. 功能**：游戏阶段推进、昼夜循环、倒计时管理、阶段流转与事件触发。
 
@@ -700,6 +783,15 @@ S65 --> S7
 S7 --> S0
 ```
 
+<p align="center">
+  <em>图5-1 阶段推进流程图</em>
+</p>
+
+
+---
+
+
+
 #### CSC-02-04 角色分配与视野组件
 **1. 功能**：按板子配置分配角色、初始化阵营、构建玩家视野权限。
 
@@ -730,6 +822,10 @@ gameModeMap['standard_9'] = [
 // 视野（server/mysqlModel/vision.js）
 { from, to, status } // 0未知 1知晓阵营 2知晓身份
 ```
+
+---
+
+
 
 #### CSC-02-05 白天发言与投票组件
 **1. 功能**：发言顺序控制、投票收集、票型统计、平票处理、放逐结算。
@@ -774,6 +870,14 @@ E -- >1 --> G{flatTicket==2且当前stage=6}
 G -- 是 --> H[写入PK玩家与PK顺序, next=6.5]
 G -- 否 --> I[记录平票无人出局]
 ```
+<p align="center">
+  <em>图5-2 投票结算流程图</em>
+</p>
+
+
+---
+
+
 
 #### CSC-02-06  夜晚技能执行组件
 **1. 功能**：狼人袭击、预言家查验、女巫解药 / 毒药使用、猎人开枪、技能冷却管理。
@@ -805,6 +909,10 @@ G -- 否 --> I[记录平票无人出局]
 // 玩家出局原因
 'assault' | 'vote' | 'shoot' | 'poison' | 'boom'
 ```
+
+---
+
+
 
 #### CSC-02-07 游戏状态机 / 流程控制组件
 **1. 功能**：阵营存活统计、胜利条件判断、游戏结束控制。
@@ -847,6 +955,15 @@ E -- 是 --> W1[好人胜利 camp=1]
 E -- 否 --> N[游戏继续]
 ```
 
+<p align="center">
+  <em>图5-3 胜负判定流程图</em>
+</p>
+
+
+---
+
+
+
 #### CSC-02-08 实时通信模块
 **1. 核心功能**：WebSocket 连接、房间内消息广播、状态同步、断线重连、消息可靠性保证。
 
@@ -869,6 +986,10 @@ const wsMessage = (msg) => { ... }
 const server = ws.createServer(...).listen(6003)
 ```
 
+---
+
+
+
 #### CSC-02-09 AI Agent 调度组件
 **1. 核心功能**：AI 玩家创建、对局上下文组织、推理请求调度、行为结果回灌。
 
@@ -879,6 +1000,11 @@ const server = ws.createServer(...).listen(6003)
    - 维护 AI 长效记忆，存入 Redis 以保持多轮对话逻辑一致。
    - 设置推理超时机制，超时后使用默认行为保证流程不阻塞。
 
+
+---
+
+
+
 #### CSC-02-10 语音服务调度组件
 **1. 核心功能**：语音转写（STT）、语音合成（TTS）、语音结果回灌与同步。
 
@@ -887,6 +1013,11 @@ const server = ws.createServer(...).listen(6003)
    - 将转写文本存入对局日志，并作为 AI 理解的输入内容。
    - 将 AI 发言文本转发至 TTS 服务，获取音频地址后广播至前端播放。
    - 对语音时长、格式进行校验，异常情况给出默认提示不阻塞流程。
+
+
+---
+
+
 
 ### 5.3 CSCI-03 AI Agent 推理服务功能设计
 #### CSC-03-01 智能体上下文管理组件
@@ -927,6 +1058,11 @@ type AgentContext = {
    - 采用 FastAPI 提供独立推理接口，支持多 AI 并行处理。
    - 每个 AI 维护独立记忆上下文，记录历史发言、投票、行为。短期记忆窗口：保留最近 N 轮关键事件，优先高权重矛盾与票型变化；长期记忆摘要：按天归档旧事件摘要，控制推理上下文长度。
    - 支持激进、保守、逻辑型三种性格策略，影响发言风格与决策倾向。
+
+
+---
+
+
 
 #### CSC-03-02 推理决策组件
 **1. 核心功能**：AI发言生成、投票决策、夜间行动选择、嫌疑度计算。
@@ -972,6 +1108,15 @@ E -- 是 --> G[输出结构化决策]
 F --> G
 ```
 
+<p align="center">
+  <em>图5-4 推理决策流程图</em>
+</p>
+
+
+---
+
+
+
 #### CSC-03-03 智能复盘分析组件
 **1. 核心功能**：对局日志分析、关键轮次梳理、逻辑疑点总结、复盘报告生成。
 
@@ -1006,6 +1151,16 @@ C --> D[阵营与票型分析]
 D --> E[生成复盘报告]
 ```
 
+<p align="center">
+  <em>图5-5 复盘报告生成流程图</em>
+</p>
+
+
+
+---
+
+
+
 ### 5.4 CSCI-04 语音 STT/TTS 服务功能设计
 #### CSC-04-01 STT 语音识别组件
 **1. 核心功能**：语音分片接收、降噪处理、语音转文本、结果返回。
@@ -1030,6 +1185,11 @@ type STTResult = {
    - 通过回调接口将转写文本返回游戏逻辑服务，供展示与 AI 理解，支持分片与流式转写两种工作模式。
 
 
+
+---
+
+
+
 #### CSC-04-02 TTS 语音合成组件
 **1. 核心功能**：文本转自然语音、多音色选择、语速语调控制、音频输出。
 
@@ -1037,7 +1197,7 @@ type STTResult = {
 - 输入：播报文本、音色配置、语速参数、优先级（系统/AI/提示音）。
 - 输出：音频资源地址、时长、播放建议参数。
 
-**3. 数据结构（建议）**
+**3. 数据结构**
 ```ts
 type TTSTask = {
   text: string;
@@ -1058,6 +1218,11 @@ type TTSResult = {
    - 将文本合成为标准 MP3 音频，返回可访问 URL 或二进制流。
    - 支持长文本自动断句合成，保证语音流畅自然。
 
+
+---
+
+
+
 #### CSC-04-03 音频预处理组件
 **1. 核心功能**：音频格式校验、分片切割、静音检测、异常过滤。
 
@@ -1065,7 +1230,7 @@ type TTSResult = {
 - 输入：原始音频片段、元数据（格式、大小、时长）。
 - 输出：标准化音频、校验结果、异常原因。
 
-**3. 数据结构（建议）**
+**3. 数据结构**
 ```ts
 type AudioMeta = {
   codec: 'wav'|'ogg'|'mp3';
@@ -1079,6 +1244,11 @@ type AudioMeta = {
    - 对前端上传音频进行格式与大小校验。
    - 自动过滤无效静音片段，减少识别耗时与资源占用。
    - 异常音频直接返回错误，不影响游戏主流程。
+
+
+---
+
+
 
 ### 5.5 CSCI-05 数据存储与缓存服务功能设计
 #### CSC-05-01 数据存储模块
@@ -1108,6 +1278,7 @@ lcoco_action, lcoco_game_tag, lcoco_record, lcoco_vision
 // 通用基础列（server/mysqlModel/baseModel.js）
 { _id, createTime, modifyTime, createId, modifyId, isDelete }
 ```
+
 
 ## 6. 接口设计
 
@@ -1150,6 +1321,10 @@ lcoco_action, lcoco_game_tag, lcoco_record, lcoco_vision
 | `/api/user/register` | POST | 注册新用户 | 无 | `username`, `password`, `name` | `userId` |
 | `/api/user/info` | GET | 获取当前用户信息 | 需登录 | 无 | `username`, `roles`, `status` |
 
+<p align="center">
+  <em>表6-1 用户管理模块API设计</em>
+</p>
+
 #### 6.2.2 房间管理模块 API
 | 接口路径 | 方法 | 功能描述 | 权限校验 | 核心输入数据 (Body) | 核心输出数据 (Data) |
 | --- | --- | --- | --- | --- | --- |
@@ -1157,6 +1332,10 @@ lcoco_action, lcoco_game_tag, lcoco_record, lcoco_vision
 | `/api/room/join` | POST | 房间码加入房间 | 需登录 | `roomCode`, `password` | 房间详情、当前分配的座位号 |
 | `/api/room/seat` | PUT | 换座操作 | 需登录 | `roomId`, `targetPosition` | 换座结果布尔值 |
 | `/api/game/start` | POST | 房主发起开局 | 仅房主 | `roomId` | 游戏 ID (`gameId`)、初始阶段信息 |
+
+<p align="center">
+  <em>表6-2 房间管理模块API设计</em>
+</p>
 
 #### 6.2.3 游戏操作指令 API
 *注：为了保证强事务一致性，玩家的投票和技能释放通过 REST 请求触发，后端处理完成后通过 WebSocket 广播结果。*
@@ -1198,6 +1377,10 @@ lcoco_action, lcoco_game_tag, lcoco_record, lcoco_vision
 | `actionBroadcast`| 玩家发言、投票票型公布 | `{ from: 2, to: 5, action: "vote", time: "12:00" }` | 在界面右侧消息流中新增记录，展示票型连线动画 |
 | `audioPlay` | 轮到 AI 发言或系统提示时 | `{ type: "ai_speech", url: "http://.../audio.mp3" }` | 触发前端 Audio 播放器播报，并展示对应玩家的发光特效 |
 | `gameOver` | 触发胜利条件时 | `{ winnerCamp: 1, winCondition: 1, details: [...] }` | 弹出结算面板，展示所有人真实身份，并提供复盘入口 |
+
+<p align="center">
+  <em>表6-3 核心下发事件定义表</em>
+</p>
 
 #### 6.3.3 前端上报事件定义 (Client -> Server)
 除心跳包外，前端主要通过 WS 上报状态确认，如：
@@ -1303,6 +1486,10 @@ sequenceDiagram
     B->>P: WebSocket 增量广播结果
 ```
 
+<p align="center">
+  <em>图7-1 异步任务处理流程图</em>
+</p>
+
 ### 7.2 实时性与并发控制规约
 
 #### 7.2.1 Redis 缓存状态机设计（针对 SRS-PERF-04）
@@ -1337,6 +1524,10 @@ sequenceDiagram
     W->>W: 全员同步 AI 发言/动作
 ```
 
+<p align="center">
+  <em>图7-2 AI推理异步推送流程图</em>
+</p>
+
 #### 7.3.2 具体优化规约
 * **AI 响应占位符机制**：当后端接收到 AI 行动指令后，立即通过 WebSocket 向前端推送 `AI_THINKING` 状态码。前端据此展示“思考中”动画，将用户感知的系统响应延迟从秒级降低至毫秒级，满足 **SRS-PERF-03** 的可用性要求。
 * **计算资源逻辑隔离**：AI 推理服务与语音处理服务独立部署在 **HWCI-03/04** 硬件节点上。这种物理层面的资源隔离确保了即使多个房间同时进行大规模 AI 推理，也不会干扰核心游戏状态机（自动化法官）的运行频率。
@@ -1353,6 +1544,10 @@ sequenceDiagram
 | **P-04** | AI 推理效率 | 异步 Job 调度 + 计算资源逻辑隔离 | Python 服务耗时统计 |
 | **P-05** | 故障恢复 | Redis 瞬时快照（RDB/AOF 混合模式） | 模拟断连后的 `Resume_Time` 测试 |
 
+<p align="center">
+  <em>表7-1 性能评估与监控表</em>
+</p>
+
 
 ## 8. 其他设计
 ### 8.1 安全性（高优先级）
@@ -1363,6 +1558,10 @@ sequenceDiagram
 | 传输安全 | HTTPS（TLS 1.3） |
 | 防攻击 | 请求频率限流、CSRF防护、XSS防护、SQL注入防护 |
 
+<p align="center">
+  <em>表8-1 安全性设计表</em>
+</p>
+
 ### 8.2 稳定性（高优先级）
 | 技术点 | 选型方案 |
 |--------|----------|
@@ -1371,12 +1570,20 @@ sequenceDiagram
 | 异常处理 | 全局异常捕获 + 熔断降级 |
 | 高可用 | 服务集群 + 负载均衡（Nginx） |
 
+<p align="center">
+  <em>表8-2 稳定性设计表</em>
+</p>
+
 ### 8.3 兼容性（中优先级）
 | 技术点 | 选型方案 |
 |--------|----------|
 | 前端框架 | Vue/React + 响应式布局（Flex/Grid） |
 | 浏览器兼容 | Babel + Polyfill + PostCSS |
 | 分辨率适配 | 自适应布局 + 媒体查询 |
+
+<p align="center">
+  <em>表8-3 兼容性设计表</em>
+</p>
 
 ### 8.4 可维护性（中优先级）
 | 技术点 | 选型方案 |
@@ -1386,12 +1593,20 @@ sequenceDiagram
 | 文档 | Swagger/OpenAPI + JSDoc + Git Commit规范 |
 | 版本控制 | Git + GitFlow工作流 |
 
+<p align="center">
+  <em>表8-4 可维护性设计表</em>
+</p>
+
 ### 8.5 易用性（高优先级）
 | 技术点 | 选型方案 |
 |--------|----------|
 | 交互设计 | 原型设计（Figma） + 用户测试 |
 | 前端交互 | 防抖/节流 + 即时反馈 |
 | 引导系统 | 新手引导 + 操作提示 |
+
+<p align="center">
+  <em>表8-5 易用性设计表</em>
+</p>
 
 ### 8.6 合规性（高优先级）
 | 技术点 | 选型方案 |
@@ -1400,11 +1615,19 @@ sequenceDiagram
 | 隐私保护 | 数据脱敏 + 权限控制 + 隐私政策 |
 | 合规审计 | 操作日志 + 数据留存 |
 
+<p align="center">
+  <em>表8-6 合规性设计表</em>
+</p>
+
 ### 8.7 可配置性（中优先级）
 | 技术点 | 选型方案 |
 |--------|----------|
 | 配置中心 | Nacos/Apollo（分布式）/ 本地配置文件（单体） + 配置管理后台 |
 | 配置热更新 | 配置监听 + 实时生效 |
+
+<p align="center">
+  <em>表8-7 可配置性设计表</em>
+</p>
 
 ### 8.8 数据备份能力（中优先级）
 | 技术点 | 选型方案 |
@@ -1412,6 +1635,10 @@ sequenceDiagram
 | 数据备份 | 定时全量备份 + 增量备份 |
 | 备份存储 | 云存储（OSS/COS） + 本地冗余存储 |
 | 恢复机制 | 一键恢复 + 数据校验 |
+
+<p align="center">
+  <em>表8-8 数据备份能力设计表</em>
+</p>
 
 ## 附录
 ### A. 需求-设计正向跟踪矩阵（Requirements → SDD）
@@ -1436,6 +1663,10 @@ sequenceDiagram
 | SRS-F-16 | 全流程日志记录 | 5.5 CSC-05-01；6.2.3；6.3 | 已覆盖（可继续增强） |
 | SRS-F-17 | AI智能复盘分析 | 5.3 CSC-03-03；5.5 CSC-05-01 | 已覆盖（可继续增强） |
 
+<p align="center">
+  <em>表A 正向跟踪矩阵</em>
+</p>
+
 ### B. 需求-设计反向跟踪矩阵（SDD → Requirements）
 
 | SDD 模块/章节 | 主要对应需求ID | 说明 |
@@ -1458,3 +1689,6 @@ sequenceDiagram
 | 7. 性能指标设计 | SRS-PERF-01~09，SRS-UR-12 | 响应、并发、稳定性 |
 | 8. 其他设计 | SRS-OR-01~08，SRS-UR-11/12 | 安全性、稳定性、可维护性、可配置性 |
 
+<p align="center">
+  <em>表B 反向跟踪矩阵</em>
+</p>
