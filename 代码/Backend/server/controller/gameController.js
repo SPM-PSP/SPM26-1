@@ -36,7 +36,26 @@
       return
     }
     let seatInfo = r.data
-    let requiredSeats = seatInfo.filter(item => item.key <= requestedPlayerCount)
+    let requiredSeats = seatInfo.filter(item => item.position <= requestedPlayerCount)
+    let missingSeatCount = requiredSeats.filter(item => !item.player).length
+    let autoAiPlayers = []
+    if(missingSeatCount > 0){
+      let aiResult = await $service.aiService.createAiSeatPlayers(ctx, id, missingSeatCount)
+      if(!aiResult.result){
+        ctx.body = $helper.Result.fail(aiResult.errorCode, aiResult.errorMessage)
+        return
+      }
+      autoAiPlayers = aiResult.data || []
+      roomInstance = await $service.baseService.queryById(room, id)
+      roomInstance = roomInstance.toJSON ? roomInstance.toJSON() : roomInstance
+      r = await $service.roomService.getRoomSeatPlayer(id)
+      if(!r.result){
+        ctx.body = $helper.Result.fail(r.errorCode, r.errorMessage)
+        return
+      }
+      seatInfo = r.data
+      requiredSeats = seatInfo.filter(item => item.position <= requestedPlayerCount)
+    }
     let seatStatus = requiredSeats.every(item => !!item.player)
     if(!seatStatus){
       ctx.body = $helper.Result.fail(-1,'座位未坐满，需要' + requestedPlayerCount + '人才能开始游戏！')
@@ -49,6 +68,17 @@
       playerCount = 9 // 默认9人
     }
     let mode = 'standard_' + playerCount
+    let aiSeatPlayers = []
+    for(let i = 1; i <= playerCount; i++){
+      let username = roomInstance['v' + i]
+      if($service.aiService.isAiId(username)){
+        aiSeatPlayers.push({
+          seat: i,
+          aiId: username,
+          username: username
+        })
+      }
+    }
     
     // 动态生成座位字段 v1-v12
     let gameObject = {
@@ -75,15 +105,29 @@
     // 创建游戏实例
     let gameInstance = await $service.baseService.save(game, gameObject)
 
+    if(aiSeatPlayers.length > 0){
+      let bootstrapResult = await $service.aiService.bootstrapGame(gameInstance, aiSeatPlayers.length, {
+        personaAssignments: setting.personaAssignments,
+        modelPolicy: setting.modelPolicy,
+        asyncMode: true
+      })
+      if(!bootstrapResult.result){
+        ctx.body = $helper.Result.fail(bootstrapResult.errorCode, bootstrapResult.errorMessage)
+        return
+      }
+    }
+
     // 随机创建player
     const standard9RoleArray = gameModeMap[mode]
     let randomPlayers = $helper.getRandomNumberArray(1, playerCount, playerCount, standard9RoleArray)
+    let aiRolePlayers = []
     for(let i =0; i < randomPlayers.length; i ++ ){
       let item = randomPlayers[i]
       let randomUser = await $service.baseService.queryOne(user,  {username: roomInstance['v' + (item.number)]})
       let p = {
         roomId: roomInstance._id,
         gameId: gameInstance._id,
+        userId: randomUser._id,
         username: roomInstance['v' + (item.number)],
         name: randomUser.name,
         role: item.role,
@@ -94,6 +138,20 @@
       }
       // 依次创建该局游戏的所有玩家
       await $service.baseService.save(player, p)
+      if($service.aiService.isAiId(p.username)){
+        aiRolePlayers.push({
+          username: p.username,
+          role: p.role
+        })
+      }
+    }
+
+    if(aiRolePlayers.length > 0){
+      let assignResult = await $service.aiService.assignRoles(gameInstance, aiRolePlayers)
+      if(!assignResult.result){
+        ctx.body = $helper.Result.fail(assignResult.errorCode, assignResult.errorMessage)
+        return
+      }
     }
 
     // 创建视野 0：完全未知，1：知晓阵营（一般预言家的视野），2：知晓角色(如狼人同伴)
@@ -150,7 +208,8 @@
     ctx.body = $helper.Result.success({
     message:'创建游戏成功！',
     gameId: gameInstance._id,
-    players: randomPlayers
+    players: randomPlayers,
+    autoAiPlayers: autoAiPlayers
   })
   },
 

@@ -815,6 +815,14 @@ module.exports = app => ({
 
     // 倒计时 timer
     let updateGame = await $service.baseService.queryById(game, gameId)
+    let aiRunResult = await $service.aiService.runAiForStage(updateGame)
+    if(!aiRunResult.result){
+      app.$log4.errorLogger.error('[gameService] run ai for stage failed: ' + aiRunResult.errorMessage)
+    }
+    let autoAdvanceResult = await $service.aiService.shouldAutoAdvanceStage(updateGame)
+    if(autoAdvanceResult.result && autoAdvanceResult.data === true){
+      return await $service.gameService.moveToNextStage(gameId)
+    }
     if(updateGame.stage === 1 || updateGame.stage === 2 || updateGame.stage === 3){
     //if(updateGame.stage === 1 || updateGame.stage === 2 || updateGame.stage === 3){
       // 预言家
