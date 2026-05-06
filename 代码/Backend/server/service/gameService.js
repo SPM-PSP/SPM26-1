@@ -77,6 +77,78 @@ module.exports = app => ({
     return $helper.wrapResult(true, playerInfo)
   },
 
+  async getSpeechTurnState(gameInstance) {
+    const { $service, $helper, $model } = app
+    const { gameTag, player } = $model
+    if(!gameInstance || gameInstance.stage !== 5){
+      return $helper.wrapResult(true, null)
+    }
+    let orderTag = await $service.baseService.queryOne(gameTag, {
+      roomId: gameInstance.roomId,
+      gameId: gameInstance._id,
+      day: gameInstance.day,
+      desc: 'speakOrder',
+      mode: 2
+    })
+    if(!orderTag){
+      return $helper.wrapResult(false, '发言顺序不存在', -1)
+    }
+    let order = Array.isArray(orderTag.value2) ? orderTag.value2 : []
+    if(order.length < 1){
+      let alivePlayers = await $service.baseService.query(player, {
+        roomId: gameInstance.roomId,
+        gameId: gameInstance._id,
+        status: 1
+      }, {}, { sort: { position: 1 } })
+      alivePlayers = alivePlayers || []
+      const startIndex = Math.max(0, alivePlayers.findIndex(item => item.username === orderTag.target))
+      const direction = String(orderTag.value || '').trim() === 'desc' ? -1 : 1
+      for(let i = 0; i < alivePlayers.length; i++){
+        const index = (startIndex + direction * i + alivePlayers.length) % alivePlayers.length
+        const item = alivePlayers[index]
+        order.push({
+          username: item.username,
+          name: item.name,
+          position: item.position
+        })
+      }
+      await $service.baseService.updateById(gameTag, orderTag._id, {
+        value2: order,
+        value3: { currentIndex: 0 }
+      })
+    }
+    const currentIndex = Number(orderTag.value3 && orderTag.value3.currentIndex ? orderTag.value3.currentIndex : 0)
+    return $helper.wrapResult(true, {
+      orderTag,
+      order,
+      currentIndex,
+      currentSpeaker: order[currentIndex] || null,
+      finished: currentIndex >= order.length
+    })
+  },
+
+  async advanceSpeechTurn(gameInstance) {
+    const { $service, $helper, $model } = app
+    const { gameTag } = $model
+    const turnResult = await this.getSpeechTurnState(gameInstance)
+    if(!turnResult.result){
+      return turnResult
+    }
+    const state = turnResult.data
+    if(!state || !state.orderTag){
+      return $helper.wrapResult(true, { finished: true, currentSpeaker: null })
+    }
+    const nextIndex = state.currentIndex + 1
+    await $service.baseService.updateById(gameTag, state.orderTag._id, {
+      value3: { currentIndex: nextIndex }
+    })
+    return $helper.wrapResult(true, {
+      finished: nextIndex >= state.order.length,
+      currentSpeaker: state.order[nextIndex] || null,
+      currentIndex: nextIndex
+    })
+  },
+
   /**
    * 获取当前玩家在游戏中的技能状态
    * @returns {Promise<{result}>}
@@ -815,14 +887,33 @@ module.exports = app => ({
 
     // 倒计时 timer
     let updateGame = await $service.baseService.queryById(game, gameId)
-    let aiRunResult = await $service.aiService.runAiForStage(updateGame)
-    if(!aiRunResult.result){
-      app.$log4.errorLogger.error('[gameService] run ai for stage failed: ' + aiRunResult.errorMessage)
-    }
-    let autoAdvanceResult = await $service.aiService.shouldAutoAdvanceStage(updateGame)
-    if(autoAdvanceResult.result && autoAdvanceResult.data === true){
-      return await $service.gameService.moveToNextStage(gameId)
-    }
+    setImmediate(async () => {
+      try {
+        let latestGame = await $service.baseService.queryById(game, gameId)
+        let aiRunResult = await $service.aiService.runAiForStage(latestGame)
+        if(!aiRunResult.result){
+          app.$log4.errorLogger.error('[gameService] run ai for stage failed: ' + aiRunResult.errorMessage)
+          return
+        }
+        latestGame = await $service.baseService.queryById(game, gameId)
+        $ws.connections.forEach(function (conn) {
+          let url = '/lrs/' + latestGame.roomId
+          if(conn.path === url){
+            conn.sendText('refreshGame')
+          }
+        })
+        let autoAdvanceResult = await $service.aiService.shouldAutoAdvanceStage(latestGame)
+        if(autoAdvanceResult.result && autoAdvanceResult.data === true){
+          $nodeCache.set('game-time-' + latestGame._id, -1)
+          if(app.$timer[latestGame._id]){
+            clearInterval(app.$timer[latestGame._id])
+          }
+          await $service.gameService.moveToNextStage(gameId)
+        }
+      } catch (e) {
+        app.$log4.errorLogger.error('[gameService] async run ai for stage failed: ' + e.toString())
+      }
+    })
     if(updateGame.stage === 1 || updateGame.stage === 2 || updateGame.stage === 3){
     //if(updateGame.stage === 1 || updateGame.stage === 2 || updateGame.stage === 3){
       // 预言家

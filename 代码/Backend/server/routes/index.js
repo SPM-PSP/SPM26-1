@@ -41,4 +41,8 @@ module.exports = app => {
   router.get('/api/game/shootPlayer/auth', $middleware.auth, $controller.gameController.shootPlayer)
   router.get('/api/game/boomPlayer/auth', $middleware.auth, $controller.gameController.boomPlayer)
 
+  router.post('/api/voice/stt/auth', $middleware.auth, $controller.voiceController.stt)
+  router.post('/api/voice/tts/auth', $middleware.auth, $controller.voiceController.tts)
+  router.post('/api/voice/speech/auth', $middleware.auth, $controller.voiceController.speech)
+
 }

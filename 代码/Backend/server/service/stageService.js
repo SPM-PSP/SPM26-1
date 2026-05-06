@@ -388,9 +388,21 @@ module.exports = app => ({
     }
     let gameInstance = await $service.baseService.queryById(game, id)
     let alivePlayer = await $service.baseService.query(player, {gameId: gameInstance._id, roomId: gameInstance.roomId, status: 1})
+    alivePlayer = (alivePlayer || []).sort((a, b) => a.position - b.position)
     let randomPosition = Math.floor(Math.random() * alivePlayer.length )
     let randomOrder = Math.floor(Math.random() * 2 ) + 1 // 随机发言顺序
     let targetPlayer = alivePlayer[randomPosition]
+    const speakOrder = []
+    for(let i = 0; i < alivePlayer.length; i++){
+      const offset = randomOrder === 1 ? i : -i
+      const index = (randomPosition + offset + alivePlayer.length) % alivePlayer.length
+      const item = alivePlayer[index]
+      speakOrder.push({
+        username: item.username,
+        name: item.name,
+        position: item.position
+      })
+    }
     let tagObject = {
       roomId: gameInstance.roomId,
       gameId: gameInstance._id,
@@ -399,10 +411,14 @@ module.exports = app => ({
       dayStatus: gameInstance.stage < 4 ? 1 : 2,
       desc: 'speakOrder',
       mode: 2,
-      value: randomOrder === 1 ? 'asc' : ' desc', // asc 上升（正序） ; desc 下降（逆序）
+      value: randomOrder === 1 ? 'asc' : 'desc', // asc 上升（正序） ; desc 下降（逆序）
       target: targetPlayer.username,
       name: targetPlayer.name,
-      position: targetPlayer.position
+      position: targetPlayer.position,
+      value2: speakOrder,
+      value3: {
+        currentIndex: 0
+      }
     }
     await $service.baseService.save(gameTag, tagObject)
     let recordObject = {

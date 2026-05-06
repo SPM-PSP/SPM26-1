@@ -2,8 +2,8 @@ const axios = require('axios')
 
 module.exports = app => {
   const getBaseUrl = () => {
-    return (app.$config.aiService && app.$config.aiService.baseUrl) ||
-      process.env.AI_SERVICE_BASE_URL ||
+    return process.env.AI_SERVICE_BASE_URL ||
+      (app.$config.aiService && app.$config.aiService.baseUrl) ||
       'http://127.0.0.1:8001'
   }
 
@@ -174,7 +174,7 @@ module.exports = app => {
       if(!gameInstance || gameInstance.status !== 1){
         return $helper.wrapResult(true, [])
       }
-      const aiPlayers = await $service.baseService.query(player, {
+      let aiPlayers = await $service.baseService.query(player, {
         roomId: gameInstance.roomId,
         gameId: gameInstance._id,
         username: { $like: 'ai_%' },
@@ -190,6 +190,32 @@ module.exports = app => {
         status: 1
       }, {}, { sort: { position: 1 } })
       const aliveIds = (alivePlayers || []).map(item => item.username)
+      if(gameInstance.stage === 5){
+        const turnResult = await $service.gameService.getSpeechTurnState(gameInstance)
+        if(!turnResult.result || !turnResult.data || turnResult.data.finished || !turnResult.data.currentSpeaker){
+          return $helper.wrapResult(true, [])
+        }
+        if(!isAiId(turnResult.data.currentSpeaker.username)){
+          return $helper.wrapResult(true, [])
+        }
+        const speechLockKey = [
+          'ai-speech',
+          gameInstance._id,
+          gameInstance.day,
+          turnResult.data.currentIndex,
+          turnResult.data.currentSpeaker.username
+        ].join('-')
+        if(app.$nodeCache.get(speechLockKey)){
+          return $helper.wrapResult(true, [])
+        }
+        app.$nodeCache.set(speechLockKey, 1, 120)
+        const currentAi = aiPlayers.find(item => item.username === turnResult.data.currentSpeaker.username)
+        if(!currentAi){
+          app.$nodeCache.del(speechLockKey)
+          return $helper.wrapResult(true, [])
+        }
+        aiPlayers = [currentAi]
+      }
       const recentRecords = await $service.baseService.query(record, {
         roomId: gameInstance.roomId,
         gameId: gameInstance._id,
@@ -267,6 +293,38 @@ module.exports = app => {
       }
 
       const results = []
+      const wolfPlayers = (alivePlayers || []).filter(item => item.role === 'wolf')
+      const buildPrivateVision = async (actor) => {
+        if(actor.role !== 'wolf'){
+          return {}
+        }
+        const assaultActions = await $service.baseService.query(action, {
+          roomId: gameInstance.roomId,
+          gameId: gameInstance._id,
+          day: gameInstance.day,
+          stage: 2,
+          action: 'assault'
+        })
+        const targetCount = {}
+        ;(assaultActions || []).forEach(item => {
+          if(item.to){
+            targetCount[item.to] = (targetCount[item.to] || 0) + 1
+          }
+        })
+        let consensusTarget = null
+        let maxCount = 0
+        Object.keys(targetCount).forEach(username => {
+          if(targetCount[username] > maxCount){
+            maxCount = targetCount[username]
+            consensusTarget = username
+          }
+        })
+        return {
+          wolfTeammates: wolfPlayers.map(item => item.username),
+          consensusTarget
+        }
+      }
+
       for(let i = 0; i < aiPlayers.length; i++){
         const actor = aiPlayers[i]
         let stageName = null
@@ -297,7 +355,7 @@ module.exports = app => {
           visibleEvents,
           alivePlayers: aliveIds,
           candidateTargets,
-          privateVision: {},
+          privateVision: await buildPrivateVision(actor),
           asyncMode: false
         })
         if(!invokeResult.result){
@@ -308,6 +366,23 @@ module.exports = app => {
         const decision = invokeResult.data && invokeResult.data.decision ? invokeResult.data.decision : {}
         if(stageName === 'speech'){
           await appendAiSpeech(actor, decision.speechText)
+          app.$ws.connections.forEach(function (conn) {
+            let url = '/lrs/' + gameInstance.roomId
+            if(conn.path === url){
+              conn.sendText('refreshGame')
+            }
+          })
+          const advanceResult = await $service.gameService.advanceSpeechTurn(gameInstance)
+          if(advanceResult.result){
+            if(advanceResult.data.finished){
+              await $service.gameService.moveToNextStage(gameInstance._id)
+            } else if(advanceResult.data.currentSpeaker && isAiId(advanceResult.data.currentSpeaker.username)){
+              setImmediate(async () => {
+                const latestGame = await $service.baseService.queryById($model.game, gameInstance._id)
+                await $service.aiService.runAiForStage(latestGame)
+              })
+            }
+          }
           results.push({ aiId: actor.username, success: true, action: 'speech' })
           continue
         }

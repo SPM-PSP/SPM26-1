@@ -219,7 +219,7 @@
    */
   async getGameInfo (ctx) {
     const { $service, $helper, $model, $constants } = app
-    const { game, player } = $model
+    const { game, player, record } = $model
     const { playerRoleMap, stageMap } = $constants
     const { id } = ctx.query
     if(!id || id === ''){
@@ -276,6 +276,35 @@
       return
     }
 
+    let speechRecordList = await $service.baseService.query(record, {
+      roomId: gameInstance.roomId,
+      gameId: gameInstance._id,
+      isCommon: 1
+    }, {}, { sort: { _id: -1 }, limit: 20 })
+    speechRecordList = (speechRecordList || [])
+      .filter(item => item.content && item.content.type === 'speech')
+      .reverse()
+      .map(item => ({
+        _id: item._id,
+        day: item.day,
+        stage: item.stage,
+        text: item.content.text,
+        source: item.content.source,
+        from: item.content.from
+      }))
+    let speechTurnInfo = null
+    if(gameInstance.stage === 5){
+      let speechTurnResult = await $service.gameService.getSpeechTurnState(gameInstance)
+      if(speechTurnResult.result && speechTurnResult.data){
+        speechTurnInfo = {
+          currentSpeaker: speechTurnResult.data.currentSpeaker,
+          currentIndex: speechTurnResult.data.currentIndex,
+          total: speechTurnResult.data.order.length,
+          order: speechTurnResult.data.order
+        }
+      }
+    }
+
     let gameInfo = {
       _id: gameInstance._id,
       roomId: gameInstance.roomId,
@@ -299,6 +328,8 @@
       broadcast: broadcastInfo.data,
       systemTip: systemTipsInfo.data,
       action: actionInfo.data,
+      speechRecords: speechRecordList,
+      speechTurn: speechTurnInfo,
       winner: gameInstance.winner,
       isOb: isOb
     }
@@ -1268,7 +1299,7 @@
    */
   async boomPlayer (ctx) {
     const { $service, $helper, $model, $support, $ws } = app
-    const { game, player, action, gameTag, record, voteActions } = $model
+    const { game, player, action, gameTag, record } = $model
     const { roomId, gameId } = ctx.query
     if(!roomId || roomId === ''){
       ctx.body = $helper.Result.fail(-1,'roomId不能为空！')
@@ -1368,18 +1399,18 @@
     
     let gameResult = await $service.gameService.settleGameOver(gameInstance._id)
     if(gameResult.result && gameResult.data === 'N'){
-      // ✅ 修复2：清空当天未进行的投票数据，避免 voteActions = null
-      await $service.baseService.delete(voteActions, {
+      // 清空当天投票动作，避免自爆后遗留投票数据影响后续阶段
+      await $service.baseService.delete(action, {
         gameId: gameInstance._id,
-        day: gameInstance.day
+        roomId: gameInstance.roomId,
+        day: gameInstance.day,
+        action: 'vote'
       })
 
-      // ✅ 修复3：强制重置发言/流程状态 → 关键！解决永远卡自爆狼的问题
+      // 自爆后直接进入下一晚
       let updateGame = {
-        stage: 0,          // 直接进入黑夜
+        stage: 0,
         day: gameInstance.day + 1,
-        currentSpeaker: null, // 清空当前发言玩家
-        speakOrder: [],       // 清空发言顺序
       }
       await $service.baseService.updateById(game, gameInstance._id, updateGame)
 

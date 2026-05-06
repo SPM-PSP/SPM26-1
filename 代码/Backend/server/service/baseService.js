@@ -265,6 +265,22 @@ module.exports = (app) => ({
     }
   },
 
+  async delete(model, params) {
+    const { $log4 } = app;
+    const { errorLogger } = $log4;
+    if (!model) {
+      return false;
+    }
+    try {
+      await model.destroy({ where: normalizeWhere(params) });
+      return true;
+    } catch (e) {
+      errorLogger.error('【baseService】 delete：' + e);
+      console.log(e);
+      return false;
+    }
+  },
+
   async userInfo(ctx) {
     const { $service, $helper } = app;
     const token = ctx.header.authorization;
