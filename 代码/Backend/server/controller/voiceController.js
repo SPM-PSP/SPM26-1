@@ -110,13 +110,67 @@ module.exports = app => ({
           from: {
             username: currentPlayer.username,
             name: currentPlayer.name,
-            position: currentPlayer.position,
-            role: currentPlayer.role,
-            camp: currentPlayer.camp
+            position: currentPlayer.position
+            // 移除 role 和 camp 信息，防止身份泄露
           }
         }
       }
       const savedRecord = await $service.baseService.save(record, recordObject)
+      
+      // 向AI服务发送发言事件（使用广播接口）
+      try {
+        const speechEvent = {
+          day: gameInstance.day,
+          stage: gameInstance.stage,
+          eventType: 'speech',
+          speaker: currentPlayer.username,
+          content: sttResult.text,
+          weight: 1.0,
+          targets: [] // 发言通常没有特定目标，AI会自己分析内容
+        }
+        
+        // 获取所有存活玩家作为候选目标
+        const alivePlayers = await $service.baseService.query(player, {
+          roomId: gameInstance.roomId,
+          gameId: gameInstance._id,
+          status: 1
+        })
+        const candidateTargets = alivePlayers.map(p => p.username)
+        
+        // 获取所有AI玩家
+        const aiPlayers = alivePlayers.filter(p => p.username.startsWith('ai_'))
+        const aiIds = aiPlayers.map(p => p.username)
+        
+        // 使用广播接口发送事件给所有AI
+        const axios = require('axios')
+        const getBaseUrl = () => {
+          return process.env.AI_SERVICE_BASE_URL ||
+            (app.$config.aiService && app.$config.aiService.baseUrl) ||
+            'http://127.0.0.1:8001'
+        }
+        
+        await axios({
+          method: 'post',
+          url: getBaseUrl() + '/internal/ai/game/events/broadcast',
+          data: {
+            gameId: String(gameInstance._id),
+            event: speechEvent,
+            aiIds: aiIds, // 指定要发送的AI列表
+            candidateTargets: candidateTargets,
+            asyncMode: true
+          },
+          timeout: 12000,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+      } catch (error) {
+        // AI服务调用失败不影响发言功能，只记录日志
+        if(app.$log4 && app.$log4.errorLogger){
+          app.$log4.errorLogger.error('[AI Service] 发送发言事件失败: ' + error.toString())
+        }
+      }
+      
       const advanceResult = await $service.gameService.advanceSpeechTurn(gameInstance)
 
       $ws.connections.forEach(function (conn) {

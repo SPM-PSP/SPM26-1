@@ -40,9 +40,16 @@ module.exports = app => {
   router.get('/api/game/poisonPlayer/auth', $middleware.auth, $controller.gameController.poisonPlayer)
   router.get('/api/game/shootPlayer/auth', $middleware.auth, $controller.gameController.shootPlayer)
   router.get('/api/game/boomPlayer/auth', $middleware.auth, $controller.gameController.boomPlayer)
+  router.post('/api/game/replay/auth', $middleware.auth, $controller.gameController.replayGame)
+  router.get('/api/game/replay/health/auth', $middleware.auth, $controller.gameController.replayHealth)
+  router.get('/api/game/replay/file', $controller.gameController.getReplayFile)
 
   router.post('/api/voice/stt/auth', $middleware.auth, $controller.voiceController.stt)
   router.post('/api/voice/tts/auth', $middleware.auth, $controller.voiceController.tts)
   router.post('/api/voice/speech/auth', $middleware.auth, $controller.voiceController.speech)
+
+  router.get('/api/game/wolfSuggestions/auth', $middleware.auth, $controller.gameController.getWolfSuggestions)
+  router.post('/api/game/wolfVoiceChat/auth', $controller.gameController.wolfVoiceChat)
+  router.get('/api/game/debug/roles', $controller.gameController.getDebugRoles)
 
 }
