@@ -197,39 +197,123 @@ module.exports = app => ({
           await $service.baseService.updateById(player, killPlayer._id, {
             skill: newSkillStatus
           })
+          
+          // 如果是AI猎人，主动调用invoke接口让AI决定是否开枪
+          if(app.$service.aiService.isAiId(killPlayer.username)){
+            console.log('\n🔫 猎人AI被狼人杀死，调用技能决策接口...')
+            
+            // 获取存活玩家列表作为目标选择
+            let alivePlayers = await $service.baseService.query(player, {
+              roomId: gameInstance.roomId,
+              gameId: gameInstance._id,
+              status: 1
+            })
+            
+            let candidateTargets = alivePlayers.map(p => p.username)
+            
+            // 调用AI决策接口
+            let invokeResult = await app.$service.aiService.invokeAgent(gameInstance, killPlayer.username, {
+              stage: 'death_shot',
+              candidateTargets: candidateTargets,
+              privateVision: {
+                hunterCanShoot: true,
+                hunterShotUsed: false,
+                deathReason: 'werewolf_kill'
+              }
+            })
+            
+            console.log('🔫 猎人AI技能决策结果:', invokeResult)
+            
+            // 如果AI决定开枪，执行开枪逻辑
+            // 修复：AI返回的skillType可能是'pass'，但实际意图是开枪，需要综合判断
+            let shouldShoot = false
+            let shootTarget = null
+            
+            if(invokeResult.result && invokeResult.data && invokeResult.data.decision){
+              const decision = invokeResult.data.decision
+              
+              // 方法1：检查skillType是否为'shoot'
+              if(decision.skillType === 'shoot'){
+                shouldShoot = true
+                shootTarget = decision.skillTarget
+              }
+              // 方法2：如果skillType不是'shoot'，检查speechText和suspicionScores
+              else if(decision.speechText && decision.speechText.includes('开枪') && 
+                      invokeResult.data.suspicionScores && invokeResult.data.suspicionScores.length > 0){
+                // 从suspicionScores获取最高分的目标
+                const topSuspicion = invokeResult.data.suspicionScores[0]
+                if(topSuspicion && topSuspicion.target && candidateTargets.includes(topSuspicion.target)){
+                  shouldShoot = true
+                  shootTarget = topSuspicion.target
+                  console.log(`🎯 根据speechText和suspicionScores判断，猎人AI决定开枪，目标: ${shootTarget}`)
+                }
+              }
+            }
+            
+            if(shouldShoot && shootTarget && candidateTargets.includes(shootTarget)){
+              console.log(`🎯 猎人AI决定开枪，目标: ${shootTarget}`)
+              
+              // 执行开枪逻辑
+              let targetPlayer = await $service.baseService.queryOne(player, {
+                roomId: gameInstance.roomId,
+                gameId: gameInstance._id,
+                username: shootTarget
+              })
+              
+              if(targetPlayer){
+                await $service.baseService.updateById(player, targetPlayer._id, {status: 0, outReason: 'shoot'})
+                
+                // 记录开枪行动
+                let action = app.$model.action
+                let actionObject = {
+                  roomId: gameInstance.roomId,
+                  gameId: gameInstance._id,
+                  day: gameInstance.day,
+                  stage: 2,
+                  from: killPlayer.username,
+                  to: shootTarget,
+                  action: 'shoot',
+                }
+                await $service.baseService.save(action, actionObject)
+                  
+                  console.log(`✅ 猎人AI开枪成功，${shootTarget}被击杀`)
+                }
+              }
+            } else {
+              console.log('⚠️ 猎人AI决定不开枪')
+            }
+          }
         }
       }
-      // 女巫救人，在女巫使用技能时结算。
-    }
-
-    // 结算女巫毒
-    // 注意：不能在女巫用毒后就注册玩家的死亡，会造成还在女巫回合，就能看到谁已经死亡了(这样就知道死亡的玩家是被毒死)，需要滞后
-    let poisonAction = await $service.baseService.queryOne(action,{gameId: gameInstance._id, roomId: gameInstance.roomId, day: gameInstance.day, stage: 3, action: 'poison'})
-    if(poisonAction && poisonAction.to){
-      let poisonPlayer = await $service.baseService.queryOne(player,{roomId: gameInstance.roomId, gameId: gameInstance._id, username: poisonAction.to})
-      let witchPlayer = await $service.baseService.queryOne(player,{roomId: gameInstance.roomId, gameId: gameInstance._id, username: poisonAction.from})
-      // 注册玩家死亡
-      await $service.baseService.updateById(player, poisonPlayer._id,{status: 0, outReason: 'poison'})
-      let recordObject = {
-        roomId: gameInstance.roomId,
-        gameId: gameInstance._id,
-        day: gameInstance.day,
-        stage: gameInstance.stage,
-        view: [],
-        isCommon: 0,
-        isTitle: 0,
-        content: {
-          type: 'action',
-          key: 'poison',
-          text: $support.getPlayerFullName(witchPlayer) + '使用毒药毒死了' + $support.getPlayerFullName(poisonPlayer),
-          actionName: '毒药',
-          level: 2,
-          from: {
-            username: witchPlayer.username,
-            name: witchPlayer.name,
-            position: witchPlayer.position
-            // 移除 role 和 camp 信息，防止身份泄露
-          },
+      
+      // 结算女巫毒
+      // 注意：不能在女巫用毒后就注册玩家的死亡，会造成还在女巫回合，就能看到谁已经死亡了(这样就知道死亡的玩家是被毒死)，需要滞后
+      let poisonAction = await $service.baseService.queryOne(action, {gameId: gameInstance._id, roomId: gameInstance.roomId, day: gameInstance.day, stage: 3, action: 'poison'});
+      if(poisonAction && poisonAction.to){
+        let poisonPlayer = await $service.baseService.queryOne(player, {roomId: gameInstance.roomId, gameId: gameInstance._id, username: poisonAction.to});
+        let witchPlayer = await $service.baseService.queryOne(player, {roomId: gameInstance.roomId, gameId: gameInstance._id, username: poisonAction.from});
+        // 注册玩家死亡
+        await $service.baseService.updateById(player, poisonPlayer._id, {status: 0, outReason: 'poison'});
+        let recordObject = {
+          roomId: gameInstance.roomId,
+          gameId: gameInstance._id,
+          day: gameInstance.day,
+          stage: gameInstance.stage,
+          view: [],
+          isCommon: 0,
+          isTitle: 0,
+          content: {
+            type: 'action',
+            key: 'poison',
+            text: $support.getPlayerFullName(witchPlayer) + '使用毒药毒死了' + $support.getPlayerFullName(poisonPlayer),
+            actionName: '毒药',
+            level: 2,
+            from: {
+              username: witchPlayer.username,
+              name: witchPlayer.name,
+              position: witchPlayer.position
+              // 移除 role 和 camp 信息，防止身份泄露
+            },
           to: {
             username: poisonPlayer.username,
             name: poisonPlayer.name,
@@ -696,6 +780,69 @@ module.exports = app => ({
           await $service.baseService.updateById(player, votePlayer._id, {
             skill: newSkillStatus
           })
+          
+          // 如果是AI猎人，主动调用invoke接口让AI决定是否开枪
+          if(app.$service.aiService.isAiId(votePlayer.username)){
+            console.log('\n🔫 猎人AI被投票出局，调用技能决策接口...')
+            
+            // 获取存活玩家列表作为目标选择
+            let alivePlayers = await $service.baseService.query(player, {
+              roomId: gameInstance.roomId,
+              gameId: gameInstance._id,
+              status: 1
+            })
+            
+            let candidateTargets = alivePlayers.map(p => p.username)
+            
+            // 调用AI决策接口
+            let invokeResult = await app.$service.aiService.invokeAgent(gameInstance, votePlayer.username, {
+              stage: 'vote',
+              candidateTargets: candidateTargets,
+              privateVision: {
+                hunterCanShoot: true,
+                hunterShotUsed: false,
+                deathReason: 'vote'
+              }
+            })
+            
+            console.log('🔫 猎人AI技能决策结果:', invokeResult)
+            
+            // 如果AI决定开枪，执行开枪逻辑
+            if(invokeResult.result && invokeResult.data && invokeResult.data.decision && invokeResult.data.decision.skillType === 'shoot'){
+              let shootTarget = invokeResult.data.decision.skillTarget
+              if(shootTarget && candidateTargets.includes(shootTarget)){
+                console.log(`🎯 猎人AI决定开枪，目标: ${shootTarget}`)
+                
+                // 执行开枪逻辑
+                let targetPlayer = await $service.baseService.queryOne(player, {
+                  roomId: gameInstance.roomId,
+                  gameId: gameInstance._id,
+                  username: shootTarget
+                })
+                
+                if(targetPlayer){
+                  await $service.baseService.updateById(player, targetPlayer._id, {status: 0, outReason: 'shoot'})
+                  
+                  // 记录开枪行动
+                  let action = app.$model.action
+                  let actionObject = {
+                    roomId: gameInstance.roomId,
+                    gameId: gameInstance._id,
+                    day: gameInstance.day,
+                    stage: 4,
+                    from: votePlayer.username,
+                    to: shootTarget,
+                    action: 'shoot',
+                  }
+                  await $service.baseService.save(action, actionObject)
+                  
+                  console.log(`✅ 猎人AI开枪成功，${shootTarget}被击杀`)
+                }
+              }
+            } else {
+              console.log('⚠️ 猎人AI决定不开枪')
+            }
+          }
         }
       } else {
         let recordObject = {
