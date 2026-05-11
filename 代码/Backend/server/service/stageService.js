@@ -34,9 +34,8 @@ module.exports = app => ({
             username: predictorPlayer.username,
             name: predictorPlayer.name,
             position: predictorPlayer.position,
-            role: predictorPlayer.role,
-            camp: predictorPlayer.camp,
             status: predictorPlayer.status
+            // 移除 role 和 camp 信息，防止身份泄露
           },
           to: {
             username: null,
@@ -136,9 +135,8 @@ module.exports = app => ({
         to: {
           username: diePlayer.username,
           name: diePlayer.name,
-          position: diePlayer.position,
-          role: diePlayer.role,
-          camp: diePlayer.camp,
+          position: diePlayer.position
+          // 移除 role 和 camp 信息，防止身份泄露
         }
       }
     }
@@ -229,16 +227,14 @@ module.exports = app => ({
           from: {
             username: witchPlayer.username,
             name: witchPlayer.name,
-            position: witchPlayer.position,
-            role: witchPlayer.role,
-            camp: witchPlayer.camp
+            position: witchPlayer.position
+            // 移除 role 和 camp 信息，防止身份泄露
           },
           to: {
             username: poisonPlayer.username,
             name: poisonPlayer.name,
-            position: poisonPlayer.position,
-            role: poisonPlayer.role,
-            camp: poisonPlayer.camp
+            position: poisonPlayer.position
+            // 移除 role 和 camp 信息，防止身份泄露
           }
         }
       }

@@ -936,7 +936,7 @@ module.exports = app => ({
           $nodeCache.set('game-time-' + gameInstance._id, time - 1)
           let data = {
             'refreshGame': false,
-            time: time,
+            'time': time,
           }
           $ws.connections.forEach(function (conn) {
             let url = '/lrs/' + gameInstance.roomId
@@ -945,19 +945,20 @@ module.exports = app => ({
             }
           })
         }
-      },1000)
-    } else {
-      let data = {
-        'refreshGame': false,
-        time: 0,
-      }
-      $ws.connections.forEach(function (conn) {
-        let url = '/lrs/' + gameInstance.roomId
-        if(conn.path === url){
-          conn.sendText(JSON.stringify(data))
-        }
-      })
+      }, 1000)
     }
+
+    // 发送刷新消息，时间设为0表示无倒计时
+    let data = {
+      'refreshGame': false,
+      time: 0,
+    }
+    $ws.connections.forEach(function (conn) {
+      let url = '/lrs/' + gameInstance.roomId
+      if(conn.path === url){
+        conn.sendText(JSON.stringify(data))
+      }
+    })
 
     return $helper.wrapResult(true,'Y')
   }

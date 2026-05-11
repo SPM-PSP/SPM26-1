@@ -69,16 +69,22 @@
     }
     let mode = 'standard_' + playerCount
     let aiSeatPlayers = []
+    console.log('\n🔍 检查房间座位配置:')
     for(let i = 1; i <= playerCount; i++){
       let username = roomInstance['v' + i]
+      console.log(`  ${i}号位: ${username}`)
       if($service.aiService.isAiId(username)){
+        console.log(`    ✅ 检测到AI玩家: ${username} (座位${i})`)
         aiSeatPlayers.push({
           seat: i,
           aiId: username,
           username: username
         })
+      } else {
+        console.log(`    👤 检测到真人玩家: ${username} (座位${i})`)
       }
     }
+    console.log(`\n📋 最终AI座位玩家: ${JSON.stringify(aiSeatPlayers, null, 2)}`)
     
     // 动态生成座位字段 v1-v12
     let gameObject = {
@@ -105,23 +111,77 @@
     // 创建游戏实例
     let gameInstance = await $service.baseService.save(game, gameObject)
 
-    if(aiSeatPlayers.length > 0){
-      let bootstrapResult = await $service.aiService.bootstrapGame(gameInstance, aiSeatPlayers.length, {
-        personaAssignments: setting.personaAssignments,
-        modelPolicy: setting.modelPolicy,
-        asyncMode: true
-      })
-      if(!bootstrapResult.result){
-        ctx.body = $helper.Result.fail(bootstrapResult.errorCode, bootstrapResult.errorMessage)
-        return
-      }
-    }
-
-    // 随机创建player
+    // 身份配置处理
+    const { getRoleConfig, validateRoleConfig } = require('./roleConfig')
     const standard9RoleArray = gameModeMap[mode]
-    let randomPlayers = $helper.getRandomNumberArray(1, playerCount, playerCount, standard9RoleArray)
+    
+    // 获取身份配置
+    let roleConfig = getRoleConfig(roomInstance._id, playerCount)
+    
+    let randomPlayers
+    if (roleConfig) {
+      console.log('\n🎯 使用身份配置文件分配角色')
+      console.log('📋 配置信息:', JSON.stringify(roleConfig, null, 2))
+      
+      // 验证配置
+      let validation = validateRoleConfig(roleConfig, standard9RoleArray, playerCount)
+      
+      if (validation.isValid) {
+        console.log(`✅ ${validation.message}`)
+        
+        // 使用配置的角色分配
+        let usedPositions = new Set(roleConfig.map(c => c.position))
+        let remainingRoles = [...standard9RoleArray]
+        
+        // 移除已配置的角色
+        for (let config of roleConfig) {
+          let index = remainingRoles.indexOf(config.role)
+          if (index > -1) {
+            remainingRoles.splice(index, 1)
+          }
+        }
+        
+        // 为剩余位置随机分配角色
+        let allAssignments = [...roleConfig]
+        let remainingPositions = []
+        
+        for (let i = 1; i <= playerCount; i++) {
+          if (!usedPositions.has(i)) {
+            remainingPositions.push(i)
+          }
+        }
+        
+        // 随机分配剩余角色
+        let shuffledRoles = remainingRoles.sort(() => Math.random() - 0.5)
+        for (let i = 0; i < remainingPositions.length && i < shuffledRoles.length; i++) {
+          allAssignments.push({
+            position: remainingPositions[i],
+            role: shuffledRoles[i]
+          })
+        }
+        
+        // 按位置排序并转换为标准格式
+        allAssignments.sort((a, b) => a.position - b.position)
+        randomPlayers = allAssignments.map(assignment => ({
+          number: assignment.position,
+          role: assignment.role
+        }))
+        
+      } else {
+        console.log(`❌ 身份配置验证失败: ${validation.message}`)
+        console.log('🎲 使用随机角色分配')
+        randomPlayers = $helper.getRandomNumberArray(1, playerCount, playerCount, standard9RoleArray)
+      }
+    } else {
+      console.log('🎲 使用随机角色分配')
+      randomPlayers = $helper.getRandomNumberArray(1, playerCount, playerCount, standard9RoleArray)
+    }
+    
+    // 创建玩家
     let aiRolePlayers = []
-    for(let i =0; i < randomPlayers.length; i ++ ){
+    console.log('\n🎮 最终角色分配结果:')
+    
+    for(let i = 0; i < randomPlayers.length; i++){
       let item = randomPlayers[i]
       let randomUser = await $service.baseService.queryOne(user,  {username: roomInstance['v' + (item.number)]})
       let p = {
@@ -138,6 +198,18 @@
       }
       // 依次创建该局游戏的所有玩家
       await $service.baseService.save(player, p)
+      
+      const isAI = $service.aiService.isAiId(p.username)
+      const roleIcon = {
+        'wolf': '🐺',
+        'predictor': '🔮',
+        'witch': '🧙‍♀️', 
+        'hunter': '🔫',
+        'villager': '👤'
+      }[p.role] || '❓'
+      
+      console.log(`${roleIcon} ${p.name}(${p.username}) - ${p.role}${isAI ? ' (AI)' : ' (真人)'}`)
+      
       if($service.aiService.isAiId(p.username)){
         aiRolePlayers.push({
           username: p.username,
@@ -145,7 +217,22 @@
         })
       }
     }
+    console.log('=====================================\n')
 
+    // 强制执行bootstrap，确保AI服务初始化
+    console.log('\n🔄 强制执行AI服务bootstrap...')
+    const bootstrapResult = await $service.aiService.bootstrapGame(gameInstance, aiSeatPlayers.length, {
+      modelPolicy: setting.modelPolicy,
+      asyncMode: true
+    })
+    console.log('🔄 强制Bootstrap结果:', bootstrapResult)
+    
+    if(!bootstrapResult.result){
+      console.log('❌ 强制Bootstrap失败:', bootstrapResult.errorMessage)
+    } else {
+      console.log('✅ 强制Bootstrap成功!')
+    }
+    
     if(aiRolePlayers.length > 0){
       let assignResult = await $service.aiService.assignRoles(gameInstance, aiRolePlayers)
       if(!assignResult.result){
@@ -169,6 +256,38 @@
       }
     }
 
+    // AI服务初始化（在玩家和视野都创建完成后）
+    console.log('\n🤖 AI服务初始化开始...')
+    console.log('📋 AI玩家数量:', aiSeatPlayers.length)
+    console.log('📋 AI玩家列表:', aiSeatPlayers)
+    
+    // 强制执行bootstrap，不跳过AI初始化
+    if(aiSeatPlayers.length > 0){
+      let bootstrapResult = await $service.aiService.bootstrapGame(gameInstance, aiSeatPlayers.length, {
+        modelPolicy: setting.modelPolicy,
+        asyncMode: true
+      })
+      console.log('🔄 Bootstrap结果:', bootstrapResult)
+      
+      if(!bootstrapResult.result){
+        console.log('❌ Bootstrap失败:', bootstrapResult.errorMessage)
+        ctx.body = $helper.Result.fail(bootstrapResult.errorCode, bootstrapResult.errorMessage)
+        return
+      } else {
+        console.log('✅ Bootstrap成功!')
+      }
+    } else {
+      console.log('⚠️ 没有AI玩家，跳过Bootstrap')
+    }
+    
+    // 即使没有AI玩家，也要确保bootstrap被调用（为了后续角色分配）
+    console.log('\n🔄 强制执行AI服务初始化...')
+    let forceBootstrapResult = await $service.aiService.bootstrapGame(gameInstance, 0, {
+      modelPolicy: setting.modelPolicy,
+      asyncMode: true
+    })
+    console.log('🔄 强制Bootstrap结果:', forceBootstrapResult)
+
     // 生产一条游戏开始记录
     let gameStartRecord = {
       roomId: roomInstance._id,
@@ -183,6 +302,7 @@
     }
     await $service.baseService.save(record, gameStartRecord)
 
+    
     // 改变房间状态, 游戏进行中
     await $service.baseService.updateById(room, roomInstance._id,{ status: 1, gameId: gameInstance._id})
 
@@ -539,43 +659,15 @@
               status: record.content.from.status,
               role: condition(record.content.from, record.content.action) ? null : record.content.from.role,
               camp: condition(record.content.from, record.content.action) ? null : record.content.from.camp
-            },
-            to: {
-              username: record.content.to.username,
-              name: record.content.to.name,
-              position: record.content.to.position,
-              role: condition(record.content.to) ? null : record.content.to.role,
-              camp: condition(record.content.to) ? null : record.content.to.camp
             }
           }
         })
       }
       return record
     }
-    recordList.forEach(item=>{
-      let day = item.day
-      if(tagMap[day]){
-        tagMap[day].content.push(filterRecord(item))
-      } else {
-        let c = []
-        if(day !== 0){
-          c.push({
-            isTitle: 1,
-            content: {
-              text: '第' + day + '天',
-              type: 'text',
-              level: 1,
-            }
-          })
-        }
-        c.push(filterRecord(item))
-        tagMap[day] = {
-          key: day,
-          content: c
-        }
-      }
-    })
-    ctx.body = $helper.Result.success(tagMap)
+
+    recordList = recordList.map(filterRecord)
+    ctx.body = $helper.Result.success(recordList)
   },
 
   /**
@@ -583,8 +675,8 @@
    * @apiGroup 游戏模块
    */
   async checkPlayer (ctx) {
-    const { $service, $helper, $model, $ws } = app
-    const { game, player, vision, record, action } = $model
+    const { $service, $helper, $model } = app
+    const { game, player, action, vision, record, $ws } = $model
     const { roomId, gameId, username } = ctx.query
     if(!roomId || roomId === ''){
       ctx.body = $helper.Result.fail(-1,'roomId不能为空！')
@@ -1004,6 +1096,62 @@
       action: 'vote',
     }
     await $service.baseService.save(action, actionObject)
+    
+    // 向AI服务发送投票事件（使用广播接口）
+    try {
+      const voteEvent = {
+        day: gameInstance.day,
+        stage: gameInstance.stage,
+        eventType: 'vote',
+        speaker: currentPlayer.username,
+        content: `投票给 ${targetPlayer.name}(${targetPlayer.position}号)`,
+        weight: 1.0,
+        targets: [targetPlayer.username]
+      }
+      
+      // 获取所有存活玩家作为候选目标
+      const alivePlayers = await $service.baseService.query(player, {
+        roomId: roomId,
+        gameId: gameInstance._id,
+        status: 1
+      })
+      const candidateTargets = alivePlayers.map(p => p.username)
+      
+      // 获取所有AI玩家
+      const aiPlayers = alivePlayers.filter(p => p.username.startsWith('ai_'))
+      const aiIds = aiPlayers.map(p => p.username)
+      
+      // 使用广播接口发送事件给所有AI
+      const { $helper } = app
+      const axios = require('axios')
+      const getBaseUrl = () => {
+        return process.env.AI_SERVICE_BASE_URL ||
+          (app.$config.aiService && app.$config.aiService.baseUrl) ||
+          'http://127.0.0.1:8001'
+      }
+      
+      await axios({
+        method: 'post',
+        url: getBaseUrl() + '/internal/ai/game/events/broadcast',
+        data: {
+          gameId: String(gameInstance._id),
+          event: voteEvent,
+          aiIds: aiIds, // 指定要发送的AI列表
+          candidateTargets: candidateTargets,
+          asyncMode: true
+        },
+        timeout: 12000,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+    } catch (error) {
+      // AI服务调用失败不影响投票功能，只记录日志
+      if(app.$log4 && app.$log4.errorLogger){
+        app.$log4.errorLogger.error('[AI Service] 发送投票事件失败: ' + error.toString())
+      }
+    }
+    
     let r = {
       username: targetPlayer.username,
       name: targetPlayer.name,
@@ -1610,10 +1758,338 @@
       ctx.body = $helper.Result.success(roomInstance._id)
       return
     }
-    obList.push(currentUser.username)
-    await $service.baseService.updateById(room, roomInstance._id, {ob: obList})
 
+    $ws.connections.forEach(function (conn) {
+      let url = '/lrs/' + roomInstance._id
+      if(conn.path === url){
+        conn.sendText('refreshGame')
+      }
+    })
     ctx.body = $helper.Result.success(roomInstance._id)
+  },
+
+  /**
+   * @api {post} /api/game/replay/auth 游戏复盘分析
+   * @apiGroup 游戏模块
+   */
+  async replayGame (ctx) {
+    const { $service, $helper, $model } = app
+    const { game } = $model
+    const body = ctx.request.body || {}
+    const { gameId, enableAI, aiModel, outputDir, desensitize } = body
+
+    if(!gameId || gameId === ''){
+      ctx.body = $helper.Result.fail(-1, 'gameId不能为空！')
+      return
+    }
+
+    try {
+      // 获取游戏实例
+      let gameInstance = await $service.baseService.queryById(game, gameId)
+      if(!gameInstance){
+        ctx.body = $helper.Result.fail(-1, '游戏不存在！')
+        return
+      }
+
+      // 检查游戏是否已结束
+      if(gameInstance.status !== 2){
+        ctx.body = $helper.Result.fail(-1, '游戏尚未结束，无法进行复盘分析！')
+        return
+      }
+
+      // 调用复盘服务
+      const options = {
+        enableAI: enableAI === true,
+        aiModel: aiModel || 'gpt-4',
+        outputDir: outputDir || 'replay_analysis',
+        desensitize: desensitize !== false
+      }
+
+      const result = await $service.replayService.analyzeGame(gameInstance, options)
+
+      if(!result.result){
+        ctx.body = $helper.Result.fail(result.errorCode || -1, result.errorMessage || '复盘分析失败')
+        return
+      }
+
+      // 修复响应格式：将result转换为data.analysis_files，匹配前端期望
+      ctx.body = $helper.Result.success({
+        gameId: gameId,
+        analysisFiles: result.data.analysis_files, // 转换字段名
+        gameRecord: result.data.game_record,
+        timestamp: result.data.timestamp
+      })
+
+    } catch (error) {
+      if(app.$log4 && app.$log4.errorLogger){
+        app.$log4.errorLogger.error('[replayGame] 复盘分析失败: ' + error.toString())
+      }
+      ctx.body = $helper.Result.fail(-1, '复盘分析失败: ' + error.message)
+    }
+  },
+
+  /**
+   * @api {get} /api/game/replay/file 读取复盘文件内容
+   * @apiGroup 游戏模块
+   */
+  async getReplayFile (ctx) {
+    const { query } = ctx
+    const { file } = query
+
+    if(!file || file === ''){
+      ctx.body = $helper.Result.fail(-1, '文件路径不能为空！')
+      return
+    }
+
+    try {
+      const fs = require('fs')
+      const path = require('path')
+      
+      
+      // 安全检查：只允许读取replay_analysis目录下的文件
+      const filePath = path.resolve(file)
+      const allowedDir = path.resolve('replay_analysis')
+      
+      if(!filePath.startsWith(allowedDir)){
+        ctx.body = $helper.Result.fail(-1, '文件路径不安全！')
+        return
+      }
+
+      if(!fs.existsSync(filePath)){
+        ctx.body = $helper.Result.fail(-1, '文件不存在！')
+        return
+      }
+
+      const fileContent = fs.readFileSync(filePath, 'utf8')
+      ctx.body = fileContent
+    } catch (error) {
+      ctx.body = $helper.Result.fail(-1, '读取文件失败: ' + error.message)
+    }
+  },
+
+  /**
+   * @api {get} /api/game/replay/health/auth 复盘服务健康检查
+   * @apiGroup 游戏模块
+   */
+  async replayHealth (ctx) {
+    const { $service, $helper } = app
+
+    try {
+      const result = await $service.replayService.checkHealth()
+      
+      if(!result.result){
+        ctx.body = $helper.Result.fail(result.errorCode || -1, result.errorMessage || '复盘服务不可用')
+        return
+      }
+
+      ctx.body = $helper.Result.success(result.data)
+    } catch (error) {
+      ctx.body = $helper.Result.fail(-1, '健康检查失败: ' + error.message)
+    }
+  },
+
+  /**
+   * @api {get} /api/game/wolfSuggestions 获取AI狼人建议
+   * @apiGroup 游戏模块
+   */
+  async getWolfSuggestions(ctx) {
+    const { $service, $helper, $model } = app
+    const { game, player, record } = $model
+    const { roomId, gameId } = ctx.query
+
+    if(!roomId || !gameId){
+      ctx.body = $helper.Result.fail(-1, '房间ID和游戏ID不能为空')
+      return
+    }
+
+    try {
+      // 验证用户是狼人
+      const currentUser = await $service.baseService.userInfo(ctx)
+      if(!currentUser){
+        ctx.body = $helper.Result.fail(-1, '用户未登录')
+        return
+      }
+
+      const gameInstance = await $service.baseService.queryById(game, gameId)
+      if(!gameInstance){
+        ctx.body = $helper.Result.fail(-1, '游戏不存在')
+        return
+      }
+
+      const currentPlayer = await $service.baseService.queryOne(player, {
+        roomId: roomId,
+        gameId: gameId,
+        username: currentUser.username
+      })
+
+      if(!currentPlayer || currentPlayer.role !== 'wolf' || currentPlayer.status !== 1){
+        ctx.body = $helper.Result.fail(-1, '只有存活的狼人才能查看建议')
+        return
+      }
+
+      // 获取当前轮次的AI建议
+      const suggestions = await $service.baseService.query(record, {
+        roomId: roomId,
+        gameId: gameId,
+        day: gameInstance.day,
+        stage: gameInstance.stage,
+        'content.type': 'wolf_advice'
+      }, {}, { sort: { _id: -1 } })
+
+      ctx.body = $helper.Result.success({
+        suggestions: suggestions || [],
+        day: gameInstance.day,
+        stage: gameInstance.stage
+      })
+    } catch (error) {
+      if(app.$log4 && app.$log4.errorLogger){
+        app.$log4.errorLogger.error('[getWolfSuggestions] 获取狼人建议失败: ' + error.toString())
+      }
+      ctx.body = $helper.Result.fail(-1, '获取狼人建议失败: ' + error.message)
+    }
+  },
+
+  /**
+   * @api {get} /api/game/debug/roles 获取所有玩家角色信息（调试用）
+   * @apiGroup 游戏模块
+   */
+  async getDebugRoles(ctx) {
+    const { $service, $helper, $model } = app
+    const { game, player } = $model
+    const { roomId, gameId } = ctx.query
+
+    if(!roomId || !gameId){
+      ctx.body = $helper.Result.fail(-1, '房间ID和游戏ID不能为空')
+      return
+    }
+
+    try {
+      // 简化环境检查，允许在开发环境和生产环境（用于测试）
+      const isDev = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local'
+      
+      // 生产环境需要特殊header才能访问
+      if(!isDev && ctx.headers['x-debug-mode'] !== 'enabled'){
+        ctx.body = $helper.Result.fail(-1, '调试接口只在开发环境下可用，生产环境需要X-Debug-Mode: enabled头')
+        return
+      }
+
+      const gameInstance = await $service.baseService.queryById(game, gameId)
+      if(!gameInstance){
+        ctx.body = $helper.Result.fail(-1, '游戏不存在')
+        return
+      }
+
+      // 获取所有玩家信息（包含角色）
+      const allPlayers = await $service.baseService.query(player, {
+        roomId: roomId,
+        gameId: gameId
+      }, {}, { sort: { position: 1 } })
+
+      // 获取AI狼人建议
+      const suggestions = await $service.baseService.query($model.record, {
+        roomId: roomId,
+        gameId: gameId,
+        day: gameInstance.day,
+        stage: gameInstance.stage,
+        'content.type': 'wolf_advice'
+      }, {}, { sort: { _id: -1 } })
+
+      const playersWithRoles = allPlayers.map(player => ({
+        username: player.username,
+        name: player.name,
+        position: player.position,
+        role: player.role,
+        status: player.status,
+        isAI: player.username.startsWith('ai_'),
+        isAlive: player.status === 1
+      }))
+
+      const wolfPlayers = playersWithRoles.filter(p => p.role === 'wolf')
+      const humanWolves = wolfPlayers.filter(w => !w.isAI)
+      const aiWolves = wolfPlayers.filter(w => w.isAI)
+
+      ctx.body = $helper.Result.success({
+        gameInfo: {
+          gameId: gameInstance._id,
+          roomId: gameInstance.roomId,
+          day: gameInstance.day,
+          stage: gameInstance.stage,
+          status: gameInstance.status
+        },
+        players: playersWithRoles,
+        wolfTeam: {
+          total: wolfPlayers.length,
+          humans: humanWolves,
+          ai: aiWolves,
+          hasHumanWolf: humanWolves.length > 0,
+          decisionMode: humanWolves.length > 0 ? 'advice_only' : 'auto_execute'
+        },
+        aiSuggestions: suggestions || [],
+        debugInfo: {
+          environment: process.env.NODE_ENV,
+          timestamp: new Date().toISOString()
+        }
+      })
+    } catch (error) {
+      if(app.$log4 && app.$log4.errorLogger){
+        app.$log4.errorLogger.error('[getDebugRoles] 获取调试信息失败: ' + error.toString())
+      }
+      ctx.body = $helper.Result.fail(-1, '获取调试信息失败: ' + error.message)
+    }
+  },
+
+  /**
+   * @api {post} /api/game/wolfVoiceChat/auth 狼人实时语音聊天
+   * @apiGroup 游戏模块
+   */
+  async wolfVoiceChat(ctx) {
+    const { $service, $helper, $ws } = app
+    const { roomId, gameId, audioData, username } = ctx.request.body || {}
+
+    if(!roomId || !gameId || !username){
+      ctx.body = $helper.Result.fail(-1, '参数不完整')
+      return
+    }
+
+    try {
+      // 临时移除狼人权限验证，直接处理
+      console.log('🔊 收到语音消息:', { roomId, gameId, username })
+      
+      // 实时广播给所有连接的客户端
+      const wolfMessage = {
+        type: 'wolfVoiceChat',
+        roomId: roomId,
+        gameId: gameId,
+        sender: username,
+        senderName: username, // 临时使用username
+        audioData: audioData,
+        timestamp: new Date().toISOString()
+      }
+
+      // 通过WebSocket实时推送
+      $ws.connections.forEach(function (conn) {
+        if(conn.roomId === roomId && conn.gameId === gameId){
+          console.log('📡 发送语音消息给:', conn.userInfo?.username)
+          conn.send(JSON.stringify(wolfMessage))
+        }
+      })
+
+      ctx.body = $helper.Result.success({ message: '语音消息已发送' })
+
+      // 通过WebSocket实时推送给所有狼人
+      $ws.connections.forEach(function (conn) {
+        if(conn.roomId === roomId && conn.gameId === gameId && conn.userInfo){
+          // 检查接收者是否为狼人
+          const receiver = conn.userInfo
+          if(receiver.role === 'wolf'){
+            conn.send(JSON.stringify(wolfMessage))
+          }
+        }
+      })
+
+      ctx.body = $helper.Result.success({ message: '语音消息已发送' })
+    } catch (error) {
+      ctx.body = $helper.Result.fail(-1, '发送语音消息失败: ' + error.message)
+    }
   }
 })
-
