@@ -373,3 +373,68 @@ class AgentInvokeResult(BaseModel):
 
     class Config:
         populate_by_name = True
+
+
+class WerewolfNightConsensusRequest(BaseModel):
+    """Batch request for all-AI werewolf night advice aggregation."""
+
+    request_id: str = Field(alias="requestId")
+    game_id: str = Field(alias="gameId")
+    werewolf_ai_ids: list[str] = Field(alias="werewolfAiIds", min_length=1)
+    visible_events: list[dict[str, Any]] = Field(default_factory=list, alias="visibleEvents")
+    alive_players: list[str] = Field(default_factory=list, alias="alivePlayers")
+    candidate_targets: list[str] = Field(default_factory=list, alias="candidateTargets")
+    private_vision: dict[str, Any] = Field(default_factory=dict, alias="privateVision")
+
+    class Config:
+        populate_by_name = True
+
+
+class WerewolfAdviceItem(BaseModel):
+    """One AI werewolf's structured night recommendation."""
+
+    ai_id: str = Field(alias="aiId")
+    suggested_target: str | None = Field(default=None, alias="suggestedTarget")
+    confidence: float = 0.0
+    explain: list[str] = Field(default_factory=list)
+    speech_text: str = Field(default="", alias="speechText")
+    suspicion_scores: list[SuspicionScore] = Field(default_factory=list, alias="suspicionScores")
+    fallback_used: bool = Field(default=False, alias="fallbackUsed")
+    error_code: str | None = Field(default=None, alias="errorCode")
+    latency_ms: int = Field(default=0, alias="latencyMs")
+
+    class Config:
+        populate_by_name = True
+
+
+class WerewolfConsensusScore(BaseModel):
+    """Aggregated score for one candidate target."""
+
+    target: str
+    recommendation_count: int = Field(alias="recommendationCount")
+    confidence_sum: float = Field(alias="confidenceSum")
+    score: float
+    recommenders: list[str] = Field(default_factory=list)
+
+    class Config:
+        populate_by_name = True
+
+
+class WerewolfNightConsensusResponse(BaseModel):
+    """Aggregated consensus output for all-AI werewolf night handling."""
+
+    request_id: str = Field(alias="requestId")
+    game_id: str = Field(alias="gameId")
+    werewolf_ai_ids: list[str] = Field(alias="werewolfAiIds")
+    legal_targets: list[str] = Field(default_factory=list, alias="legalTargets")
+    advice_results: list[WerewolfAdviceItem] = Field(default_factory=list, alias="adviceResults")
+    aggregate_scores: list[WerewolfConsensusScore] = Field(default_factory=list, alias="aggregateScores")
+    consensus_target: str | None = Field(default=None, alias="consensusTarget")
+    shared_private_vision: dict[str, Any] = Field(default_factory=dict, alias="sharedPrivateVision")
+    private_vision_by_ai_id: dict[str, dict[str, Any]] = Field(
+        default_factory=dict,
+        alias="privateVisionByAiId",
+    )
+
+    class Config:
+        populate_by_name = True

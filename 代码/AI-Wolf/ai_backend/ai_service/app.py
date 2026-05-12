@@ -18,6 +18,7 @@ from ai_backend.ai_service.routers.invoke import router as invoke_router
 from ai_backend.ai_service.routers.memory import router as memory_router
 from ai_backend.ai_service.routers.persona import router as persona_router
 from ai_backend.ai_service.routers.players import router as players_router
+from ai_backend.ai_service.routers.werewolf import router as werewolf_router
 from ai_backend.ai_service.services.container import build_container
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(bootstrap_router)
     app.include_router(game_events_router)
     app.include_router(invoke_router)
+    app.include_router(werewolf_router)
     app.include_router(players_router)
     app.include_router(memory_router)
     app.include_router(persona_router)

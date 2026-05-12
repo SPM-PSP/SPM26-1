@@ -781,6 +781,40 @@ module.exports = app => ({
         conn.sendText('gameOver')
       }
     })
+
+    const autoReplayEnabled =
+      process.env.AUTO_TRIGGER_REPLAY_ANALYSIS === 'true' ||
+      !!(app.$config.aiReplayService && app.$config.aiReplayService.autoAnalyze === true)
+
+    if(autoReplayEnabled){
+      setImmediate(async () => {
+        try {
+          const latestGame = await $service.baseService.queryById(game, gameInstance._id)
+          const replayResult = await $service.replayService.analyzeGame(latestGame, {
+            enableAI: process.env.REPLAY_ENABLE_AI === 'true',
+            aiModel: process.env.REPLAY_AI_MODEL || 'gpt-4',
+            outputDir: process.env.REPLAY_OUTPUT_DIR || 'replay_analysis',
+            desensitize: process.env.REPLAY_DESENSITIZE !== 'false'
+          })
+
+          if(!replayResult.result){
+            if(app.$log4 && app.$log4.errorLogger){
+              app.$log4.errorLogger.error('[gameService] auto replay analysis failed: ' + replayResult.errorMessage)
+            }
+            return
+          }
+
+          if(app.$log4 && app.$log4.commonLogger){
+            app.$log4.commonLogger.info('[gameService] auto replay analysis completed for game ' + gameInstance._id)
+          }
+        } catch (e) {
+          if(app.$log4 && app.$log4.errorLogger){
+            app.$log4.errorLogger.error('[gameService] auto replay analysis crashed: ' + e.toString())
+          }
+        }
+      })
+    }
+
     return $helper.wrapResult(true , 'Y')
   },
 

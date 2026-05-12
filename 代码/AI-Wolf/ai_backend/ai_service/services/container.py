@@ -14,6 +14,7 @@ from ai_backend.ai_service.services.llm_gateway import LLMGateway
 from ai_backend.ai_service.services.memory_service import MemoryService
 from ai_backend.ai_service.services.persona_service import PersonaService
 from ai_backend.ai_service.services.player_factory import PlayerFactoryService
+from ai_backend.ai_service.services.werewolf_team_service import WerewolfTeamService
 
 try:
     from ai_backend.config import config
@@ -31,6 +32,7 @@ class ServiceContainer:
     context_assembler: ContextAssembler
     bootstrap_service: BootstrapService
     invoke_service: InvokeService
+    werewolf_team_service: WerewolfTeamService
 
 
 def build_container() -> ServiceContainer:
@@ -46,6 +48,7 @@ def build_container() -> ServiceContainer:
     bootstrap_service = BootstrapService(player_factory, memory_service, persona_service)
     llm_gateway = LLMGateway()
     invoke_service = InvokeService(llm_gateway, memory_service)
+    werewolf_team_service = WerewolfTeamService(player_factory, invoke_service)
 
     return ServiceContainer(
         player_factory=player_factory,
@@ -54,4 +57,5 @@ def build_container() -> ServiceContainer:
         context_assembler=context_assembler,
         bootstrap_service=bootstrap_service,
         invoke_service=invoke_service,
+        werewolf_team_service=werewolf_team_service,
     )

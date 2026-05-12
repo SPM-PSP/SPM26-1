@@ -51,7 +51,7 @@ class InvokeService:
                 "- 除非 privateVision.allowFriendlyFire 为 true，否则不能刀 privateVision.wolfTeammates 里的队友。\n"
                 "- 如果 privateVision.consensusTarget 存在且合法，优先跟随。\n"
                 "- 如果 privateVision.forceConsensusTarget 为 true 且 consensusTarget 合法，必须严格跟随。\n"
-                "- 如果 privateVision.wolfDecisionMode 为 \"advice_only\"，只在 speechText/explain 给出建议目标和理由，不实际执行击杀。\n"
+                "- 如果 privateVision.wolfDecisionMode 为 \"advice_only\"，返回建议目标和理由，但不实际执行击杀。\n"
                 "- 如果有 privateVision.teammateMessages 或 privateVision.wolfChat，要把它当作狼队协同信息。\n"
                 "- 选择击杀目标时 skillType 设为 \"kill\"。\n"
                 "- 如果当前公开信息很少，不要硬编“谁发言强势、谁像神职、谁威胁高”等并不存在的依据。\n"
@@ -480,7 +480,7 @@ class InvokeService:
                         "skill_target": None,
                         "vote_target": None,
                         "night_action": NightActionPlan(
-                            killTarget=None,
+                            killTarget=target,
                             passReason="advice_only_human_wolf_decides",
                         ),
                         "speech_text": advice_text,
@@ -740,7 +740,7 @@ class InvokeService:
                         skillType="pass",
                         skillTarget=None,
                         nightAction=NightActionPlan(
-                            killTarget=None,
+                            killTarget=skill_target,
                             passReason="advice_only_human_wolf_decides",
                         ),
                         confidence=0.30,

@@ -15,7 +15,7 @@ AI 复盘模块
 注意：ai_config 可为空或 None（此时使用启发式分析）。
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import os
 import json
 import logging
@@ -27,6 +27,143 @@ except Exception:
     OpenAI = None
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _truncate_text(text: Any, max_len: int = 120) -> str:
+    if text is None:
+        return ''
+    s = str(text).strip()
+    if len(s) <= max_len:
+        return s
+    return s[: max_len - 3] + '...'
+
+
+def _compact_players(game_record: Dict[str, Any]) -> List[Dict[str, Any]]:
+    players = []
+    final_players = game_record.get('final_result', {}).get('final_state', {}).get('players', {})
+    if isinstance(final_players, dict) and final_players:
+        for pid, info in final_players.items():
+            if not isinstance(info, dict):
+                continue
+            players.append({
+                'player_id': pid,
+                'name': info.get('name'),
+                'position': info.get('position'),
+                'camp': info.get('camp_label', info.get('camp')),
+                'status': info.get('status'),
+                'out_reason': info.get('out_reason'),
+            })
+        return players
+
+    for item in game_record.get('players', [])[:12]:
+        if not isinstance(item, dict):
+            continue
+        players.append({
+            'player_id': item.get('username'),
+            'name': item.get('name'),
+            'position': item.get('position'),
+            'camp': item.get('camp_label', item.get('camp')),
+            'status': item.get('status_label', item.get('status')),
+            'out_reason': item.get('out_reason'),
+        })
+    return players
+
+
+def _compact_round_records(game_record: Dict[str, Any]) -> List[Dict[str, Any]]:
+    compact_rounds = []
+    for rr in game_record.get('round_records', [])[:8]:
+        if not isinstance(rr, dict):
+            continue
+
+        speeches = []
+        for sp in rr.get('speeches', [])[:6]:
+            actor = sp.get('actor') or {}
+            speeches.append({
+                'speaker': actor.get('name') or actor.get('username'),
+                'text': _truncate_text(sp.get('text'), 100),
+            })
+
+        actions = []
+        for act in rr.get('actions', [])[:6]:
+            actor = act.get('actor') or {}
+            target = act.get('target') or {}
+            actions.append({
+                'action': act.get('action') or act.get('action_key'),
+                'actor': actor.get('name') or actor.get('username'),
+                'target': target.get('name') or target.get('username'),
+                'text': _truncate_text(act.get('text') or act.get('target_name') or '', 80),
+            })
+
+        vote_results = rr.get('vote_results', {}) if isinstance(rr.get('vote_results'), dict) else {}
+        compact_rounds.append({
+            'round': rr.get('round', rr.get('day')),
+            'day': rr.get('day'),
+            'vote_results': {
+                'vote_counts': vote_results.get('vote_counts', {}),
+                'voted_out_name': vote_results.get('voted_out_name'),
+            },
+            'speech_count': len(rr.get('speeches', [])),
+            'action_count': len(rr.get('actions', [])),
+            'vote_count': len(rr.get('votes', [])),
+            'speech_samples': speeches,
+            'action_samples': actions,
+        })
+    return compact_rounds
+
+
+def _compact_events(game_record: Dict[str, Any]) -> List[Dict[str, Any]]:
+    compact_events = []
+    for ev in game_record.get('events', [])[:20]:
+        if not isinstance(ev, dict):
+            continue
+        data = ev.get('data', {}) if isinstance(ev.get('data'), dict) else {}
+        compact_events.append({
+            'day': ev.get('day'),
+            'stage': ev.get('stage'),
+            'type': ev.get('type'),
+            'text': _truncate_text(data.get('text') or data.get('content') or '', 100),
+        })
+    return compact_events
+
+
+def _build_ai_input_record(game_record: Dict[str, Any], max_chars: int = 18000) -> Dict[str, Any]:
+    compact = {
+        'game_id': game_record.get('game_id'),
+        'room_id': game_record.get('room_id'),
+        'player_count': game_record.get('player_count'),
+        'mode': game_record.get('mode'),
+        'winner': game_record.get('winner_label', game_record.get('winner')),
+        'days': game_record.get('days'),
+        'game_stats': game_record.get('game_stats', {}),
+        'players': _compact_players(game_record),
+        'round_records': _compact_round_records(game_record),
+        'event_samples': _compact_events(game_record),
+    }
+
+    raw = json.dumps(compact, ensure_ascii=False)
+    if len(raw) <= max_chars:
+        return compact
+
+    # Second pass: shrink speech/action excerpts further.
+    for rr in compact.get('round_records', []):
+        rr['speech_samples'] = rr.get('speech_samples', [])[:3]
+        rr['action_samples'] = rr.get('action_samples', [])[:3]
+        for sp in rr['speech_samples']:
+            sp['text'] = _truncate_text(sp.get('text'), 60)
+        for act in rr['action_samples']:
+            act['text'] = _truncate_text(act.get('text'), 50)
+    compact['event_samples'] = compact.get('event_samples', [])[:10]
+
+    raw = json.dumps(compact, ensure_ascii=False)
+    if len(raw) <= max_chars:
+        return compact
+
+    # Final pass: remove excerpts, keep only vote/action counts and final state.
+    for rr in compact.get('round_records', []):
+        rr.pop('speech_samples', None)
+        rr.pop('action_samples', None)
+    compact.pop('event_samples', None)
+    return compact
 
 
 def _desensitize(game_record: Dict[str, Any]) -> Dict[str, Any]:
@@ -142,8 +279,16 @@ def analyze_game_record(game_record: Dict[str, Any], ai_config: Optional[Dict[st
                 "同时生成一段可读的短报告（不超过800字）。不要泄露玩家真实身份；若记录中包含身份，应把它们视为已脱敏。"
             )
 
+            ai_input_record = _build_ai_input_record(record_to_use)
+            LOGGER.info(
+                "AI replay compact input prepared. original_chars=%s compact_chars=%s",
+                len(json.dumps(record_to_use, ensure_ascii=False)),
+                len(json.dumps(ai_input_record, ensure_ascii=False)),
+            )
+
             user_prompt = (
                 "以下为游戏记录的 JSON（可能已脱敏），请基于这些数据进行复盘分析，优先给出可复现的证据链和短策略总结。"
+                " 注意：为避免超长，下面提供的是从完整记录中提炼出的关键结构化信息，而不是原始全量日志。"
                 " 输出格式要求：返回一个 JSON 对象（不要输出其他文本），其中包含 keys:"
                 "\n- vote_analysis: 包含每回合票型摘要与异常票型提示。"
                 "\n- speech_issues: 列表，标注可能的可疑发言和原因。"
@@ -151,7 +296,7 @@ def analyze_game_record(game_record: Dict[str, Any], ai_config: Optional[Dict[st
                 "\n- mistakes: 列表，说明可以改进的失误点。"
                 "\n- strategy_recommendations: 列表，面向玩家/教练的策略要点。"
                 "\n- action_items: 列表，后续可执行的具体操作（如导出时序、生成图表等）。\n"
-                "现在开始分析。游戏记录（JSON）:\n" + json.dumps(record_to_use)
+                "现在开始分析。游戏记录（JSON）:\n" + json.dumps(ai_input_record, ensure_ascii=False)
             )
 
             messages = [
