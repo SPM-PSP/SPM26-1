@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { reportData } from "./data/mockReport";
+import { reportData } from "./data/reportAdapter";
 
 const metricLabels = {
   cognitiveConsistency: "Consistency",
@@ -54,6 +54,27 @@ function roleTone(roleKey) {
   if (roleKey === "seer") return "bg-[#efe1c7] text-[#6d3900]";
   return "bg-[#dde5cc] text-[#3d4c1d]";
 }
+
+const fallbackHeroTags = [
+  "Issue: truth did not become trust",
+  "Risk: false consensus locked too fast",
+  "Focus: rebuild the vote path",
+];
+
+const fallbackJudgeNotes = [
+  {
+    label: "Key Finding",
+    text: "Wolves did not win through one explosive move. They won by defining what the table should keep doubting.",
+  },
+  {
+    label: "Village Error",
+    text: "Correct information never became public proof, and the village side failed to build a correction loop in round two.",
+  },
+  {
+    label: "Review Focus",
+    text: "The review is not only about who was right, but about who controlled topic framing and side selection.",
+  },
+];
 </script>
 
 <template>
@@ -101,12 +122,7 @@ function roleTone(roleKey) {
           </a>
         </nav>
 
-        <div class="rounded-[24px] bg-paper p-5">
-          <p class="text-xs uppercase tracking-[0.24em] text-[#8a7b67]">Verdict</p>
-          <p class="mt-3 font-headline text-xl italic leading-8 text-[#513318]">
-            {{ reportData.meta.narrator }}
-          </p>
-        </div>
+        
       </aside>
 
       <div class="min-w-0 flex-1 space-y-8">
@@ -125,9 +141,13 @@ function roleTone(roleKey) {
                 {{ reportData.meta.narrator }}
               </p>
               <div class="mt-8 flex flex-wrap gap-3">
-                <span class="rounded-full bg-white/14 px-4 py-2 text-sm">Issue: truth did not become trust</span>
-                <span class="rounded-full bg-white/14 px-4 py-2 text-sm">Risk: false consensus locked too fast</span>
-                <span class="rounded-full bg-white/14 px-4 py-2 text-sm">Focus: rebuild the vote path</span>
+                <span
+                  v-for="tag in reportData.heroTags || fallbackHeroTags"
+                  :key="tag"
+                  class="rounded-full bg-white/14 px-4 py-2 text-sm"
+                >
+                  {{ tag }}
+                </span>
               </div>
             </div>
 
@@ -188,22 +208,14 @@ function roleTone(roleKey) {
               <h2 class="font-headline text-3xl font-bold italic text-[#6d3900]">Judge Notes</h2>
             </div>
             <div class="mt-8 space-y-4">
-              <div class="rounded-[22px] bg-parchment p-5">
-                <p class="text-xs uppercase tracking-[0.22em] text-[#8a7b67]">Key Finding</p>
+              <div
+                v-for="note in reportData.judgeNotes || fallbackJudgeNotes"
+                :key="note.label"
+                class="rounded-[22px] bg-parchment p-5"
+              >
+                <p class="text-xs uppercase tracking-[0.22em] text-[#8a7b67]">{{ note.label }}</p>
                 <p class="mt-3 text-base leading-7 text-[#5c503d]">
-                  Wolves did not win through one explosive move. They won by defining what the table should keep doubting.
-                </p>
-              </div>
-              <div class="rounded-[22px] bg-parchment p-5">
-                <p class="text-xs uppercase tracking-[0.22em] text-[#8a7b67]">Village Error</p>
-                <p class="mt-3 text-base leading-7 text-[#5c503d]">
-                  Correct information never became public proof, and the village side failed to build a correction loop in round two.
-                </p>
-              </div>
-              <div class="rounded-[22px] bg-parchment p-5">
-                <p class="text-xs uppercase tracking-[0.22em] text-[#8a7b67]">Review Focus</p>
-                <p class="mt-3 text-base leading-7 text-[#5c503d]">
-                  The review is not only about who was right, but about who controlled topic framing and side selection.
+                  {{ note.text }}
                 </p>
               </div>
             </div>
@@ -257,12 +269,28 @@ function roleTone(roleKey) {
                   <span class="rounded-full bg-[#f5d0cc] px-3 py-1 text-xs font-semibold text-[#8a1b1e]">
                     {{ issue.player }}
                   </span>
-                  <span class="text-sm text-[#7c715c]">{{ issue.round }}</span>
                 </div>
+                <p class="mt-4 text-xs uppercase tracking-[0.2em] text-[#8a7b67]">策略分析</p>
                 <p class="mt-4 border-l-2 border-[#d6c5b7] pl-4 font-headline text-xl italic leading-8 text-[#513318]">
                   "{{ issue.excerpt }}"
                 </p>
                 <p class="mt-4 text-[15px] leading-7 text-[#5f5643]">{{ issue.reason }}</p>
+                <div v-if="issue.history && issue.history.length" class="mt-5 rounded-[18px] bg-white/60 p-4">
+                  <div class="flex items-center justify-between gap-3">
+                    <p class="text-xs uppercase tracking-[0.2em] text-[#8a7b67]">Speech History</p>
+                    <p class="text-xs text-[#8a7b67]">{{ issue.history.length }} line(s)</p>
+                  </div>
+                  <div class="mt-3 space-y-3">
+                    <div
+                      v-for="entry in issue.history"
+                      :key="`${issue.player}-${entry.label}-${entry.text}`"
+                      class="rounded-[16px] border border-[#eadfce] bg-paper px-4 py-3"
+                    >
+                      <p class="text-xs uppercase tracking-[0.16em] text-[#8a7b67]">{{ entry.label }}</p>
+                      <p class="mt-2 text-[15px] leading-7 text-[#5f5643]">{{ entry.text }}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </article>
