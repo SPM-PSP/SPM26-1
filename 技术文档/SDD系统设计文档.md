@@ -43,18 +43,67 @@
 ### 1.4 术语、定义与缩略语
 为避免阅读歧义，本文档涉及的技术缩略语及游戏领域特定术语统一定义如下：
 
-| 术语 / 缩写 | 含义说明 | 分类 |
-| --- | --- | --- |
-| **SDD** | Software Design Document，软件设计说明书。 | 技术 |
-| **LLM** | Large Language Model，大语言模型（如 GPT-4, 闭源/开源模型）。 | 技术 |
-| **STT / TTS** | Speech-to-Text (语音转文本) / Text-to-Speech (文本转语音)。 | 技术 |
-| **Multi-Agent** | 多智能体系统，指多个具备自主决策能力的独立 AI 代理在同一环境中协同或博弈。 | 技术 |
-| **Room** | 房间，承载玩家组织与开局入口的容器，具备独立生命周期。 | 业务 |
-| **Game** | 一局游戏实例，包含阶段、天数、板子配置及胜负判定规则。 | 业务 |
-| **Player** | 某局内玩家的数据快照（与全局系统 User 解耦，包含角色、状态、技能等）。 | 业务 |
-| **Stage** | 游戏阶段标识（如 0/1/2/3/4/5/6/6.5/7），驱动状态机演进的核心依据。 | 业务 |
-| **GameTag** | 关键事件标签（如死亡事件、发言顺序、PK信息等结构化数据）。 | 业务 |
-| **性格预设** | AI 玩家的行为倾向：<br>- **激进型**：倾向于冒险、主动发言与带节奏；<br>- **保守型**：倾向于谨慎、低调发言与随大流；<br>- **逻辑型**：倾向于严谨推理与数据驱动决策。 | 业务 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>术语 / 缩写</th>
+      <th>含义说明</th>
+      <th>分类</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>SDD</strong></td>
+      <td>Software Design Document，软件设计说明书。</td>
+      <td>技术</td>
+    </tr>
+    <tr>
+      <td><strong>LLM</strong></td>
+      <td>Large Language Model，大语言模型（如 GPT-4, 闭源/开源模型）。</td>
+      <td>技术</td>
+    </tr>
+    <tr>
+      <td><strong>STT / TTS</strong></td>
+      <td>Speech-to-Text (语音转文本) / Text-to-Speech (文本转语音)。</td>
+      <td>技术</td>
+    </tr>
+    <tr>
+      <td><strong>Multi-Agent</strong></td>
+      <td>多智能体系统，指多个具备自主决策能力的独立 AI 代理在同一环境中协同或博弈。</td>
+      <td>技术</td>
+    </tr>
+    <tr>
+      <td><strong>Room</strong></td>
+      <td>房间，承载玩家组织与开局入口的容器，具备独立生命周期。</td>
+      <td>业务</td>
+    </tr>
+    <tr>
+      <td><strong>Game</strong></td>
+      <td>一局游戏实例，包含阶段、天数、板子配置及胜负判定规则。</td>
+      <td>业务</td>
+    </tr>
+    <tr>
+      <td><strong>Player</strong></td>
+      <td>某局内玩家的数据快照（与全局系统 User 解耦，包含角色、状态、技能等）。</td>
+      <td>业务</td>
+    </tr>
+    <tr>
+      <td><strong>Stage</strong></td>
+      <td>游戏阶段标识（如 0/1/2/3/4/5/6/6.5/7），驱动状态机演进的核心依据。</td>
+      <td>业务</td>
+    </tr>
+    <tr>
+      <td><strong>GameTag</strong></td>
+      <td>关键事件标签（如死亡事件、发言顺序、PK信息等结构化数据）。</td>
+      <td>业务</td>
+    </tr>
+    <tr>
+      <td><strong>性格预设</strong></td>
+      <td>AI 玩家的行为倾向：<br>- <strong>激进型</strong>：倾向于冒险、主动发言与带节奏；<br>- <strong>保守型</strong>：倾向于谨慎、低调发言与随大流；<br>- <strong>逻辑型</strong>：倾向于严谨推理与数据驱动决策。</td>
+      <td>业务</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表1-1 术语定义表</em>
@@ -80,11 +129,36 @@
 * **核心研发成员**：文就南 (@wenjiunan)、杨策华 (@chuizichaoren)、白纹菲 (@KPBLKPBL)、范盛颉 (@Louis-Dejavu)、雷熙澎 (@ray-055)
 
 **修订记录（Version History）：**
-| 版本号 | 修订日期 | 修订人 | 修订说明 |
-| --- | --- | --- | --- |
-| V1.0.0 | 2026-04-07 | 编写团队 | 初始版本草案完成，确立核心架构。 |
-| V2.0.0 | 2026-04-20 | 编写团队 | 完成系统架构的建设，以及核心功能、接口的详细设计内容。 |
-| V3.0.0 | 2026-04-25 | 编写团队 | 修正文档格式，更改HWCI配置，完善内容细节。 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>版本号</th>
+      <th>修订日期</th>
+      <th>修订人</th>
+      <th>修订说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>V1.0.0</td>
+      <td>2026-04-07</td>
+      <td>编写团队</td>
+      <td>初始版本草案完成，确立核心架构。</td>
+    </tr>
+    <tr>
+      <td>V2.0.0</td>
+      <td>2026-04-20</td>
+      <td>编写团队</td>
+      <td>完成系统架构的建设，以及核心功能、接口的详细设计内容。</td>
+    </tr>
+    <tr>
+      <td>V3.0.0</td>
+      <td>2026-04-25</td>
+      <td>编写团队</td>
+      <td>修正文档格式，更改HWCI配置，完善内容细节。</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表1-2 版本更新记录</em>
@@ -149,7 +223,7 @@
 #### 3.2.1 整体架构图
 
 <p align="center">
-  <img src="../figure/system_architecture.jpg" alt="图1 系统架构图" width="90%">
+  <img src="../figure/system_architecture.jpg" alt="图3-1 系统架构图" width="90%">
   <br>
   <em>图3-1 系统架构图</em>
 </p>
@@ -167,13 +241,54 @@
 
 ### 3.3 软件配置项CSCI
 
-| CSCI编号 | 名称 | 主要职责 |　技术组成　|　对外接口/交互对象|
-| --- | --- | --- | --- | --- |
-| CSCI－01| 前端交互客户端 | 负责登录、大厅、房间、游戏主界面、投票面板、夜晚行动界面、AI复盘界面的展示；接收玩家、房主、管理员操作；完成语音录制、文本展示和语音播放 | React 18、MobX 6、Axios、WebSocket、MediaRecorder | 与游戏逻辑服务通过 RESTful API 和 WebSocket 交互；与语音服务通过音频上传链路间接交互 |
-| CSCI－02 | 游戏逻辑服务 | 负责用户与房间管理、JWT 认证、角色分配、游戏状态机流转、技能结算、投票统计、胜负判定、日志记录与复盘调度；统一调度 AI 与语音服务 | Node.js、Fastify、WebSocket、状态机/自动化法官机制 | 对前提供 RESTful API 与 WebSocket 服务；向 AI Agent 推理服务发起推理请求；向语音服务发起 STT/TTS 请求；读写 MySQL/Redis |
-| CSCI－03 | AI Agent推理服务 | 负责 AI 玩家生成、性格设定、上下文记忆维护、发言生成、投票决策、夜晚行动决策，以及赛后 AI 复盘分析 | Python 3.10+、FastAPI、Prompt Engineering | 接收游戏逻辑服务传入的游戏上下文；返回 AI 发言、投票、行动和复盘结果；读取/写入部分上下文与结果数据 |
-| CSCI－04 | 语音STT/TTS服务 | 负责玩家语音输入的语音转文字（STT）处理，以及 AI 发言和系统提示的文本转语音（TTS）处理；负责降噪、分片处理和播放控制相关能力 | Python 3.10+、FastAPI、OpenAI Whisper | 接收前端上传的音频或经游戏逻辑服务转发的语音请求；向游戏逻辑服务返回转写文本或语音结果；回写音频处理状态与文本结果 |
-| CSCI－05 | 数据存储与缓存服务 | 负责系统结构化数据持久化、实时状态缓存与共享；支撑房间状态、对局记录、日志、AI 临时记忆和复盘结果的存储 | MySQL 8.0、Redis | 为游戏逻辑服务提供用户、房间、对局、日志读写；为 AI 服务提供上下文与结果存取；为语音服务提供转写文本、音频状态和索引存储 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>CSCI编号</th>
+      <th>名称</th>
+      <th>主要职责</th>
+      <th>技术组成</th>
+      <th>对外接口/交互对象</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>CSCI－01</td>
+      <td>前端交互客户端</td>
+      <td>负责登录、大厅、房间、游戏主界面、投票面板、夜晚行动界面、AI复盘界面的展示；接收玩家、房主、管理员操作；完成语音录制、文本展示和语音播放</td>
+      <td>React 18、MobX 6、Axios、WebSocket、MediaRecorder</td>
+      <td>与游戏逻辑服务通过 RESTful API 和 WebSocket 交互；与语音服务通过音频上传链路间接交互</td>
+    </tr>
+    <tr>
+      <td>CSCI－02</td>
+      <td>游戏逻辑服务</td>
+      <td>负责用户与房间管理、JWT 认证、角色分配、游戏状态机流转、技能结算、投票统计、胜负判定、日志记录与复盘调度；统一调度 AI 与语音服务</td>
+      <td>Node.js、Fastify、WebSocket、状态机/自动化法官机制</td>
+      <td>对前提供 RESTful API 与 WebSocket 服务；向 AI Agent 推理服务发起推理请求；向语音服务发起 STT/TTS 请求；读写 MySQL/Redis</td>
+    </tr>
+    <tr>
+      <td>CSCI－03</td>
+      <td>AI Agent推理服务</td>
+      <td>负责 AI 玩家生成、性格设定、上下文记忆维护、发言生成、投票决策、夜晚行动决策，以及赛后 AI 复盘分析</td>
+      <td>Python 3.10+、FastAPI、Prompt Engineering</td>
+      <td>接收游戏逻辑服务传入的游戏上下文；返回 AI 发言、投票、行动和复盘结果；读取/写入部分上下文与结果数据</td>
+    </tr>
+    <tr>
+      <td>CSCI－04</td>
+      <td>语音STT/TTS服务</td>
+      <td>负责玩家语音输入的语音转文字（STT）处理，以及 AI 发言和系统提示的文本转语音（TTS）处理；负责降噪、分片处理和播放控制相关能力</td>
+      <td>Python 3.10+、FastAPI、OpenAI Whisper</td>
+      <td>接收前端上传的音频或经游戏逻辑服务转发的语音请求；向游戏逻辑服务返回转写文本或语音结果；回写音频处理状态与文本结果</td>
+    </tr>
+    <tr>
+      <td>CSCI－05</td>
+      <td>数据存储与缓存服务</td>
+      <td>负责系统结构化数据持久化、实时状态缓存与共享；支撑房间状态、对局记录、日志、AI 临时记忆和复盘结果的存储</td>
+      <td>MySQL 8.0、Redis</td>
+      <td>为游戏逻辑服务提供用户、房间、对局、日志读写；为 AI 服务提供上下文与结果存取；为语音服务提供转写文本、音频状态和索引存储</td>
+    </tr>
+  </tbody>
+</table>
 
 
 <p align="center">
@@ -184,12 +299,42 @@
 ### 3.4 硬件配置项HWCI
 根据当前组内部署安排，系统将采用 4 个自建节点，按照实际占用的独立主机统计HWCI配置。
 
-| HWCI编号 | 部署节点名称 | 规格 | 部署内容与用途说明 |
-| --- | --- | --- | --- |
-| HWCI-01 | 前端交互服务器 | 2 核 CPU / 4GB 内存 / 100GB SSD | 部署前端静态资源与反向代理入口，承载网页访问与静态资源分发。 |
-| HWCI-02 | 后端与数据服务器 | 8 核 CPU / 16GB 内存 / 500GB SSD | 部署游戏逻辑服务（含 WebSocket）、MySQL、Redis，统一承载业务处理、状态缓存与数据持久化。 |
-| HWCI-03 | AI 推理服务器 | 8 核 GPU / 32GB 内存 / 500GB SSD | 部署 AI Agent 推理服务，负责上下文构建、发言生成、投票与夜间行动决策。 |
-| HWCI-04 | 语音处理服务器 | 8 核 GPU / 16GB 内存 / 300GB SSD | 部署语音模块（重点为 STT 本地处理链路），负责语音分片接收、识别与结果回传。 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>HWCI编号</th>
+      <th>部署节点名称</th>
+      <th>规格</th>
+      <th>部署内容与用途说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>HWCI-01</td>
+      <td>前端交互服务器</td>
+      <td>2 核 CPU / 4GB 内存 / 100GB SSD</td>
+      <td>部署前端静态资源与反向代理入口，承载网页访问与静态资源分发。</td>
+    </tr>
+    <tr>
+      <td>HWCI-02</td>
+      <td>后端与数据服务器</td>
+      <td>8 核 CPU / 16GB 内存 / 500GB SSD</td>
+      <td>部署游戏逻辑服务（含 WebSocket）、MySQL、Redis，统一承载业务处理、状态缓存与数据持久化。</td>
+    </tr>
+    <tr>
+      <td>HWCI-03</td>
+      <td>AI 推理服务器</td>
+      <td>8 核 GPU / 32GB 内存 / 500GB SSD</td>
+      <td>部署 AI Agent 推理服务，负责上下文构建、发言生成、投票与夜间行动决策。</td>
+    </tr>
+    <tr>
+      <td>HWCI-04</td>
+      <td>语音处理服务器</td>
+      <td>8 核 GPU / 16GB 内存 / 300GB SSD</td>
+      <td>部署语音模块（重点为 STT 本地处理链路），负责语音分片接收、识别与结果回传。</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表3-2 硬件配置项 HWCI</em>
@@ -197,13 +342,48 @@
 
 
 ### 3.5 CSCI/HWCI部署关系表
-| CSCI编号 | CSCI名称 | 部署HWCI |　部署关系说明　|
-| --- | --- | --- | --- |
-| CSCI－01| 前端交互客户端 | HWCI-01 | 前端静态页面、脚本和样式资源部署在前端服务器上，供用户浏览器访问 |
-| CSCI－02 | 游戏逻辑服务 | HWCI-02 | 游戏逻辑服务部署在后端与数据服务器，向上对接前端客户端，向下调用 AI 推理服务和语音服务，并访问数据库与缓存 | 
-| CSCI－03 | AI Agent推理服务 | HWCI-03 | AI Agent 推理服务独立部署于 AI 推理服务器，由游戏逻辑服务按阶段触发调用 |
-| CSCI－04 | 语音STT/TTS服务 | HWCI-04 | 语音服务独立部署于语音处理服务器，接收前端语音输入或后端 TTS 请求，并将处理结果返回游戏逻辑服务 | 
-| CSCI－05 | 数据存储与缓存服务 | HWCI-02 | MySQL 与 Redis 与后端服务同机部署，为游戏逻辑服务、AI 推理服务和语音服务提供结构化数据存储支撑，同时为 AI 推理服务提供临时记忆和状态共享支持 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>CSCI编号</th>
+      <th>CSCI名称</th>
+      <th>部署HWCI</th>
+      <th>部署关系说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>CSCI－01</td>
+      <td>前端交互客户端</td>
+      <td>HWCI-01</td>
+      <td>前端静态页面、脚本和样式资源部署在前端服务器上，供用户浏览器访问</td>
+    </tr>
+    <tr>
+      <td>CSCI－02</td>
+      <td>游戏逻辑服务</td>
+      <td>HWCI-02</td>
+      <td>游戏逻辑服务部署在后端与数据服务器，向上对接前端客户端，向下调用 AI 推理服务和语音服务，并访问数据库与缓存</td>
+    </tr>
+    <tr>
+      <td>CSCI－03</td>
+      <td>AI Agent推理服务</td>
+      <td>HWCI-03</td>
+      <td>AI Agent 推理服务独立部署于 AI 推理服务器，由游戏逻辑服务按阶段触发调用</td>
+    </tr>
+    <tr>
+      <td>CSCI－04</td>
+      <td>语音STT/TTS服务</td>
+      <td>HWCI-04</td>
+      <td>语音服务独立部署于语音处理服务器，接收前端语音输入或后端 TTS 请求，并将处理结果返回游戏逻辑服务</td>
+    </tr>
+    <tr>
+      <td>CSCI－05</td>
+      <td>数据存储与缓存服务</td>
+      <td>HWCI-02</td>
+      <td>MySQL 与 Redis 与后端服务同机部署，为游戏逻辑服务、AI 推理服务和语音服务提供结构化数据存储支撑，同时为 AI 推理服务提供临时记忆和状态共享支持</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表3-3 CSCI/HWCI 部署关系表</em>
@@ -211,14 +391,40 @@
 
 ## 4.数据结构设计
 ### 4.1 数据库基本信息
-| 项次 | 信息 |
-| ---- | ---- |
-| 数据库名称 | werewolf |
-| 字符集 | utf8mb4（支持emoji表情） |
-| 排序规则 | utf8mb4_unicode_ci |
-| 兼容版本 | MySQL 8.0+，MySQL 5.7（需支持JSON类型） |
-| 存储引擎 | InnoDB |
-| 设计模式 | 逻辑删除（`isDelete`字段）、审计字段（创建/修改时间、操作人） |
+<table align="center">
+  <thead>
+    <tr>
+      <th>项次</th>
+      <th>信息</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>数据库名称</td>
+      <td>werewolf</td>
+    </tr>
+    <tr>
+      <td>字符集</td>
+      <td>utf8mb4（支持emoji表情）</td>
+    </tr>
+    <tr>
+      <td>排序规则</td>
+      <td>utf8mb4_unicode_ci</td>
+    </tr>
+    <tr>
+      <td>兼容版本</td>
+      <td>MySQL 8.0+，MySQL 5.7（需支持JSON类型）</td>
+    </tr>
+    <tr>
+      <td>存储引擎</td>
+      <td>InnoDB</td>
+    </tr>
+    <tr>
+      <td>设计模式</td>
+      <td>逻辑删除（<code>isDelete</code>字段）、审计字段（创建/修改时间、操作人）</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-1 数据库基本信息</em>
@@ -228,28 +434,80 @@
 本数据库共**12张表**，分为**系统权限管理**和**狼人杀核心业务**两大模块：
 
 #### 4.2.1 系统权限管理模块（5张）
-| 表名 | 表注释 |
-| ---- | ---- |
-| lcoco_user | 系统用户表 |
-| lcoco_role | 系统角色表 |
-| lcoco_route | 前端路由表 |
-| lcoco_ui_permission | UI界面权限表 |
-| lcoco_url_permission | 后端接口权限表 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>表名</th>
+      <th>表注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>lcoco_user</td>
+      <td>系统用户表</td>
+    </tr>
+    <tr>
+      <td>lcoco_role</td>
+      <td>系统角色表</td>
+    </tr>
+    <tr>
+      <td>lcoco_route</td>
+      <td>前端路由表</td>
+    </tr>
+    <tr>
+      <td>lcoco_ui_permission</td>
+      <td>UI界面权限表</td>
+    </tr>
+    <tr>
+      <td>lcoco_url_permission</td>
+      <td>后端接口权限表</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-2 系统权限管理模块分类</em>
 </p>
 
 #### 4.2.2 狼人杀核心业务模块（7张）
-| 表名 | 表注释 |
-| ---- | ---- |
-| lcoco_room | 游戏房间表 |
-| lcoco_game | 游戏对局表 |
-| lcoco_player | 游戏玩家表 |
-| lcoco_vision | 玩家视野权限表 |
-| lcoco_action | 玩家行为记录表 |
-| lcoco_game_tag | 游戏状态标签表 |
-| lcoco_record | 游戏流程记录表 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>表名</th>
+      <th>表注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>lcoco_room</td>
+      <td>游戏房间表</td>
+    </tr>
+    <tr>
+      <td>lcoco_game</td>
+      <td>游戏对局表</td>
+    </tr>
+    <tr>
+      <td>lcoco_player</td>
+      <td>游戏玩家表</td>
+    </tr>
+    <tr>
+      <td>lcoco_vision</td>
+      <td>玩家视野权限表</td>
+    </tr>
+    <tr>
+      <td>lcoco_action</td>
+      <td>玩家行为记录表</td>
+    </tr>
+    <tr>
+      <td>lcoco_game_tag</td>
+      <td>游戏状态标签表</td>
+    </tr>
+    <tr>
+      <td>lcoco_record</td>
+      <td>游戏流程记录表</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-3 狼人杀核心业务模块分类</em>
@@ -260,22 +518,117 @@
 #### 4.3.1.1 lcoco_user（系统用户表）
 存储系统后台/游戏用户的基础信息、角色权限、状态等。
 
-| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
-| ---- | ---- | ---- | ---- | ---- |
-| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
-| username | VARCHAR(64) | NOT NULL, UNIQUE | - | 用户名（唯一） |
-| password | VARCHAR(255) | NOT NULL | - | 密码（加密存储） |
-| name | VARCHAR(64) | NOT NULL | 空字符串 | 昵称/真实姓名 |
-| roles | JSON | NULL | - | 绑定的角色列表 |
-| defaultRoleName | VARCHAR(32) | NULL | - | 默认角色名称 |
-| defaultRole | VARCHAR(32) | NULL | - | 默认角色标识 |
-| remark | VARCHAR(255) | NULL | - | 备注 |
-| status | INT | NOT NULL | 1 | 状态（1-正常，0-禁用） |
-| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
-| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
-| createId | INT | NOT NULL | 1 | 创建人ID |
-| modifyId | INT | NOT NULL | 1 | 修改人ID |
-| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除（0-未删除，1-已删除） |
+<table align="center">
+  <thead>
+    <tr>
+      <th>字段名</th>
+      <th>数据类型</th>
+      <th>约束</th>
+      <th>默认值</th>
+      <th>字段注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>_id</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>PK, AUTO_INCREMENT</td>
+      <td>-</td>
+      <td>主键ID</td>
+    </tr>
+    <tr>
+      <td>username</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL, UNIQUE</td>
+      <td>-</td>
+      <td>用户名（唯一）</td>
+    </tr>
+    <tr>
+      <td>password</td>
+      <td>VARCHAR(255)</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>密码（加密存储）</td>
+    </tr>
+    <tr>
+      <td>name</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL</td>
+      <td>空字符串</td>
+      <td>昵称/真实姓名</td>
+    </tr>
+    <tr>
+      <td>roles</td>
+      <td>JSON</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>绑定的角色列表</td>
+    </tr>
+    <tr>
+      <td>defaultRoleName</td>
+      <td>VARCHAR(32)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>默认角色名称</td>
+    </tr>
+    <tr>
+      <td>defaultRole</td>
+      <td>VARCHAR(32)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>默认角色标识</td>
+    </tr>
+    <tr>
+      <td>remark</td>
+      <td>VARCHAR(255)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>备注</td>
+    </tr>
+    <tr>
+      <td>status</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>状态（1-正常，0-禁用）</td>
+    </tr>
+    <tr>
+      <td>createTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP</td>
+      <td>创建时间</td>
+    </tr>
+    <tr>
+      <td>modifyTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP ON UPDATE</td>
+      <td>更新时间</td>
+    </tr>
+    <tr>
+      <td>createId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>创建人ID</td>
+    </tr>
+    <tr>
+      <td>modifyId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>修改人ID</td>
+    </tr>
+    <tr>
+      <td>isDelete</td>
+      <td>TINYINT(1)</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>逻辑删除（0-未删除，1-已删除）</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-4 系统用户表</em>
@@ -291,18 +644,89 @@
 #### 4.3.1.2 lcoco_role（系统角色表）
 存储系统权限角色，用于权限分组管理。
 
-| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
-| ---- | ---- | ---- | ---- | ---- |
-| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
-| key | VARCHAR(32) | NOT NULL, UNIQUE | - | 角色唯一标识 |
-| name | VARCHAR(32) | NOT NULL | 空字符串 | 角色名称 |
-| status | INT | NOT NULL | 1 | 状态（1-正常，0-禁用） |
-| remark | VARCHAR(255) | NULL | - | 备注 |
-| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
-| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
-| createId | INT | NOT NULL | 1 | 创建人ID |
-| modifyId | INT | NOT NULL | 1 | 修改人ID |
-| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>字段名</th>
+      <th>数据类型</th>
+      <th>约束</th>
+      <th>默认值</th>
+      <th>字段注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>_id</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>PK, AUTO_INCREMENT</td>
+      <td>-</td>
+      <td>主键ID</td>
+    </tr>
+    <tr>
+      <td>key</td>
+      <td>VARCHAR(32)</td>
+      <td>NOT NULL, UNIQUE</td>
+      <td>-</td>
+      <td>角色唯一标识</td>
+    </tr>
+    <tr>
+      <td>name</td>
+      <td>VARCHAR(32)</td>
+      <td>NOT NULL</td>
+      <td>空字符串</td>
+      <td>角色名称</td>
+    </tr>
+    <tr>
+      <td>status</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>状态（1-正常，0-禁用）</td>
+    </tr>
+    <tr>
+      <td>remark</td>
+      <td>VARCHAR(255)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>备注</td>
+    </tr>
+    <tr>
+      <td>createTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP</td>
+      <td>创建时间</td>
+    </tr>
+    <tr>
+      <td>modifyTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP ON UPDATE</td>
+      <td>更新时间</td>
+    </tr>
+    <tr>
+      <td>createId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>创建人ID</td>
+    </tr>
+    <tr>
+      <td>modifyId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>修改人ID</td>
+    </tr>
+    <tr>
+      <td>isDelete</td>
+      <td>TINYINT(1)</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>逻辑删除</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-5 系统角色表</em>
@@ -318,21 +742,110 @@
 #### 4.3.1.3 lcoco_route（前端路由表）
 存储前端页面路由，控制页面访问权限。
 
-| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
-| ---- | ---- | ---- | ---- | ---- |
-| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
-| key | VARCHAR(64) | NOT NULL | 空字符串 | 路由标识 |
-| path | VARCHAR(128) | NOT NULL, UNIQUE | - | 路由路径 |
-| name | VARCHAR(64) | NOT NULL | 管理后台 | 路由名称 |
-| roles | JSON | NULL | - | 允许访问的角色列表 |
-| exact | TINYINT(1) | NOT NULL | 1 | 精准匹配标识 |
-| backUrl | VARCHAR(128) | NOT NULL | /403 | 无权限跳转地址 |
-| status | INT | NOT NULL | 1 | 状态 |
-| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
-| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
-| createId | INT | NOT NULL | 1 | 创建人ID |
-| modifyId | INT | NOT NULL | 1 | 修改人ID |
-| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>字段名</th>
+      <th>数据类型</th>
+      <th>约束</th>
+      <th>默认值</th>
+      <th>字段注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>_id</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>PK, AUTO_INCREMENT</td>
+      <td>-</td>
+      <td>主键ID</td>
+    </tr>
+    <tr>
+      <td>key</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL</td>
+      <td>空字符串</td>
+      <td>路由标识</td>
+    </tr>
+    <tr>
+      <td>path</td>
+      <td>VARCHAR(128)</td>
+      <td>NOT NULL, UNIQUE</td>
+      <td>-</td>
+      <td>路由路径</td>
+    </tr>
+    <tr>
+      <td>name</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL</td>
+      <td>管理后台</td>
+      <td>路由名称</td>
+    </tr>
+    <tr>
+      <td>roles</td>
+      <td>JSON</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>允许访问的角色列表</td>
+    </tr>
+    <tr>
+      <td>exact</td>
+      <td>TINYINT(1)</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>精准匹配标识</td>
+    </tr>
+    <tr>
+      <td>backUrl</td>
+      <td>VARCHAR(128)</td>
+      <td>NOT NULL</td>
+      <td>/403</td>
+      <td>无权限跳转地址</td>
+    </tr>
+    <tr>
+      <td>status</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>状态</td>
+    </tr>
+    <tr>
+      <td>createTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP</td>
+      <td>创建时间</td>
+    </tr>
+    <tr>
+      <td>modifyTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP ON UPDATE</td>
+      <td>更新时间</td>
+    </tr>
+    <tr>
+      <td>createId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>创建人ID</td>
+    </tr>
+    <tr>
+      <td>modifyId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>修改人ID</td>
+    </tr>
+    <tr>
+      <td>isDelete</td>
+      <td>TINYINT(1)</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>逻辑删除</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-6 前端路由表</em>
@@ -348,20 +861,103 @@
 #### 4.3.1.4 lcoco_ui_permission（UI界面权限表）
 存储前端按钮、组件等UI元素的权限控制。
 
-| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
-| ---- | ---- | ---- | ---- | ---- |
-| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
-| key | VARCHAR(64) | NOT NULL, UNIQUE | - | 权限唯一标识 |
-| name | VARCHAR(64) | NOT NULL | 空字符串 | 权限名称 |
-| roles | JSON | NULL | - | 拥有权限的角色列表 |
-| type | VARCHAR(32) | NOT NULL | button | 权限类型（按钮/组件） |
-| status | INT | NOT NULL | 1 | 状态 |
-| remark | VARCHAR(255) | NULL | - | 备注 |
-| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
-| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
-| createId | INT | NOT NULL | 1 | 创建人ID |
-| modifyId | INT | NOT NULL | 1 | 修改人ID |
-| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>字段名</th>
+      <th>数据类型</th>
+      <th>约束</th>
+      <th>默认值</th>
+      <th>字段注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>_id</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>PK, AUTO_INCREMENT</td>
+      <td>-</td>
+      <td>主键ID</td>
+    </tr>
+    <tr>
+      <td>key</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL, UNIQUE</td>
+      <td>-</td>
+      <td>权限唯一标识</td>
+    </tr>
+    <tr>
+      <td>name</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL</td>
+      <td>空字符串</td>
+      <td>权限名称</td>
+    </tr>
+    <tr>
+      <td>roles</td>
+      <td>JSON</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>拥有权限的角色列表</td>
+    </tr>
+    <tr>
+      <td>type</td>
+      <td>VARCHAR(32)</td>
+      <td>NOT NULL</td>
+      <td>button</td>
+      <td>权限类型（按钮/组件）</td>
+    </tr>
+    <tr>
+      <td>status</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>状态</td>
+    </tr>
+    <tr>
+      <td>remark</td>
+      <td>VARCHAR(255)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>备注</td>
+    </tr>
+    <tr>
+      <td>createTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP</td>
+      <td>创建时间</td>
+    </tr>
+    <tr>
+      <td>modifyTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP ON UPDATE</td>
+      <td>更新时间</td>
+    </tr>
+    <tr>
+      <td>createId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>创建人ID</td>
+    </tr>
+    <tr>
+      <td>modifyId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>修改人ID</td>
+    </tr>
+    <tr>
+      <td>isDelete</td>
+      <td>TINYINT(1)</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>逻辑删除</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-7 UI界面权限表</em>
@@ -377,20 +973,103 @@
 #### 4.3.1.5 lcoco_url_permission（后端接口权限表）
 存储后端API接口的访问权限控制。
 
-| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
-| ---- | ---- | ---- | ---- | ---- |
-| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
-| key | VARCHAR(64) | NOT NULL, UNIQUE | - | 接口权限标识 |
-| name | VARCHAR(64) | NOT NULL | 空字符串 | 接口名称 |
-| roles | JSON | NULL | - | 允许访问的角色列表 |
-| type | VARCHAR(32) | NOT NULL | button | 权限类型 |
-| status | INT | NOT NULL | 1 | 状态 |
-| remark | VARCHAR(255) | NULL | - | 备注 |
-| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
-| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
-| createId | INT | NOT NULL | 1 | 创建人ID |
-| modifyId | INT | NOT NULL | 1 | 修改人ID |
-| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>字段名</th>
+      <th>数据类型</th>
+      <th>约束</th>
+      <th>默认值</th>
+      <th>字段注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>_id</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>PK, AUTO_INCREMENT</td>
+      <td>-</td>
+      <td>主键ID</td>
+    </tr>
+    <tr>
+      <td>key</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL, UNIQUE</td>
+      <td>-</td>
+      <td>接口权限标识</td>
+    </tr>
+    <tr>
+      <td>name</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL</td>
+      <td>空字符串</td>
+      <td>接口名称</td>
+    </tr>
+    <tr>
+      <td>roles</td>
+      <td>JSON</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>允许访问的角色列表</td>
+    </tr>
+    <tr>
+      <td>type</td>
+      <td>VARCHAR(32)</td>
+      <td>NOT NULL</td>
+      <td>button</td>
+      <td>权限类型</td>
+    </tr>
+    <tr>
+      <td>status</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>状态</td>
+    </tr>
+    <tr>
+      <td>remark</td>
+      <td>VARCHAR(255)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>备注</td>
+    </tr>
+    <tr>
+      <td>createTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP</td>
+      <td>创建时间</td>
+    </tr>
+    <tr>
+      <td>modifyTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP ON UPDATE</td>
+      <td>更新时间</td>
+    </tr>
+    <tr>
+      <td>createId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>创建人ID</td>
+    </tr>
+    <tr>
+      <td>modifyId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>修改人ID</td>
+    </tr>
+    <tr>
+      <td>isDelete</td>
+      <td>TINYINT(1)</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>逻辑删除</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-8 后端接口权限表</em>
@@ -407,24 +1086,131 @@
 #### 4.3.2.1 lcoco_room（游戏房间表）
 存储狼人杀游戏房间的基础信息、玩家席位、状态等。
 
-| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
-| ---- | ---- | ---- | ---- | ---- |
-| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
-| name | VARCHAR(64) | NOT NULL | 狼人杀房间 | 房间名称 |
-| status | INT | NOT NULL | 0 | 房间状态 |
-| gameId | BIGINT UNSIGNED | NULL | - | 关联对局ID |
-| password | VARCHAR(16) | NOT NULL | - | 房间密码 |
-| owner | VARCHAR(64) | NOT NULL | - | 房主用户名 |
-| v1~v12 | VARCHAR(64) | NULL | - | 1-12号席位玩家用户名 |
-| count | INT | NOT NULL | 12 | 最大玩家数 |
-| wait | JSON | NULL | - | 等待列表 |
-| ob | JSON | NULL | - | 观战列表 |
-| remark | VARCHAR(255) | NULL | - | 备注 |
-| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
-| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
-| createId | INT | NOT NULL | 1 | 创建人ID |
-| modifyId | INT | NOT NULL | 1 | 修改人ID |
-| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>字段名</th>
+      <th>数据类型</th>
+      <th>约束</th>
+      <th>默认值</th>
+      <th>字段注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>_id</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>PK, AUTO_INCREMENT</td>
+      <td>-</td>
+      <td>主键ID</td>
+    </tr>
+    <tr>
+      <td>name</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL</td>
+      <td>狼人杀房间</td>
+      <td>房间名称</td>
+    </tr>
+    <tr>
+      <td>status</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>房间状态</td>
+    </tr>
+    <tr>
+      <td>gameId</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>关联对局ID</td>
+    </tr>
+    <tr>
+      <td>password</td>
+      <td>VARCHAR(16)</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>房间密码</td>
+    </tr>
+    <tr>
+      <td>owner</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>房主用户名</td>
+    </tr>
+    <tr>
+      <td>v1~v12</td>
+      <td>VARCHAR(64)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>1-12号席位玩家用户名</td>
+    </tr>
+    <tr>
+      <td>count</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>12</td>
+      <td>最大玩家数</td>
+    </tr>
+    <tr>
+      <td>wait</td>
+      <td>JSON</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>等待列表</td>
+    </tr>
+    <tr>
+      <td>ob</td>
+      <td>JSON</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>观战列表</td>
+    </tr>
+    <tr>
+      <td>remark</td>
+      <td>VARCHAR(255)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>备注</td>
+    </tr>
+    <tr>
+      <td>createTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP</td>
+      <td>创建时间</td>
+    </tr>
+    <tr>
+      <td>modifyTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP ON UPDATE</td>
+      <td>更新时间</td>
+    </tr>
+    <tr>
+      <td>createId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>创建人ID</td>
+    </tr>
+    <tr>
+      <td>modifyId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>修改人ID</td>
+    </tr>
+    <tr>
+      <td>isDelete</td>
+      <td>TINYINT(1)</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>逻辑删除</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-9 游戏房间表</em>
@@ -439,28 +1225,159 @@
 #### 4.3.2.2 lcoco_game（游戏对局表）
 存储单局狼人杀游戏的配置、进程、结果等核心信息。
 
-| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
-| ---- | ---- | ---- | ---- | ---- |
-| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
-| roomId | BIGINT UNSIGNED | NOT NULL | - | 关联房间ID |
-| owner | VARCHAR(64) | NOT NULL | - | 房主 |
-| status | INT | NOT NULL | 1 | 对局状态 |
-| stage | DECIMAL(4,1) | NOT NULL | 0.0 | 当前游戏阶段 |
-| day | INT | NOT NULL | 1 | 当前天数 |
-| v1~v12 | VARCHAR(64) | NULL | - | 1-12号玩家身份配置 |
-| winner | INT | NOT NULL | -1 | 获胜方（-1-未结束） |
-| mode | VARCHAR(32) | NOT NULL | standard_9 | 游戏模式 |
-| playerCount | INT | NOT NULL | 9 | 玩家数量 |
-| witchSaveSelf | INT | NOT NULL | 1 | 女巫是否能自救 |
-| winCondition | INT | NOT NULL | 1 | 胜利条件 |
-| flatTicket | INT | NOT NULL | 1 | 平票规则 |
-| p1/p2/p3 | INT | NOT NULL | 30/45/30 | 阶段计时配置 |
-| remark | VARCHAR(255) | NULL | - | 备注 |
-| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
-| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
-| createId | INT | NOT NULL | 1 | 创建人ID |
-| modifyId | INT | NOT NULL | 1 | 修改人ID |
-| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>字段名</th>
+      <th>数据类型</th>
+      <th>约束</th>
+      <th>默认值</th>
+      <th>字段注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>_id</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>PK, AUTO_INCREMENT</td>
+      <td>-</td>
+      <td>主键ID</td>
+    </tr>
+    <tr>
+      <td>roomId</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>关联房间ID</td>
+    </tr>
+    <tr>
+      <td>owner</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>房主</td>
+    </tr>
+    <tr>
+      <td>status</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>对局状态</td>
+    </tr>
+    <tr>
+      <td>stage</td>
+      <td>DECIMAL(4,1)</td>
+      <td>NOT NULL</td>
+      <td>0.0</td>
+      <td>当前游戏阶段</td>
+    </tr>
+    <tr>
+      <td>day</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>当前天数</td>
+    </tr>
+    <tr>
+      <td>v1~v12</td>
+      <td>VARCHAR(64)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>1-12号玩家身份配置</td>
+    </tr>
+    <tr>
+      <td>winner</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>-1</td>
+      <td>获胜方（-1-未结束）</td>
+    </tr>
+    <tr>
+      <td>mode</td>
+      <td>VARCHAR(32)</td>
+      <td>NOT NULL</td>
+      <td>standard_9</td>
+      <td>游戏模式</td>
+    </tr>
+    <tr>
+      <td>playerCount</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>9</td>
+      <td>玩家数量</td>
+    </tr>
+    <tr>
+      <td>witchSaveSelf</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>女巫是否能自救</td>
+    </tr>
+    <tr>
+      <td>winCondition</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>胜利条件</td>
+    </tr>
+    <tr>
+      <td>flatTicket</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>平票规则</td>
+    </tr>
+    <tr>
+      <td>p1/p2/p3</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>30/45/30</td>
+      <td>阶段计时配置</td>
+    </tr>
+    <tr>
+      <td>remark</td>
+      <td>VARCHAR(255)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>备注</td>
+    </tr>
+    <tr>
+      <td>createTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP</td>
+      <td>创建时间</td>
+    </tr>
+    <tr>
+      <td>modifyTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP ON UPDATE</td>
+      <td>更新时间</td>
+    </tr>
+    <tr>
+      <td>createId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>创建人ID</td>
+    </tr>
+    <tr>
+      <td>modifyId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>修改人ID</td>
+    </tr>
+    <tr>
+      <td>isDelete</td>
+      <td>TINYINT(1)</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>逻辑删除</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-10 游戏对局表</em>
@@ -475,28 +1392,159 @@
 #### 4.3.2.3 lcoco_player（游戏玩家表）
 存储单局游戏中每个玩家的身份、阵营、状态、位置等信息。
 
-| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
-| ---- | ---- | ---- | ---- | ---- |
-| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
-| roomId | BIGINT UNSIGNED | NOT NULL | - | 关联房间ID |
-| gameId | BIGINT UNSIGNED | NOT NULL | - | 关联对局ID |
-| userId | BIGINT UNSIGNED | NULL | - | 关联用户ID |
-| username | VARCHAR(64) | NOT NULL | - | 用户名 |
-| name | VARCHAR(64) | NULL | - | 玩家昵称 |
-| role | VARCHAR(32) | NOT NULL | - | 身份标识 |
-| roleName | VARCHAR(32) | NULL | - | 身份名称 |
-| camp | INT | NOT NULL | 0 | 阵营标识 |
-| campName | VARCHAR(32) | NULL | - | 阵营名称 |
-| status | INT | NOT NULL | 1 | 玩家状态（存活/死亡） |
-| outReason | VARCHAR(32) | NULL | - | 出局原因 |
-| position | INT | NOT NULL | - | 座位号 |
-| skill | JSON | NULL | - | 技能状态 |
-| remark | VARCHAR(255) | NULL | - | 备注 |
-| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
-| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
-| createId | INT | NOT NULL | 1 | 创建人ID |
-| modifyId | INT | NOT NULL | 1 | 修改人ID |
-| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>字段名</th>
+      <th>数据类型</th>
+      <th>约束</th>
+      <th>默认值</th>
+      <th>字段注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>_id</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>PK, AUTO_INCREMENT</td>
+      <td>-</td>
+      <td>主键ID</td>
+    </tr>
+    <tr>
+      <td>roomId</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>关联房间ID</td>
+    </tr>
+    <tr>
+      <td>gameId</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>关联对局ID</td>
+    </tr>
+    <tr>
+      <td>userId</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>关联用户ID</td>
+    </tr>
+    <tr>
+      <td>username</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>用户名</td>
+    </tr>
+    <tr>
+      <td>name</td>
+      <td>VARCHAR(64)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>玩家昵称</td>
+    </tr>
+    <tr>
+      <td>role</td>
+      <td>VARCHAR(32)</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>身份标识</td>
+    </tr>
+    <tr>
+      <td>roleName</td>
+      <td>VARCHAR(32)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>身份名称</td>
+    </tr>
+    <tr>
+      <td>camp</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>阵营标识</td>
+    </tr>
+    <tr>
+      <td>campName</td>
+      <td>VARCHAR(32)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>阵营名称</td>
+    </tr>
+    <tr>
+      <td>status</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>玩家状态（存活/死亡）</td>
+    </tr>
+    <tr>
+      <td>outReason</td>
+      <td>VARCHAR(32)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>出局原因</td>
+    </tr>
+    <tr>
+      <td>position</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>座位号</td>
+    </tr>
+    <tr>
+      <td>skill</td>
+      <td>JSON</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>技能状态</td>
+    </tr>
+    <tr>
+      <td>remark</td>
+      <td>VARCHAR(255)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>备注</td>
+    </tr>
+    <tr>
+      <td>createTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP</td>
+      <td>创建时间</td>
+    </tr>
+    <tr>
+      <td>modifyTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP ON UPDATE</td>
+      <td>更新时间</td>
+    </tr>
+    <tr>
+      <td>createId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>创建人ID</td>
+    </tr>
+    <tr>
+      <td>modifyId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>修改人ID</td>
+    </tr>
+    <tr>
+      <td>isDelete</td>
+      <td>TINYINT(1)</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>逻辑删除</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-11 游戏玩家表</em>
@@ -512,20 +1560,103 @@
 #### 4.3.2.4 lcoco_vision（玩家视野权限表）
 控制游戏中玩家之间的可见性、视野权限。
 
-| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
-| ---- | ---- | ---- | ---- | ---- |
-| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
-| roomId | BIGINT UNSIGNED | NOT NULL | - | 关联房间ID |
-| gameId | BIGINT UNSIGNED | NOT NULL | - | 关联对局ID |
-| from | VARCHAR(64) | NOT NULL | - | 视野发起者 |
-| to | VARCHAR(64) | NOT NULL | - | 视野目标 |
-| status | INT | NOT NULL | 0 | 视野状态 |
-| remark | VARCHAR(255) | NULL | - | 备注 |
-| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
-| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
-| createId | INT | NOT NULL | 1 | 创建人ID |
-| modifyId | INT | NOT NULL | 1 | 修改人ID |
-| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>字段名</th>
+      <th>数据类型</th>
+      <th>约束</th>
+      <th>默认值</th>
+      <th>字段注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>_id</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>PK, AUTO_INCREMENT</td>
+      <td>-</td>
+      <td>主键ID</td>
+    </tr>
+    <tr>
+      <td>roomId</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>关联房间ID</td>
+    </tr>
+    <tr>
+      <td>gameId</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>关联对局ID</td>
+    </tr>
+    <tr>
+      <td>from</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>视野发起者</td>
+    </tr>
+    <tr>
+      <td>to</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>视野目标</td>
+    </tr>
+    <tr>
+      <td>status</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>视野状态</td>
+    </tr>
+    <tr>
+      <td>remark</td>
+      <td>VARCHAR(255)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>备注</td>
+    </tr>
+    <tr>
+      <td>createTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP</td>
+      <td>创建时间</td>
+    </tr>
+    <tr>
+      <td>modifyTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP ON UPDATE</td>
+      <td>更新时间</td>
+    </tr>
+    <tr>
+      <td>createId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>创建人ID</td>
+    </tr>
+    <tr>
+      <td>modifyId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>修改人ID</td>
+    </tr>
+    <tr>
+      <td>isDelete</td>
+      <td>TINYINT(1)</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>逻辑删除</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-12 玩家视野权限表</em>
@@ -541,22 +1672,117 @@
 #### 4.3.2.5 lcoco_action（玩家行为记录表）
 记录游戏中玩家的所有操作行为（投票、杀人、用药等）。
 
-| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
-| ---- | ---- | ---- | ---- | ---- |
-| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
-| roomId | BIGINT UNSIGNED | NOT NULL | - | 关联房间ID |
-| gameId | BIGINT UNSIGNED | NOT NULL | - | 关联对局ID |
-| day | INT | NOT NULL | 1 | 天数 |
-| stage | DECIMAL(4,1) | NOT NULL | 0.0 | 游戏阶段 |
-| from | VARCHAR(64) | NOT NULL | - | 行为发起者 |
-| to | VARCHAR(64) | NOT NULL | - | 行为目标 |
-| action | VARCHAR(32) | NOT NULL | - | 行为类型 |
-| remark | VARCHAR(255) | NULL | - | 备注 |
-| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
-| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
-| createId | INT | NOT NULL | 1 | 创建人ID |
-| modifyId | INT | NOT NULL | 1 | 修改人ID |
-| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>字段名</th>
+      <th>数据类型</th>
+      <th>约束</th>
+      <th>默认值</th>
+      <th>字段注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>_id</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>PK, AUTO_INCREMENT</td>
+      <td>-</td>
+      <td>主键ID</td>
+    </tr>
+    <tr>
+      <td>roomId</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>关联房间ID</td>
+    </tr>
+    <tr>
+      <td>gameId</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>关联对局ID</td>
+    </tr>
+    <tr>
+      <td>day</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>天数</td>
+    </tr>
+    <tr>
+      <td>stage</td>
+      <td>DECIMAL(4,1)</td>
+      <td>NOT NULL</td>
+      <td>0.0</td>
+      <td>游戏阶段</td>
+    </tr>
+    <tr>
+      <td>from</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>行为发起者</td>
+    </tr>
+    <tr>
+      <td>to</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>行为目标</td>
+    </tr>
+    <tr>
+      <td>action</td>
+      <td>VARCHAR(32)</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>行为类型</td>
+    </tr>
+    <tr>
+      <td>remark</td>
+      <td>VARCHAR(255)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>备注</td>
+    </tr>
+    <tr>
+      <td>createTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP</td>
+      <td>创建时间</td>
+    </tr>
+    <tr>
+      <td>modifyTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP ON UPDATE</td>
+      <td>更新时间</td>
+    </tr>
+    <tr>
+      <td>createId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>创建人ID</td>
+    </tr>
+    <tr>
+      <td>modifyId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>修改人ID</td>
+    </tr>
+    <tr>
+      <td>isDelete</td>
+      <td>TINYINT(1)</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>逻辑删除</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-13 玩家行为记录表</em>
@@ -571,27 +1797,152 @@
 #### 4.3.2.6 lcoco_game_tag（游戏状态标签表）
 存储游戏过程中的状态标记、临时数据、扩展信息。
 
-| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
-| ---- | ---- | ---- | ---- | ---- |
-| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
-| roomId | BIGINT UNSIGNED | NOT NULL | - | 关联房间ID |
-| gameId | BIGINT UNSIGNED | NOT NULL | - | 关联对局ID |
-| day | INT | NOT NULL | 1 | 天数 |
-| stage | DECIMAL(4,1) | NOT NULL | 0.0 | 游戏阶段 |
-| target | VARCHAR(64) | NOT NULL | - | 标签目标 |
-| name | VARCHAR(64) | NULL | - | 标签名称 |
-| position | INT | NULL | - | 座位号 |
-| dayStatus | INT | NOT NULL | - | 当日状态 |
-| desc | VARCHAR(32) | NOT NULL | - | 标签描述 |
-| mode | INT | NOT NULL | - | 标签模式 |
-| value | VARCHAR(255) | NULL | - | 标签值 |
-| value2 | JSON | NULL | - | 扩展值1 |
-| value3 | JSON | NULL | - | 扩展值2 |
-| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
-| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
-| createId | INT | NOT NULL | 1 | 创建人ID |
-| modifyId | INT | NOT NULL | 1 | 修改人ID |
-| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>字段名</th>
+      <th>数据类型</th>
+      <th>约束</th>
+      <th>默认值</th>
+      <th>字段注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>_id</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>PK, AUTO_INCREMENT</td>
+      <td>-</td>
+      <td>主键ID</td>
+    </tr>
+    <tr>
+      <td>roomId</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>关联房间ID</td>
+    </tr>
+    <tr>
+      <td>gameId</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>关联对局ID</td>
+    </tr>
+    <tr>
+      <td>day</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>天数</td>
+    </tr>
+    <tr>
+      <td>stage</td>
+      <td>DECIMAL(4,1)</td>
+      <td>NOT NULL</td>
+      <td>0.0</td>
+      <td>游戏阶段</td>
+    </tr>
+    <tr>
+      <td>target</td>
+      <td>VARCHAR(64)</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>标签目标</td>
+    </tr>
+    <tr>
+      <td>name</td>
+      <td>VARCHAR(64)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>标签名称</td>
+    </tr>
+    <tr>
+      <td>position</td>
+      <td>INT</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>座位号</td>
+    </tr>
+    <tr>
+      <td>dayStatus</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>当日状态</td>
+    </tr>
+    <tr>
+      <td>desc</td>
+      <td>VARCHAR(32)</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>标签描述</td>
+    </tr>
+    <tr>
+      <td>mode</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>标签模式</td>
+    </tr>
+    <tr>
+      <td>value</td>
+      <td>VARCHAR(255)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>标签值</td>
+    </tr>
+    <tr>
+      <td>value2</td>
+      <td>JSON</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>扩展值1</td>
+    </tr>
+    <tr>
+      <td>value3</td>
+      <td>JSON</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>扩展值2</td>
+    </tr>
+    <tr>
+      <td>createTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP</td>
+      <td>创建时间</td>
+    </tr>
+    <tr>
+      <td>modifyTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP ON UPDATE</td>
+      <td>更新时间</td>
+    </tr>
+    <tr>
+      <td>createId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>创建人ID</td>
+    </tr>
+    <tr>
+      <td>modifyId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>修改人ID</td>
+    </tr>
+    <tr>
+      <td>isDelete</td>
+      <td>TINYINT(1)</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>逻辑删除</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-14 游戏状态标签表</em>
@@ -606,23 +1957,124 @@
 #### 4.3.2.7 lcoco_record（游戏流程记录表）
 记录游戏全流程日志、公告、关键事件，用于复盘和展示。
 
-| 字段名 | 数据类型 | 约束 | 默认值 | 字段注释 |
-| ---- | ---- | ---- | ---- | ---- |
-| _id | BIGINT UNSIGNED | PK, AUTO_INCREMENT | - | 主键ID |
-| roomId | BIGINT UNSIGNED | NOT NULL | - | 关联房间ID |
-| gameId | BIGINT UNSIGNED | NOT NULL | - | 关联对局ID |
-| content | JSON | NOT NULL | - | 记录内容 |
-| view | JSON | NULL | - | 可见范围 |
-| isCommon | INT | NOT NULL | 0 | 是否公共记录 |
-| stage | DECIMAL(4,1) | NOT NULL | 0.0 | 游戏阶段 |
-| day | INT | NOT NULL | 1 | 天数 |
-| isTitle | INT | NOT NULL | 0 | 是否标题记录 |
-| remark | VARCHAR(255) | NULL | - | 备注 |
-| createTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP | 创建时间 |
-| modifyTime | DATETIME | NOT NULL | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
-| createId | INT | NOT NULL | 1 | 创建人ID |
-| modifyId | INT | NOT NULL | 1 | 修改人ID |
-| isDelete | TINYINT(1) | NOT NULL | 0 | 逻辑删除 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>字段名</th>
+      <th>数据类型</th>
+      <th>约束</th>
+      <th>默认值</th>
+      <th>字段注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>_id</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>PK, AUTO_INCREMENT</td>
+      <td>-</td>
+      <td>主键ID</td>
+    </tr>
+    <tr>
+      <td>roomId</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>关联房间ID</td>
+    </tr>
+    <tr>
+      <td>gameId</td>
+      <td>BIGINT UNSIGNED</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>关联对局ID</td>
+    </tr>
+    <tr>
+      <td>content</td>
+      <td>JSON</td>
+      <td>NOT NULL</td>
+      <td>-</td>
+      <td>记录内容</td>
+    </tr>
+    <tr>
+      <td>view</td>
+      <td>JSON</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>可见范围</td>
+    </tr>
+    <tr>
+      <td>isCommon</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>是否公共记录</td>
+    </tr>
+    <tr>
+      <td>stage</td>
+      <td>DECIMAL(4,1)</td>
+      <td>NOT NULL</td>
+      <td>0.0</td>
+      <td>游戏阶段</td>
+    </tr>
+    <tr>
+      <td>day</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>天数</td>
+    </tr>
+    <tr>
+      <td>isTitle</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>是否标题记录</td>
+    </tr>
+    <tr>
+      <td>remark</td>
+      <td>VARCHAR(255)</td>
+      <td>NULL</td>
+      <td>-</td>
+      <td>备注</td>
+    </tr>
+    <tr>
+      <td>createTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP</td>
+      <td>创建时间</td>
+    </tr>
+    <tr>
+      <td>modifyTime</td>
+      <td>DATETIME</td>
+      <td>NOT NULL</td>
+      <td>CURRENT_TIMESTAMP ON UPDATE</td>
+      <td>更新时间</td>
+    </tr>
+    <tr>
+      <td>createId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>创建人ID</td>
+    </tr>
+    <tr>
+      <td>modifyId</td>
+      <td>INT</td>
+      <td>NOT NULL</td>
+      <td>1</td>
+      <td>修改人ID</td>
+    </tr>
+    <tr>
+      <td>isDelete</td>
+      <td>TINYINT(1)</td>
+      <td>NOT NULL</td>
+      <td>0</td>
+      <td>逻辑删除</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表4-15 游戏流程记录表</em>
@@ -1317,20 +2769,108 @@ lcoco_action, lcoco_game_tag, lcoco_record, lcoco_vision
 #### 6.2.1 用户与 UI 配置模块 API
 支持前端 UI 界面的基础展示、历史战绩与图鉴渲染。
 
-| 接口路径 | 方法 | 功能描述 | 权限校验 | 核心输入数据 | 核心输出数据 (Data) |
-| --- | --- | --- | --- | --- | --- |
-| `/api/user/login` | POST | 账号密码登录 | 无 | `username`, `password` | `token`, `userInfo` |
-| `/api/system/dict` | GET | 获取系统UI配置/图鉴 | 无 | `type=roles` | 角色说明、UI资源地址、默认头像列表 |
-| `/api/record/list` | GET | 获取用户游戏复盘列表 | 需登录 | `page`, `pageSize` | 历史对局列表 (含时间、胜负、身份) |
-| `/api/record/{gameId}`| GET | 获取单局游戏复盘详情 | 需登录 | URL Param: `gameId`| 全局玩家身份、各天夜晚/白天行动时间线 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>接口路径</th>
+      <th>方法</th>
+      <th>功能描述</th>
+      <th>权限校验</th>
+      <th>核心输入数据</th>
+      <th>核心输出数据 (Data)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>/api/user/login</code></td>
+      <td>POST</td>
+      <td>账号密码登录</td>
+      <td>无</td>
+      <td><code>username</code>, <code>password</code></td>
+      <td><code>token</code>, <code>userInfo</code></td>
+    </tr>
+    <tr>
+      <td><code>/api/system/dict</code></td>
+      <td>GET</td>
+      <td>获取系统UI配置/图鉴</td>
+      <td>无</td>
+      <td><code>type=roles</code></td>
+      <td>角色说明、UI资源地址、默认头像列表</td>
+    </tr>
+    <tr>
+      <td><code>/api/record/list</code></td>
+      <td>GET</td>
+      <td>获取用户游戏复盘列表</td>
+      <td>需登录</td>
+      <td><code>page</code>, <code>pageSize</code></td>
+      <td>历史对局列表 (含时间、胜负、身份)</td>
+    </tr>
+    <tr>
+      <td><code>/api/record/{gameId}</code></td>
+      <td>GET</td>
+      <td>获取单局游戏复盘详情</td>
+      <td>需登录</td>
+      <td>URL Param: <code>gameId</code></td>
+      <td>全局玩家身份、各天夜晚/白天行动时间线</td>
+    </tr>
+  </tbody>
+</table>
+
+<p align="center">
+  <em>表6-1 用户与 UI 配置模块 API</em>
+</p>
 
 #### 6.2.2 房间管理模块 API
-| 接口路径 | 方法 | 功能描述 | 权限校验 | 核心输入数据 (Body) | 核心输出数据 (Data) |
-| --- | --- | --- | --- | --- | --- |
-| `/api/room/create` | POST | 创建房间 | 需登录 | `name`, `password`, `config` | `roomId`, `roomCode` |
-| `/api/room/join` | POST | 加入房间 | 需登录 | `roomCode`, `password` | 房间详情、当前分配的座位号 |
-| `/api/room/seat` | PUT | 换座操作 | 需登录 | `roomId`, `targetPosition` | 换座结果布尔值 |
-| `/api/game/start` | POST | 房主发起开局 | 仅房主 | `roomId` | 游戏 ID (`gameId`)、初始阶段信息 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>接口路径</th>
+      <th>方法</th>
+      <th>功能描述</th>
+      <th>权限校验</th>
+      <th>核心输入数据 (Body)</th>
+      <th>核心输出数据 (Data)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>/api/room/create</code></td>
+      <td>POST</td>
+      <td>创建房间</td>
+      <td>需登录</td>
+      <td><code>name</code>, <code>password</code>, <code>config</code></td>
+      <td><code>roomId</code>, <code>roomCode</code></td>
+    </tr>
+    <tr>
+      <td><code>/api/room/join</code></td>
+      <td>POST</td>
+      <td>加入房间</td>
+      <td>需登录</td>
+      <td><code>roomCode</code>, <code>password</code></td>
+      <td>房间详情、当前分配的座位号</td>
+    </tr>
+    <tr>
+      <td><code>/api/room/seat</code></td>
+      <td>PUT</td>
+      <td>换座操作</td>
+      <td>需登录</td>
+      <td><code>roomId</code>, <code>targetPosition</code></td>
+      <td>换座结果布尔值</td>
+    </tr>
+    <tr>
+      <td><code>/api/game/start</code></td>
+      <td>POST</td>
+      <td>房主发起开局</td>
+      <td>仅房主</td>
+      <td><code>roomId</code></td>
+      <td>游戏 ID (<code>gameId</code>)、初始阶段信息</td>
+    </tr>
+  </tbody>
+</table>
+
+<p align="center">
+  <em>表6-2 房间管理模块 API</em>
+</p>
 
 #### 6.2.3 游戏操作指令 API
 *注：投票、技能释放通过 REST 请求触发，后端处理完成后通过 WebSocket 广播结果。*
@@ -1392,14 +2932,58 @@ lcoco_action, lcoco_game_tag, lcoco_record, lcoco_vision
 
 #### 6.4.2 核心下发事件定义 (Server -> Client)
 
-| 事件标识 (`event`) | 触发时机 | `data` 负载数据结构示例 | 前端 UI 响应逻辑 |
-| --- | --- | --- | --- |
-| `roomUpdate` | 玩家加入/离开/换座时 | `[{position: 1, user: 'A'}]` | 刷新座位图展示状态 |
-| `stageChange` | 游戏阶段推进 | `{ stage: 1, stageName: "天黑", countdown: 30 }` | 切换背景UI，启动倒计时，控制面板显隐 |
-| `privateInfo` | 身份发放、查验结果 | `{ role: "witch", vision: [2, 3] }` | 仅推给特定玩家，更新底牌图鉴与视野状态 |
-| `speechText` | 玩家发言 STT 解析完成时 | `{ position: 3, text: "我是预言家" }` | 在聊天气泡或右侧字幕流中展示文字 |
-| **`audioPlay`** | **轮到 AI 或 法官发言时** | `{ speaker: "AI_1", format: "mp3", audioBase64: "SUQzBAA..." }` | **前端拦截Base64，本地解码并交由 Web Audio API 播放**，同时高亮说话者头像 |
-| `gameOver` | 触发胜利条件时 | `{ winnerCamp: 1, details: [...] }` | 弹出结算UI面板，展示全员底牌 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>事件标识 (<code>event</code>)</th>
+      <th>触发时机</th>
+      <th><code>data</code> 负载数据结构示例</th>
+      <th>前端 UI 响应逻辑</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>roomUpdate</code></td>
+      <td>玩家加入/离开/换座时</td>
+      <td><code>[{position: 1, user: &#x27;A&#x27;}]</code></td>
+      <td>刷新座位图展示状态</td>
+    </tr>
+    <tr>
+      <td><code>stageChange</code></td>
+      <td>游戏阶段推进</td>
+      <td><code>{ stage: 1, stageName: &quot;天黑&quot;, countdown: 30 }</code></td>
+      <td>切换背景UI，启动倒计时，控制面板显隐</td>
+    </tr>
+    <tr>
+      <td><code>privateInfo</code></td>
+      <td>身份发放、查验结果</td>
+      <td><code>{ role: &quot;witch&quot;, vision: [2, 3] }</code></td>
+      <td>仅推给特定玩家，更新底牌图鉴与视野状态</td>
+    </tr>
+    <tr>
+      <td><code>speechText</code></td>
+      <td>玩家发言 STT 解析完成时</td>
+      <td><code>{ position: 3, text: &quot;我是预言家&quot; }</code></td>
+      <td>在聊天气泡或右侧字幕流中展示文字</td>
+    </tr>
+    <tr>
+      <td><strong><code>audioPlay</code></strong></td>
+      <td><strong>轮到 AI 或 法官发言时</strong></td>
+      <td><code>{ speaker: &quot;AI_1&quot;, format: &quot;mp3&quot;, audioBase64: &quot;SUQzBAA...&quot; }</code></td>
+      <td><strong>前端拦截Base64，本地解码并交由 Web Audio API 播放</strong>，同时高亮说话者头像</td>
+    </tr>
+    <tr>
+      <td><code>gameOver</code></td>
+      <td>触发胜利条件时</td>
+      <td><code>{ winnerCamp: 1, details: [...] }</code></td>
+      <td>弹出结算UI面板，展示全员底牌</td>
+    </tr>
+  </tbody>
+</table>
+
+<p align="center">
+  <em>表6-3 核心下发事件定义</em>
+</p>
 
 #### 6.4.3 前端上报事件定义 (Client -> Server)
 *   `heartbeat`：每 15 秒发送 `{"event": "ping"}`。
@@ -1558,13 +3142,54 @@ sequenceDiagram
 
 ### 7.4 性能评估与监控矩阵
 
-| 指标 ID | 性能维度 | 量化目标 | 技术实现策略 | 监控方案 |
-| :--- | :--- | :--- | :--- | :--- |
-| **P-01** | REST 接口响应 | P99 < 200ms | Fastify 路由加速（基于 `find-my-way` 基数树路由，时间复杂度 O(log n)）+ 数据库索引覆盖查询 | 开启 Fastify `requestTimeout` 钩子，记录 P50/P95/P99 分位延迟 |
-| **P-02** | 状态同步延迟 | 端到端 < 100ms | WebSocket 增量推送（报文 ≤1KB）+ Redis O(1) Hash 读取（<1ms） | 前端埋点计算 `T_send` 至 `T_receive` 的 `Round_Trip_Sync_Time` |
-| **P-03** | 数据库并发 | 慢查询率 < 1% | Sequelize 连接池（10～50 动态预热）+ Memory-First 策略将写库频率降低约 90% | MySQL `Slow_Query_Log` 监控（阈值 200ms），配合 `EXPLAIN` 定期审查执行计划 |
-| **P-04** | AI 推理效率 | 感知响应 < 50ms；实际推理 < 3s | 异步 Job 调度（Webhook 回调）+ 占位符机制解耦感知延迟 + 超载时降级至轻量模型 | Python 服务记录任务入队时间戳与回调时间戳，统计 `AI_Task_Latency` 分布 |
-| **P-05** | 故障恢复 | 断线重连恢复 < 5s | Redis RDB/AOF 混合持久化（最大数据丢失窗口 ≤1s）+ 客户端重连后拉取 Redis 最新快照重建状态 | 模拟随机 Kill 进程，自动化测试 `Resume_Time`，验收阈值 5s |
+<table align="center">
+  <thead>
+    <tr>
+      <th>指标 ID</th>
+      <th>性能维度</th>
+      <th>量化目标</th>
+      <th>技术实现策略</th>
+      <th>监控方案</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>P-01</strong></td>
+      <td>REST 接口响应</td>
+      <td>P99 &lt; 200ms</td>
+      <td>Fastify 路由加速（基于 <code>find-my-way</code> 基数树路由，时间复杂度 O(log n)）+ 数据库索引覆盖查询</td>
+      <td>开启 Fastify <code>requestTimeout</code> 钩子，记录 P50/P95/P99 分位延迟</td>
+    </tr>
+    <tr>
+      <td><strong>P-02</strong></td>
+      <td>状态同步延迟</td>
+      <td>端到端 &lt; 100ms</td>
+      <td>WebSocket 增量推送（报文 ≤1KB）+ Redis O(1) Hash 读取（&lt;1ms）</td>
+      <td>前端埋点计算 <code>T_send</code> 至 <code>T_receive</code> 的 <code>Round_Trip_Sync_Time</code></td>
+    </tr>
+    <tr>
+      <td><strong>P-03</strong></td>
+      <td>数据库并发</td>
+      <td>慢查询率 &lt; 1%</td>
+      <td>Sequelize 连接池（10～50 动态预热）+ Memory-First 策略将写库频率降低约 90%</td>
+      <td>MySQL <code>Slow_Query_Log</code> 监控（阈值 200ms），配合 <code>EXPLAIN</code> 定期审查执行计划</td>
+    </tr>
+    <tr>
+      <td><strong>P-04</strong></td>
+      <td>AI 推理效率</td>
+      <td>感知响应 &lt; 50ms；实际推理 &lt; 3s</td>
+      <td>异步 Job 调度（Webhook 回调）+ 占位符机制解耦感知延迟 + 超载时降级至轻量模型</td>
+      <td>Python 服务记录任务入队时间戳与回调时间戳，统计 <code>AI_Task_Latency</code> 分布</td>
+    </tr>
+    <tr>
+      <td><strong>P-05</strong></td>
+      <td>故障恢复</td>
+      <td>断线重连恢复 &lt; 5s</td>
+      <td>Redis RDB/AOF 混合持久化（最大数据丢失窗口 ≤1s）+ 客户端重连后拉取 Redis 最新快照重建状态</td>
+      <td>模拟随机 Kill 进程，自动化测试 <code>Resume_Time</code>，验收阈值 5s</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表7-1 性能评估与监控表</em>
@@ -1572,90 +3197,232 @@ sequenceDiagram
 
 ## 8. 其他设计
 ### 8.1 安全性（高优先级）
-| 技术点 | 选型方案 |
-|--------|----------|
-| 密码存储 | BCrypt（加盐哈希） |
-| 身份认证 | JWT（JSON Web Token） + Redis |
-| 传输安全 | HTTPS（TLS 1.3） |
-| 防攻击 | 请求频率限流、CSRF防护、XSS防护、SQL注入防护 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>技术点</th>
+      <th>选型方案</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>密码存储</td>
+      <td>BCrypt（加盐哈希）</td>
+    </tr>
+    <tr>
+      <td>身份认证</td>
+      <td>JWT（JSON Web Token） + Redis</td>
+    </tr>
+    <tr>
+      <td>传输安全</td>
+      <td>HTTPS（TLS 1.3）</td>
+    </tr>
+    <tr>
+      <td>防攻击</td>
+      <td>请求频率限流、CSRF防护、XSS防护、SQL注入防护</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表8-1 安全性设计表</em>
 </p>
 
 ### 8.2 稳定性（高优先级）
-| 技术点 | 选型方案 |
-|--------|----------|
-| 服务架构 | 微服务/单体服务 + 心跳机制 |
-| 断线重连 | WebSocket自动重连 + 状态快照 |
-| 异常处理 | 全局异常捕获 + 熔断降级 |
-| 高可用 | 服务集群 + 负载均衡（Nginx） |
+<table align="center">
+  <thead>
+    <tr>
+      <th>技术点</th>
+      <th>选型方案</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>服务架构</td>
+      <td>微服务/单体服务 + 心跳机制</td>
+    </tr>
+    <tr>
+      <td>断线重连</td>
+      <td>WebSocket自动重连 + 状态快照</td>
+    </tr>
+    <tr>
+      <td>异常处理</td>
+      <td>全局异常捕获 + 熔断降级</td>
+    </tr>
+    <tr>
+      <td>高可用</td>
+      <td>服务集群 + 负载均衡（Nginx）</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表8-2 稳定性设计表</em>
 </p>
 
 ### 8.3 兼容性（中优先级）
-| 技术点 | 选型方案 |
-|--------|----------|
-| 前端框架 | Vue/React + 响应式布局（Flex/Grid） |
-| 浏览器兼容 | Babel + Polyfill + PostCSS |
-| 分辨率适配 | 自适应布局 + 媒体查询 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>技术点</th>
+      <th>选型方案</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>前端框架</td>
+      <td>Vue/React + 响应式布局（Flex/Grid）</td>
+    </tr>
+    <tr>
+      <td>浏览器兼容</td>
+      <td>Babel + Polyfill + PostCSS</td>
+    </tr>
+    <tr>
+      <td>分辨率适配</td>
+      <td>自适应布局 + 媒体查询</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表8-3 兼容性设计表</em>
 </p>
 
 ### 8.4 可维护性（中优先级）
-| 技术点 | 选型方案 |
-|--------|----------|
-| 代码规范 | ESLint + Prettier + EditorConfig |
-| 模块化 | 前后端分层架构 + 单一职责原则 |
-| 文档 | Swagger/OpenAPI + JSDoc + Git Commit规范 |
-| 版本控制 | Git + GitFlow工作流 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>技术点</th>
+      <th>选型方案</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>代码规范</td>
+      <td>ESLint + Prettier + EditorConfig</td>
+    </tr>
+    <tr>
+      <td>模块化</td>
+      <td>前后端分层架构 + 单一职责原则</td>
+    </tr>
+    <tr>
+      <td>文档</td>
+      <td>Swagger/OpenAPI + JSDoc + Git Commit规范</td>
+    </tr>
+    <tr>
+      <td>版本控制</td>
+      <td>Git + GitFlow工作流</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表8-4 可维护性设计表</em>
 </p>
 
 ### 8.5 易用性（高优先级）
-| 技术点 | 选型方案 |
-|--------|----------|
-| 交互设计 | 原型设计（Figma） + 用户测试 |
-| 前端交互 | 防抖/节流 + 即时反馈 |
-| 引导系统 | 新手引导 + 操作提示 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>技术点</th>
+      <th>选型方案</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>交互设计</td>
+      <td>原型设计（Figma） + 用户测试</td>
+    </tr>
+    <tr>
+      <td>前端交互</td>
+      <td>防抖/节流 + 即时反馈</td>
+    </tr>
+    <tr>
+      <td>引导系统</td>
+      <td>新手引导 + 操作提示</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表8-5 易用性设计表</em>
 </p>
 
 ### 8.6 合规性（高优先级）
-| 技术点 | 选型方案 |
-|--------|----------|
-| 内容审核 | 第三方内容审核API（阿里云/腾讯云） + 本地敏感词库 |
-| 隐私保护 | 数据脱敏 + 权限控制 + 隐私政策 |
-| 合规审计 | 操作日志 + 数据留存 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>技术点</th>
+      <th>选型方案</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>内容审核</td>
+      <td>第三方内容审核API（阿里云/腾讯云） + 本地敏感词库</td>
+    </tr>
+    <tr>
+      <td>隐私保护</td>
+      <td>数据脱敏 + 权限控制 + 隐私政策</td>
+    </tr>
+    <tr>
+      <td>合规审计</td>
+      <td>操作日志 + 数据留存</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表8-6 合规性设计表</em>
 </p>
 
 ### 8.7 可配置性（中优先级）
-| 技术点 | 选型方案 |
-|--------|----------|
-| 配置中心 | Nacos/Apollo（分布式）/ 本地配置文件（单体） + 配置管理后台 |
-| 配置热更新 | 配置监听 + 实时生效 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>技术点</th>
+      <th>选型方案</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>配置中心</td>
+      <td>Nacos/Apollo（分布式）/ 本地配置文件（单体） + 配置管理后台</td>
+    </tr>
+    <tr>
+      <td>配置热更新</td>
+      <td>配置监听 + 实时生效</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表8-7 可配置性设计表</em>
 </p>
 
 ### 8.8 数据备份能力（中优先级）
-| 技术点 | 选型方案 |
-|--------|----------|
-| 数据备份 | 定时全量备份 + 增量备份 |
-| 备份存储 | 云存储（OSS/COS） + 本地冗余存储 |
-| 恢复机制 | 一键恢复 + 数据校验 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>技术点</th>
+      <th>选型方案</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>数据备份</td>
+      <td>定时全量备份 + 增量备份</td>
+    </tr>
+    <tr>
+      <td>备份存储</td>
+      <td>云存储（OSS/COS） + 本地冗余存储</td>
+    </tr>
+    <tr>
+      <td>恢复机制</td>
+      <td>一键恢复 + 数据校验</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
   <em>表8-8 数据备份能力设计表</em>
@@ -1664,57 +3431,255 @@ sequenceDiagram
 ## 附录
 ### A. 需求-设计正向跟踪矩阵（Requirements → SDD）
 
-| 需求ID | 需求名称 | SDD 设计对应章节 | 覆盖状态 |
-|---|---|---|---|
-| SRS-F-01 | 用户注册与登录 | 5.2 CSC-02-01；6.2.1；6.1.3 | 已覆盖 |
-| SRS-F-02 | 房间管理 | 5.2 CSC-02-02；6.2.2；6.3 | 已覆盖 |
-| SRS-F-03 | 开局与角色分配 | 5.2 CSC-02-04；6.2.3 | 已覆盖 |
-| SRS-F-04 | 游戏流程控制 | 5.2 CSC-02-03；6.3 | 已覆盖 |
-| SRS-F-05 | 角色与技能系统 | 5.2 CSC-02-06；6.2.3 | 已覆盖 |
-| SRS-F-06 | 投票与放逐机制 | 5.2 CSC-02-05；6.2.3；6.3 | 已覆盖 |
-| SRS-F-07 | 胜负判定 | 5.2 CSC-02-07；6.2.3 | 已覆盖 |
-| SRS-F-08 | AI玩家生成 | 5.2 CSC-02-09；5.3 CSC-03-01 | 已覆盖 |
-| SRS-F-09 | AI上下文记忆 | 5.3 CSC-03-01 | 已覆盖 |
-| SRS-F-10 | AI推理与嫌疑评估 | 5.3 CSC-03-02 | 已覆盖（可继续增强） |
-| SRS-F-11 | AI行为决策 | 5.2 CSC-02-09；5.3 CSC-03-02 | 已覆盖 |
-| SRS-F-12 | AI多样性行为 | 5.3 CSC-03-01/03-02 | 已覆盖（可继续增强） |
-| SRS-F-13 | 语音输入（STT） | 5.4 CSC-04-01；6.4.2 | 已覆盖 |
-| SRS-F-14 | 语音输出（TTS） | 5.4 CSC-04-02；6.4.3 | 已覆盖 |
-| SRS-F-15 | 语音交互闭环 | 5.2 CSC-02-10；5.4 CSC-04-01~03；6.4 | 已覆盖 |
-| SRS-F-16 | 全流程日志记录 | 5.5 CSC-05-01；6.2.3；6.3 | 已覆盖（可继续增强） |
-| SRS-F-17 | AI智能复盘分析 | 5.3 CSC-03-03；5.5 CSC-05-01 | 已覆盖（可继续增强） |
-| SRS-IF-EXT-01~04 | 外部接口 | 6.4、6.5、5.4、5.5 | 已覆盖 |
-| SRS-IF-INT-01~04 | 内部接口 |6.1、6.2、6.3、6.4 | 已覆盖 |
-| SRS-IF-UI-01~13 |UI交互 |  5.1、6.3、8.5 | 已覆盖 |
-| SRS-PERF-01~09 |性能需求 | 7.1~7.4 | 已覆盖 |
-| SRS-OR-01~08 | 其他需求 |8.1~8.8 | 已覆盖 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>需求ID</th>
+      <th>需求名称</th>
+      <th>SDD 设计对应章节</th>
+      <th>覆盖状态</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>SRS-F-01</td>
+      <td>用户注册与登录</td>
+      <td>5.2 CSC-02-01；6.2.1；6.1.3</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-F-02</td>
+      <td>房间管理</td>
+      <td>5.2 CSC-02-02；6.2.2；6.3</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-F-03</td>
+      <td>开局与角色分配</td>
+      <td>5.2 CSC-02-04；6.2.3</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-F-04</td>
+      <td>游戏流程控制</td>
+      <td>5.2 CSC-02-03；6.3</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-F-05</td>
+      <td>角色与技能系统</td>
+      <td>5.2 CSC-02-06；6.2.3</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-F-06</td>
+      <td>投票与放逐机制</td>
+      <td>5.2 CSC-02-05；6.2.3；6.3</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-F-07</td>
+      <td>胜负判定</td>
+      <td>5.2 CSC-02-07；6.2.3</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-F-08</td>
+      <td>AI玩家生成</td>
+      <td>5.2 CSC-02-09；5.3 CSC-03-01</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-F-09</td>
+      <td>AI上下文记忆</td>
+      <td>5.3 CSC-03-01</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-F-10</td>
+      <td>AI推理与嫌疑评估</td>
+      <td>5.3 CSC-03-02</td>
+      <td>已覆盖（可继续增强）</td>
+    </tr>
+    <tr>
+      <td>SRS-F-11</td>
+      <td>AI行为决策</td>
+      <td>5.2 CSC-02-09；5.3 CSC-03-02</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-F-12</td>
+      <td>AI多样性行为</td>
+      <td>5.3 CSC-03-01/03-02</td>
+      <td>已覆盖（可继续增强）</td>
+    </tr>
+    <tr>
+      <td>SRS-F-13</td>
+      <td>语音输入（STT）</td>
+      <td>5.4 CSC-04-01；6.4.2</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-F-14</td>
+      <td>语音输出（TTS）</td>
+      <td>5.4 CSC-04-02；6.4.3</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-F-15</td>
+      <td>语音交互闭环</td>
+      <td>5.2 CSC-02-10；5.4 CSC-04-01~03；6.4</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-F-16</td>
+      <td>全流程日志记录</td>
+      <td>5.5 CSC-05-01；6.2.3；6.3</td>
+      <td>已覆盖（可继续增强）</td>
+    </tr>
+    <tr>
+      <td>SRS-F-17</td>
+      <td>AI智能复盘分析</td>
+      <td>5.3 CSC-03-03；5.5 CSC-05-01</td>
+      <td>已覆盖（可继续增强）</td>
+    </tr>
+    <tr>
+      <td>SRS-IF-EXT-01~04</td>
+      <td>外部接口</td>
+      <td>6.4、6.5、5.4、5.5</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-IF-INT-01~04</td>
+      <td>内部接口</td>
+      <td>6.1、6.2、6.3、6.4</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-IF-UI-01~13</td>
+      <td>UI交互</td>
+      <td>5.1、6.3、8.5</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-PERF-01~09</td>
+      <td>性能需求</td>
+      <td>7.1~7.4</td>
+      <td>已覆盖</td>
+    </tr>
+    <tr>
+      <td>SRS-OR-01~08</td>
+      <td>其他需求</td>
+      <td>8.1~8.8</td>
+      <td>已覆盖</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
-  <em>表A 正向跟踪矩阵</em>
+  <em>表A-1 正向跟踪矩阵</em>
 </p>
 
 ### B. 需求-设计反向跟踪矩阵（SDD → Requirements）
 
-| SDD 模块/章节 | 主要对应需求ID | 说明 |
-|---|---|---|
-| 5.1 CSCI-01 前端交互客户端 | SRS-IF-UI-01~13，SRS-UR-01/02/03/04/06/07/12 | 覆盖登录、房间、对局交互与可视化展示 |
-| 5.2 CSC-02-01 用户认证与权限 | SRS-F-01，SRS-IF-INT-01，SRS-OR-01，SRS-UR-01 | 认证、鉴权、权限控制 |
-| 5.2 CSC-02-02 房间管理 | SRS-F-02，SRS-UR-02/03/04，SRS-IF-INT-01/02 | 房间创建/加入/入座/观战/退出 |
-| 5.2 CSC-02-03 状态机流程控制 | SRS-F-04，SRS-UR-06/07，SRS-PERF-06 | 阶段推进、倒计时、广播 |
-| 5.2 CSC-02-04 角色分配与视野 | SRS-F-03，SRS-UR-05 | 角色分配与视野初始化 |
-| 5.2 CSC-02-05 白天发言与投票 | SRS-F-06，SRS-UR-06/07 | 票型统计、PK与放逐 |
-| 5.2 CSC-02-06 夜晚技能执行 | SRS-F-05，SRS-UR-06 | 夜间技能与天亮结算 |
-| 5.2 CSC-02-07 胜负判定 | SRS-F-07，SRS-UR-09 | 阵营判定与终局控制 |
-| 5.2 CSC-02-08 实时通信 | SRS-IF-INT-02，SRS-UR-07/11，SRS-PERF-06/08 | WS 推送与状态同步 |
-| 5.2 CSC-02-09 AI Agent 调度 | SRS-F-08~12，SRS-IF-INT-03，SRS-UR-10 | AI 行为调度与回灌 |
-| 5.2 CSC-02-10 语音服务调度 | SRS-F-13~15，SRS-IF-EXT-02/03，SRS-UR-10/12 | STT/TTS 编排 |
-| 5.3 CSCI-03 AI 推理服务 | SRS-F-09~12/17，SRS-IF-EXT-01，SRS-UR-10 | 记忆、推理、复盘 |
-| 5.4 CSCI-04 语音 STT/TTS 服务 | SRS-F-13~15，SRS-IF-EXT-02/03，SRS-PERF-03/05/09 | 语音识别与合成 |
-| 5.5 CSC-05-01 数据存储模块 | SRS-F-16/17，SRS-IF-EXT-04，SRS-OR-08，SRS-UR-08 | 持久化、日志、复盘数据底座 |
-| 6. 接口设计 | SRS-IF-EXT-*，SRS-IF-INT-*，SRS-UR-07/10 | 外部与内部接口协议 |
-| 7. 性能指标设计 | SRS-PERF-01~09，SRS-UR-12 | 响应、并发、稳定性 |
-| 8. 其他设计 | SRS-OR-01~08，SRS-UR-11/12 | 安全性、稳定性、可维护性、可配置性 |
+<table align="center">
+  <thead>
+    <tr>
+      <th>SDD 模块/章节</th>
+      <th>主要对应需求ID</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>5.1 CSCI-01 前端交互客户端</td>
+      <td>SRS-IF-UI-01~13，SRS-UR-01/02/03/04/06/07/12</td>
+      <td>覆盖登录、房间、对局交互与可视化展示</td>
+    </tr>
+    <tr>
+      <td>5.2 CSC-02-01 用户认证与权限</td>
+      <td>SRS-F-01，SRS-IF-INT-01，SRS-OR-01，SRS-UR-01</td>
+      <td>认证、鉴权、权限控制</td>
+    </tr>
+    <tr>
+      <td>5.2 CSC-02-02 房间管理</td>
+      <td>SRS-F-02，SRS-UR-02/03/04，SRS-IF-INT-01/02</td>
+      <td>房间创建/加入/入座/观战/退出</td>
+    </tr>
+    <tr>
+      <td>5.2 CSC-02-03 状态机流程控制</td>
+      <td>SRS-F-04，SRS-UR-06/07，SRS-PERF-06</td>
+      <td>阶段推进、倒计时、广播</td>
+    </tr>
+    <tr>
+      <td>5.2 CSC-02-04 角色分配与视野</td>
+      <td>SRS-F-03，SRS-UR-05</td>
+      <td>角色分配与视野初始化</td>
+    </tr>
+    <tr>
+      <td>5.2 CSC-02-05 白天发言与投票</td>
+      <td>SRS-F-06，SRS-UR-06/07</td>
+      <td>票型统计、PK与放逐</td>
+    </tr>
+    <tr>
+      <td>5.2 CSC-02-06 夜晚技能执行</td>
+      <td>SRS-F-05，SRS-UR-06</td>
+      <td>夜间技能与天亮结算</td>
+    </tr>
+    <tr>
+      <td>5.2 CSC-02-07 胜负判定</td>
+      <td>SRS-F-07，SRS-UR-09</td>
+      <td>阵营判定与终局控制</td>
+    </tr>
+    <tr>
+      <td>5.2 CSC-02-08 实时通信</td>
+      <td>SRS-IF-INT-02，SRS-UR-07/11，SRS-PERF-06/08</td>
+      <td>WS 推送与状态同步</td>
+    </tr>
+    <tr>
+      <td>5.2 CSC-02-09 AI Agent 调度</td>
+      <td>SRS-F-08~12，SRS-IF-INT-03，SRS-UR-10</td>
+      <td>AI 行为调度与回灌</td>
+    </tr>
+    <tr>
+      <td>5.2 CSC-02-10 语音服务调度</td>
+      <td>SRS-F-13~15，SRS-IF-EXT-02/03，SRS-UR-10/12</td>
+      <td>STT/TTS 编排</td>
+    </tr>
+    <tr>
+      <td>5.3 CSCI-03 AI 推理服务</td>
+      <td>SRS-F-09~12/17，SRS-IF-EXT-01，SRS-UR-10</td>
+      <td>记忆、推理、复盘</td>
+    </tr>
+    <tr>
+      <td>5.4 CSCI-04 语音 STT/TTS 服务</td>
+      <td>SRS-F-13~15，SRS-IF-EXT-02/03，SRS-PERF-03/05/09</td>
+      <td>语音识别与合成</td>
+    </tr>
+    <tr>
+      <td>5.5 CSC-05-01 数据存储模块</td>
+      <td>SRS-F-16/17，SRS-IF-EXT-04，SRS-OR-08，SRS-UR-08</td>
+      <td>持久化、日志、复盘数据底座</td>
+    </tr>
+    <tr>
+      <td>6. 接口设计</td>
+      <td>SRS-IF-EXT-*，SRS-IF-INT-*，SRS-UR-07/10</td>
+      <td>外部与内部接口协议</td>
+    </tr>
+    <tr>
+      <td>7. 性能指标设计</td>
+      <td>SRS-PERF-01~09，SRS-UR-12</td>
+      <td>响应、并发、稳定性</td>
+    </tr>
+    <tr>
+      <td>8. 其他设计</td>
+      <td>SRS-OR-01~08，SRS-UR-11/12</td>
+      <td>安全性、稳定性、可维护性、可配置性</td>
+    </tr>
+  </tbody>
+</table>
 
 <p align="center">
-  <em>表B 反向跟踪矩阵</em>
+  <em>表B-1 反向跟踪矩阵</em>
 </p>
+
