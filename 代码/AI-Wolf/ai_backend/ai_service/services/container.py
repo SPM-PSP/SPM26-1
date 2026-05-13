@@ -48,7 +48,7 @@ def build_container() -> ServiceContainer:
     bootstrap_service = BootstrapService(player_factory, memory_service, persona_service)
     llm_gateway = LLMGateway()
     invoke_service = InvokeService(llm_gateway, memory_service)
-    werewolf_team_service = WerewolfTeamService(player_factory, invoke_service)
+    werewolf_team_service = WerewolfTeamService(player_factory, invoke_service, memory_service)
 
     return ServiceContainer(
         player_factory=player_factory,

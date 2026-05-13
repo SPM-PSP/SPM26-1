@@ -430,11 +430,14 @@ class WerewolfNightConsensusResponse(BaseModel):
     advice_results: list[WerewolfAdviceItem] = Field(default_factory=list, alias="adviceResults")
     aggregate_scores: list[WerewolfConsensusScore] = Field(default_factory=list, alias="aggregateScores")
     consensus_target: str | None = Field(default=None, alias="consensusTarget")
+    final_kill_target: str | None = Field(default=None, alias="finalKillTarget")
+    execution_decision: AgentDecision | None = Field(default=None, alias="executionDecision")
     shared_private_vision: dict[str, Any] = Field(default_factory=dict, alias="sharedPrivateVision")
     private_vision_by_ai_id: dict[str, dict[str, Any]] = Field(
         default_factory=dict,
         alias="privateVisionByAiId",
     )
+    consensus_recorded_ai_ids: list[str] = Field(default_factory=list, alias="consensusRecordedAiIds")
 
     class Config:
         populate_by_name = True
