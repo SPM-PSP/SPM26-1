@@ -21,7 +21,7 @@ const {
 } = constants;
 
 const Ready = (props) => {
-  const { appStore, seat, roomDetail } = props;
+  const { appStore, seat, roomDetail, getRoomDetail } = props;
   const { user } = appStore;
   const isOwner = roomDetail && roomDetail.owner === user.username;
 
@@ -114,6 +114,9 @@ const Ready = (props) => {
     }
     apiGame.startGame({ id: roomDetail._id, setting: gameSetting }).then(() => {
       message.success("新游戏开始");
+      if (getRoomDetail) {
+        getRoomDetail(true);
+      }
       setGameSetting((prev) => ({
         ...prev,
         p1: 30,

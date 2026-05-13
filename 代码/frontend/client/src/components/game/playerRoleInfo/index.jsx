@@ -5,6 +5,7 @@ import witch from "@assets/images/role/icon/nw.png"
 import hunter from "@assets/images/role/icon/lr.png"
 import villager from "@assets/images/role/icon/pm.png"
 import wolf from "@assets/images/role/icon/langr.png"
+import defaultAvatar from "@assets/images/avator/default.png"
 
 import check from "@assets/images/role/skill/check.svg"
 import antidote from "@assets/images/role/skill/antidote.svg"
@@ -34,13 +35,26 @@ const RoleView = (props) => {
     shoot: shoot,
     assault: assault
   }
+  const roleSkillMap = {
+    wolf: ['assault', 'boom'],
+    predictor: ['check'],
+    witch: ['antidote', 'poison'],
+    hunter: ['shoot'],
+    villager: [],
+  }
+  const currentRoleSkills = roleSkillMap[currentRole.role] || []
+  const visibleSkills = (skillInfo || []).filter(item => currentRoleSkills.includes(item.key))
+
   return (
     <div className="player-role-info-wrap FBH FBAC">
       <div className="FBH">
         <div style={{display: 'inline-block', position: 'relative'}}>
           <img className="icon mar-r10"
                onClick={onOpen}
-               src={roleImgMap[currentRole.role]} />
+               src={roleImgMap[currentRole.role] || defaultAvatar}
+               onError={(event)=>{
+                 event.currentTarget.src = defaultAvatar
+               }} />
           {
             currentRole.status === 0 && gameDetail.status === 1 ? (
               <>
@@ -75,7 +89,7 @@ const RoleView = (props) => {
             <div className="FBH FBAC">
               <div className="skills-content mar-r20 FBH FBAC">
                 {
-                  skillInfo.map(item=>{
+                  visibleSkills.map(item=>{
                     return (
                       <div key={item.key}>
                         {
@@ -95,7 +109,12 @@ const RoleView = (props) => {
                                 'btn-warning': item.key === 'shoot' && item.canUse,
                                 'btn-info': !item.canUse
                               })}>
-                              <img src={skillImgMap[item.key]}/>
+                              <img
+                                src={skillImgMap[item.key]}
+                                onError={(event)=>{
+                                  event.currentTarget.style.display = 'none'
+                                }}
+                              />
                               <div className="skill-name">{item.name}</div>
                             </Button>
                           ) : null

@@ -3,11 +3,8 @@ module.exports = {
     {
       // api的接口全部转到6001的服务端去
       context: ['/api'],
-      target: 'http://localhost:6001/api',
+      target: 'http://10.135.49.6:6001',
       changeOrigin: true,
-      pathRewrite: {
-        '^/api': '',
-      },
     },
   ],
   // antd 主题配置

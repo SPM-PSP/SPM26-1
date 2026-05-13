@@ -53,7 +53,7 @@ const Btn = (props) => {
       console.log('📥 收到复盘响应:', response);
       setReplayLoading(false);
       
-      if (response.result) {
+      if (response.success) {
         message.success('复盘分析完成！');
         
         // 可以在这里显示分析结果或下载文件
@@ -64,73 +64,52 @@ const Btn = (props) => {
           const gameRecord = response.data.gameRecord;
           const analysisFiles = response.data.analysisFiles;
           
-          // 检查是否有分析文件，如果有则读取
-          if (analysisFiles && analysisFiles.text) {
-            fetch(`/api/game/replay/file?file=${analysisFiles.text}`)
-              .then(res => res.text())
-              .then(analysisText => {
-                Modal.info({
-                  title: '游戏复盘报告',
-                  width: 800,
-                  content: (
-                    <div style={{maxHeight: '500px', overflowY: 'auto'}}>
-                      <h3>📋 游戏记录</h3>
-                      <p>游戏ID: {gameRecord.game_id}</p>
-                      <p>房间ID: {gameRecord.room_id}</p>
-                      <p>游戏天数: {gameRecord.days}</p>
-                      <p>胜利阵营: {gameRecord.winner === 1 ? '好人阵营' : gameRecord.winner === 2 ? '狼人阵营' : '未知'}</p>
-                      
-                      <h3>📊 复盘分析</h3>
-                      <pre style={{whiteSpace: 'pre-wrap', fontSize: '12px'}}>
-                        {analysisText}
-                      </pre>
-                      
-                      <p><strong>分析文件:</strong> {analysisFiles.json}</p>
-                    </div>
-                  ),
-                  okText: '确定'
-                });
-              })
-              .catch(() => {
-                // 如果读取文件失败，显示基本信息
-                Modal.info({
-                  title: '游戏复盘报告',
-                  width: 600,
-                  content: (
-                    <div>
-                      <h3>📋 游戏记录</h3>
-                      <p>游戏ID: {gameRecord.game_id}</p>
-                      <p>房间ID: {gameRecord.room_id}</p>
-                      <p>游戏天数: {gameRecord.days}</p>
-                      <p>胜利阵营: {gameRecord.winner === 1 ? '好人阵营' : gameRecord.winner === 2 ? '狼人阵营' : '未知'}</p>
-                      
-                      <h3>📊 复盘分析</h3>
-                      <p>分析文件已生成: {analysisFiles.text}</p>
-                    </div>
-                  ),
-                  okText: '确定'
-                });
+          // 读取复盘分析文件内容
+          fetch(`/api/game/replay/file?file=${analysisFiles.text}`)
+            .then(res => res.text())
+            .then(analysisText => {
+              Modal.info({
+                title: '游戏复盘报告',
+                width: 800,
+                content: (
+                  <div style={{maxHeight: '500px', overflowY: 'auto'}}>
+                    <h3>📋 游戏记录</h3>
+                    <p>游戏ID: {gameRecord.game_id}</p>
+                    <p>房间ID: {gameRecord.room_id}</p>
+                    <p>游戏天数: {gameRecord.days}</p>
+                    <p>胜利阵营: {gameRecord.winner === 1 ? '好人阵营' : gameRecord.winner === 2 ? '狼人阵营' : '未知'}</p>
+                    
+                    <h3>📊 复盘分析</h3>
+                    <pre style={{whiteSpace: 'pre-wrap', fontSize: '12px'}}>
+                      {analysisText}
+                    </pre>
+                    
+                    <p><strong>分析文件:</strong> {analysisFiles.json}</p>
+                  </div>
+                ),
+                okText: '确定'
               });
-          } else {
-            // 没有分析文件时，只显示游戏记录
-            Modal.info({
-              title: '游戏复盘报告',
-              width: 600,
-              content: (
-                <div>
-                  <h3>📋 游戏记录</h3>
-                  <p>游戏ID: {gameRecord.game_id}</p>
-                  <p>房间ID: {gameRecord.room_id}</p>
-                  <p>游戏天数: {gameRecord.days}</p>
-                  <p>胜利阵营: {gameRecord.winner === 1 ? '好人阵营' : gameRecord.winner === 2 ? '狼人阵营' : '未知'}</p>
-                  
-                  <h3>📊 复盘分析</h3>
-                  <p>暂无AI分析文件</p>
-                </div>
-              ),
-              okText: '确定'
+            })
+            .catch(() => {
+              // 如果读取文件失败，显示基本信息
+              Modal.info({
+                title: '游戏复盘报告',
+                width: 600,
+                content: (
+                  <div>
+                    <h3>📋 游戏记录</h3>
+                    <p>游戏ID: {gameRecord.game_id}</p>
+                    <p>房间ID: {gameRecord.room_id}</p>
+                    <p>游戏天数: {gameRecord.days}</p>
+                    <p>胜利阵营: {gameRecord.winner === 1 ? '好人阵营' : gameRecord.winner === 2 ? '狼人阵营' : '未知'}</p>
+                    
+                    <h3>📊 复盘分析</h3>
+                    <p>分析文件已生成: {analysisFiles.text}</p>
+                  </div>
+                ),
+                okText: '确定'
+              });
             });
-          }
         }
       } else {
         console.log('❌ 复盘分析失败:', response);
@@ -156,6 +135,7 @@ const Btn = (props) => {
       onOk() {
         apiGame.nextStage(params).then(() => {
           message.success("操作成功！");
+          getRoomDetail();
         });
       },
     });

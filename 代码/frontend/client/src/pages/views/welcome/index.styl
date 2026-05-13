@@ -1,37 +1,870 @@
 .welcome-container
   width 100%
   max-width 500px
-  height 100vh
-  background-color #ffffff
+  min-height 100vh
   position relative
+  overflow hidden
+  color #1d1c13
+  font-family Georgia, "Times New Roman", "Noto Serif SC", serif
+  background #fef9eb
+  .welcome-bg
+    position absolute
+    inset 0
+    background linear-gradient(180deg, rgba(75, 54, 33, .72), rgba(47, 29, 14, .42)), url("https://lh3.googleusercontent.com/aida-public/AB6AXuDTprKn8FUcolWLiiCjptxHgZ_mEeN6w98ajveTjSwhHkCavgVAKIeG0i_Sin4W7fSP59-4Ux8MVwY5f485UBfNN42bif9FZhkEr9C3I8ox2bw7gNnIr5LExnyHkjMcBw5I0EQWY_y7ycg2sIftmauVb__nFRaH2KGC8bF8_us5gmrNzkY8miFdLL5H-iQnzGWkIZuxAt7lWkzwrFOG1HprCGQekjWD49xDhCNqUVKrSI7aJykTa8A00WAukSo_rRs3NTCrZ2hUL3o") center / cover
+  .welcome-mist
+    position absolute
+    inset 0
+    background radial-gradient(circle at top, transparent 18%, #fef9eb 78%)
+  .welcome-grain
+    position absolute
+    inset 0
+    opacity .06
+    pointer-events none
+    background-image url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")
   .welcome-wrap
-    margin 20px
-    min-height calc(100% - 40px)
     position relative
-    .welcome-title
+    z-index 1
+    min-height 100vh
+    padding 24px 20px 26px
+    display flex
+    flex-direction column
+    gap 18px
+  .welcome-hero
+    min-height 220px
+    display flex
+    flex-direction column
+    justify-content space-between
+    color #ffdcc3
+    text-shadow 0 8px 24px rgba(0, 0, 0, .35)
+  .welcome-topline
+    display flex
+    align-items center
+    gap 12px
+  .welcome-brand-dot
+    width 42px
+    height 42px
+    border-radius 50%
+    display flex
+    align-items center
+    justify-content center
+    color #63000a
+    background #ffdcc3
+    font-weight 900
+  .welcome-kicker
+    color rgba(255, 220, 195, .8)
+    font-size 11px
+    font-weight 900
+    letter-spacing 0
+    text-transform uppercase
+  h1
+    margin 0
+    font-size 48px
+    line-height 1
+    font-style italic
+    font-weight 900
+    letter-spacing 0
+  .welcome-user-panel
+    align-self flex-start
+    display inline-flex
+    align-items center
+    gap 10px
+    padding 10px 14px
+    border-radius 999px
+    color #fef9eb
+    background rgba(29, 28, 19, .32)
+    backdrop-filter blur(12px)
+    span
+      font-size 12px
+      opacity .85
+    strong
+      font-size 16px
+      color #ffdcc3
+  .welcome-story
+    display flex
+    flex-direction column
+    gap 16px
+    padding 22px
+    border-radius 22px
+    background rgba(254, 249, 235, .9)
+    box-shadow 0 24px 56px rgba(29, 28, 19, .12)
+  .welcome-chip
+    display inline-flex
+    margin-bottom 12px
+    padding 6px 12px
+    border-radius 999px
+    color #63000a
+    background #ffdcc3
+    font-size 12px
+    font-weight 900
+  .welcome-story-copy
+    h2
+      margin 0 0 10px
+      color #63000a
+      font-size 31px
+      line-height 1.15
+      font-weight 900
+    p
+      margin 0
+      color rgba(29, 28, 19, .76)
+      font-size 15px
+      line-height 1.75
+      font-weight 600
+  .welcome-action-panel
+    display flex
+    flex-direction column
+    gap 11px
+  .welcome-primary-action
+  .welcome-secondary-action
+  .welcome-admin-action
+  .welcome-logout
+    width 100%
+    min-height 48px
+    border 0!important
+    border-radius 14px!important
+    font-size 16px!important
+    font-weight 900!important
+    box-shadow none!important
+  .welcome-primary-action
+    color #fff!important
+    background linear-gradient(135deg, #63000a, #85171b)!important
+  .welcome-secondary-action
+    color #5a6a37!important
+    background #d7eaab!important
+  .welcome-admin-action
+    color #4a3c1d!important
+    background #fce48d!important
+  .welcome-log
+    display flex
+    align-items center
+    justify-content space-between
+    gap 16px
+    padding 20px
+    border-radius 18px
+    background #f8f3e5
+    h3
+      margin 0 0 6px
+      color #63000a
       font-size 24px
-      color #333333
-      text-align center
-      font-weight 500
-    .welcome-user
       font-style italic
-    .welcome-item
-      color #666666
-      margin-top 10px
-      margin-left 100px
-      margin-bottom 10px
-    .welcome-content
-      width 100%
-      .create-user-btn
-        width 100%
-    .footer
-      width 100%
-      height 60px
-      position absolute
-      bottom 0
-      left 0
-      .logout-btn
-        width 100%
-        height 100%
-        font-size 16px
+      font-weight 900
+    p
+      margin 0
+      color rgba(29, 28, 19, .68)
+      font-size 13px
+      line-height 1.6
+      font-weight 600
+  .welcome-log-mark
+    flex 0 0 58px
+    height 58px
+    border-radius 18px
+    display flex
+    align-items center
+    justify-content center
+    color #fef9eb
+    background #63000a
+    font-size 22px
+    font-weight 900
+    transform rotate(4deg)
+  .welcome-logout
+    margin-top auto
+    color #fff!important
+    background #f55066!important
 
+.welcome-container
+  --surface #fef9eb
+  --surface-low #f8f3e5
+  --surface-mid #f3eee0
+  --surface-high #e7e2d4
+  --primary #63000a
+  --primary-soft #ffdad7
+  --primary-deep #410004
+  --secondary #546432
+  --secondary-soft #d7eaab
+  --secondary-deep #3d4c1d
+  --tertiary #482400
+  --tertiary-soft #ffdcc3
+  width 100%
+  max-width none
+  min-height 100vh
+  position relative
+  overflow-x hidden
+  overflow-y visible
+  color #1d1c13
+  background var(--surface)
+  font-family Georgia, 'Noto Serif SC', 'Noto Serif', serif
+
+.welcome-container .welcome-bg
+  position fixed
+  inset 0
+  z-index 0
+  pointer-events none
+  background none
+
+.welcome-container .welcome-bg img
+  width 100%
+  height 100%
+  object-fit cover
+  opacity .28
+  filter sepia(.18) saturate(.8)
+
+.welcome-container .welcome-bg:before
+  content ''
+  position absolute
+  inset 0
+  background linear-gradient(180deg, rgba(254, 249, 235, .18), rgba(254, 249, 235, .52) 42%, rgba(254, 249, 235, .96) 100%)
+
+.welcome-container .welcome-bg:after
+  content ''
+  position absolute
+  inset 0
+  background radial-gradient(circle at 50% 0, transparent 18%, rgba(254, 249, 235, .88) 86%)
+
+.welcome-rail
+  position fixed
+  top 0
+  left 0
+  z-index 8
+  width 80px
+  height 100vh
+  padding 16px 14px
+  display flex
+  flex-direction column
+  align-items center
+  gap 22px
+  background rgba(248, 243, 229, .92)
+  border-right 1px solid rgba(195, 200, 188, .35)
+  box-shadow 14px 0 38px rgba(29, 28, 19, .08)
+  backdrop-filter blur(18px)
+
+.welcome-avatar
+  width 48px
+  height 48px
+  border-radius 50%
+  display flex
+  align-items center
+  justify-content center
+  color var(--tertiary-soft)
+  background #111
+  border 2px solid var(--primary)
+  font-weight 900
+
+.rail-item,
+.rail-help
+  width 52px
+  height 52px
+  border 0
+  border-radius 14px
+  display inline-flex
+  align-items center
+  justify-content center
+  color rgba(90, 106, 55, .68)
+  background transparent
+  cursor pointer
+  transition background .2s ease, color .2s ease, transform .2s ease
+
+.rail-item:hover,
+.rail-help:hover,
+.rail-active
+  color var(--primary)
+  background rgba(231, 226, 212, .75)
+  transform translateY(-1px)
+
+.rail-help
+  margin-top auto
+  width 22px
+  height 22px
+  border-radius 50%
+  color #fff
+  background rgba(84, 100, 50, .72)
+  font-size 13px
+  font-weight 700
+
+.welcome-topbar
+  position sticky
+  top 0
+  z-index 7
+  height 64px
+  margin-left 80px
+  padding 0 28px
+  display flex
+  align-items center
+  justify-content space-between
+  background linear-gradient(180deg, rgba(231, 226, 212, .82), rgba(254, 249, 235, .78))
+  backdrop-filter blur(18px)
+  box-shadow 0 12px 28px rgba(29, 28, 19, .06)
+
+.welcome-brand
+  color #2d4b22
+  font-size 24px
+  line-height 1
+  font-weight 900
+  font-style italic
+
+.welcome-topbar nav
+  position absolute
+  left 50%
+  transform translateX(-50%)
+  display flex
+  align-items center
+  gap 34px
+
+.welcome-topbar button,
+.welcome-footer button
+  border 0
+  background transparent
+  cursor pointer
+  font-family inherit
+
+.welcome-topbar nav button
+  padding 6px 0
+  color var(--secondary)
+  font-size 15px
+  font-weight 800
+  font-style italic
+
+.welcome-topbar nav button.active
+  color var(--primary)
+  border-bottom 2px solid var(--primary)
+
+.welcome-top-actions
+  display flex
+  align-items center
+  gap 14px
+
+.welcome-top-actions button
+  color var(--primary)
+  font-size 19px
+
+.welcome-account
+  min-height 34px
+  padding 0 12px
+  display inline-flex
+  align-items center
+  justify-content center
+  gap 7px
+  border-radius 999px
+  color #fff!important
+  background var(--primary)!important
+  font-size 13px!important
+  font-weight 700
+  box-shadow 0 8px 18px rgba(99, 0, 10, .18)
+
+.welcome-main
+  position relative
+  z-index 2
+  margin-left 80px
+  padding 44px 24px 88px
+
+.welcome-hero-board
+  display flex
+  justify-content center
+  min-height 238px
+  padding-top 8px
+
+.wooden-sign
+  position relative
+  min-width 380px
+  height 184px
+  padding 26px 48px
+  border 4px solid #3e2b18
+  border-radius 8px
+  transform rotate(-1deg)
+  display flex
+  flex-direction column
+  align-items center
+  justify-content center
+  background linear-gradient(180deg, #4b3621, #2f1d0e)
+  box-shadow inset 0 2px 4px rgba(255,255,255,.1), 0 10px 20px rgba(0,0,0,.3)
+
+.wooden-sign h1
+  margin 0
+  color var(--tertiary-soft)
+  font-size 68px
+  line-height 1
+  font-weight 900
+  font-style italic
+  letter-spacing 0
+  text-shadow 0 3px 0 rgba(0,0,0,.2)
+
+.wooden-sign p
+  margin 14px 0 0
+  color var(--secondary-soft)
+  font-size 15px
+  font-style italic
+  font-weight 700
+
+.sign-rope
+  position absolute
+  top -52px
+  width 4px
+  height 60px
+  background rgba(63, 63, 70, .48)
+
+.sign-rope-left
+  left 25%
+
+.sign-rope-right
+  right 25%
+
+.welcome-content-grid,
+.history-section
+  width calc(100vw - 128px)
+  max-width 1280px
+  margin 0 auto
+
+.welcome-content-grid
+  display grid
+  grid-template-columns minmax(0, 7fr) minmax(390px, 5fr)
+  gap 48px
+  align-items start
+
+.storybook-card
+  min-height 480px
+  padding 48px
+  display grid
+  grid-template-columns minmax(0, 1fr) minmax(250px, .9fr)
+  gap 40px
+  border-radius 12px
+  background linear-gradient(90deg, rgba(253, 246, 227, .96) 0%, rgba(253, 246, 227, .96) 49.6%, rgba(245, 239, 221, .98) 49.8%, rgba(253, 246, 227, .96) 50.2%)
+  box-shadow 0 22px 44px rgba(29, 28, 19, .13), inset 0 0 0 6px rgba(255, 255, 255, .42)
+  transform rotate(1deg)
+  overflow hidden
+
+.storybook-copy
+  display flex
+  flex-direction column
+  justify-content center
+
+.story-chip
+  width max-content
+  padding 4px 13px
+  border-radius 999px
+  color #2f1500
+  background var(--tertiary-soft)
+  font-size 12px
+  font-weight 800
+
+.storybook-copy h2
+  margin 22px 0 28px
+  color var(--primary)
+  font-size 44px
+  line-height 1.14
+  font-weight 900
+
+.storybook-copy p
+  margin 0
+  color rgba(29, 28, 19, .82)
+  font-size 17px
+  line-height 1.9
+
+.wisdom-note
+  margin-top 42px
+  display flex
+  align-items center
+  gap 14px
+
+.wisdom-icon
+  width 50px
+  height 50px
+  flex 0 0 50px
+  border-radius 50%
+  display flex
+  align-items center
+  justify-content center
+  color var(--secondary-deep)
+  background var(--secondary-soft)
+
+.wisdom-note strong
+  display block
+  color #1d1c13
+  font-size 14px
+  line-height 1.3
+
+.wisdom-note span
+  display block
+  margin-top 2px
+  color #43483f
+  font-size 12px
+
+.storybook-art
+  height 388px
+  align-self center
+  border 5px solid var(--surface-high)
+  border-radius 12px
+  overflow hidden
+  box-shadow 0 12px 26px rgba(29, 28, 19, .22)
+  transform rotate(1deg)
+
+.storybook-art img
+  width 100%
+  height 100%
+  object-fit cover
+
+.lobby-card-stack
+  display flex
+  flex-direction column
+  gap 24px
+
+.lobby-card
+  position relative
+  padding 26px 30px 30px
+  min-height 190px
+  border-radius 12px
+  overflow hidden
+  background rgba(248, 243, 229, .92)
+  box-shadow 0 14px 30px rgba(29, 28, 19, .12)
+
+.lobby-card:after
+  content ''
+  position absolute
+  width 142px
+  height 142px
+  right -70px
+  top -70px
+  border-radius 50%
+  background rgba(99, 0, 10, .05)
+
+.join-card
+  border-left 8px solid var(--primary)
+
+.create-card
+  border-left 8px solid var(--secondary)
+  background rgba(231, 226, 212, .9)
+
+.observe-card
+  border-left 8px solid var(--tertiary)
+
+.card-head
+  position relative
+  z-index 1
+  display flex
+  align-items flex-start
+  justify-content space-between
+  margin-bottom 18px
+
+.card-icon
+  width 54px
+  height 54px
+  border-radius 12px
+  display inline-flex
+  align-items center
+  justify-content center
+  font-size 24px
+  color var(--primary-deep)
+  background var(--primary-soft)
+
+.create-card .card-icon
+  color var(--secondary-deep)
+  background var(--secondary-soft)
+
+.observe-card .card-icon
+  color var(--tertiary)
+  background var(--tertiary-soft)
+
+.card-kicker
+  display inline-flex
+  align-items center
+  gap 6px
+  color var(--primary)
+  font-size 18px
+  font-weight 900
+  font-style italic
+
+.create-card .card-kicker
+  color var(--secondary)
+
+.observe-card .card-kicker
+  color var(--tertiary)
+
+.lobby-card h3
+  position relative
+  z-index 1
+  margin 0 0 10px
+  font-size 25px
+  line-height 1.2
+  font-weight 900
+
+.lobby-card p
+  position relative
+  z-index 1
+  margin 0 0 22px
+  color #43483f
+  font-size 13px
+  line-height 1.7
+
+.action-row
+  position relative
+  z-index 1
+  display flex
+  gap 10px
+
+.action-row.single
+  margin-bottom 12px
+
+.action-row input
+  min-width 0
+  flex 1
+  height 48px
+  padding 0 14px
+  border 0
+  border-radius 8px
+  outline none
+  color #1d1c13
+  background var(--surface-high)
+  font-family inherit
+
+.action-row input:focus
+  box-shadow 0 0 0 3px rgba(99, 0, 10, .14)
+
+.primary-button
+  position relative
+  z-index 1
+  min-height 48px
+  padding 0 22px
+  border 0
+  border-radius 10px
+  display inline-flex
+  align-items center
+  justify-content center
+  gap 10px
+  color #fff
+  font-family inherit
+  font-weight 900
+  cursor pointer
+  box-shadow 0 10px 18px rgba(29, 28, 19, .16)
+  transition transform .18s ease, opacity .18s ease
+
+.primary-button:hover
+  transform translateY(-1px)
+
+.primary-button:disabled
+  opacity .58
+  cursor not-allowed
+  transform none
+
+.red-button
+  background linear-gradient(135deg, var(--primary), #85171b)
+
+.green-button
+  background var(--secondary)
+
+.olive-button
+  background var(--tertiary)
+
+.full-button
+  width 100%
+
+.history-section
+  margin-top 78px
+
+.history-heading
+  display flex
+  align-items center
+  gap 26px
+  margin-bottom 24px
+
+.history-heading h2
+  margin 0
+  color var(--primary)
+  font-size 32px
+  line-height 1
+  font-weight 900
+  font-style italic
+
+.history-heading span
+  height 2px
+  flex 1
+  background linear-gradient(90deg, rgba(99, 0, 10, .2), transparent)
+
+.history-heading button
+  border 0
+  color var(--secondary)
+  background transparent
+  font-family inherit
+  font-size 13px
+  font-weight 900
+  letter-spacing .08em
+  cursor pointer
+
+.history-scroll
+  display flex
+  gap 24px
+  overflow-x auto
+  padding 6px 8px 24px
+  scrollbar-width none
+
+.history-scroll::-webkit-scrollbar
+  display none
+
+.history-card
+  min-width 320px
+  min-height 206px
+  padding 24px
+  display flex
+  flex-direction column
+  gap 16px
+  border-top 4px solid var(--surface-high)
+  border-radius 8px
+  background var(--surface-low)
+  box-shadow 0 10px 22px rgba(29, 28, 19, .11)
+
+.history-card.rotate-0
+  transform rotate(1deg)
+
+.history-card.rotate-1
+  transform rotate(-1deg)
+
+.history-card.rotate-2
+  transform rotate(2deg)
+
+.history-card.rotate-3
+  transform rotate(-2deg)
+
+.history-meta
+  display flex
+  justify-content space-between
+  color rgba(29, 28, 19, .6)
+  font-size 12px
+
+.history-card p
+  margin 0
+  flex 1
+  font-size 18px
+  line-height 1.45
+  font-style italic
+
+.history-result
+  display flex
+  align-items center
+  justify-content space-between
+
+.history-dots
+  display flex
+  margin-left 8px
+
+.history-dots span
+  width 28px
+  height 28px
+  margin-left -8px
+  border 2px solid var(--surface)
+  border-radius 50%
+
+.history-result strong
+  padding 4px 12px
+  border-radius 999px
+  font-size 10px
+  line-height 1.2
+  font-weight 900
+
+.result-danger
+  color #93000a
+  background #ffdad6
+
+.result-success
+  color var(--secondary-deep)
+  background var(--secondary-soft)
+
+.result-neutral
+  color #6e3900
+  background var(--tertiary-soft)
+
+.welcome-footer
+  position relative
+  z-index 2
+  margin-left 80px
+  padding 34px 28px
+  display flex
+  align-items center
+  justify-content space-between
+  gap 24px
+  color #43483f
+  background rgba(231, 226, 212, .52)
+  border-top 1px solid var(--surface-high)
+
+.welcome-footer strong
+  color var(--primary)
+  font-size 20px
+  font-style italic
+
+.welcome-footer div
+  display flex
+  gap 32px
+
+.welcome-footer button
+  color #1d1c13
+
+.welcome-footer span
+  color rgba(67, 72, 63, .7)
+  font-style italic
+
+@media (max-width 1180px)
+  .welcome-content-grid
+    grid-template-columns 1fr
+
+  .lobby-card-stack
+    display grid
+    grid-template-columns repeat(3, minmax(0, 1fr))
+
+  .storybook-card
+    grid-template-columns minmax(0, 1fr) 260px
+
+@media (max-width 920px)
+  .welcome-rail
+    display none
+
+  .welcome-topbar,
+  .welcome-main,
+  .welcome-footer
+    margin-left 0
+
+  .welcome-topbar
+    padding 0 16px
+
+  .welcome-topbar nav
+    display none
+
+  .welcome-content-grid,
+  .history-section
+    width calc(100vw - 32px)
+
+  .storybook-card
+    grid-template-columns 1fr
+    padding 28px
+
+  .storybook-art
+    height 280px
+
+  .lobby-card-stack
+    grid-template-columns 1fr
+
+  .welcome-footer
+    flex-direction column
+    text-align center
+
+@media (max-width 560px)
+  .welcome-main
+    padding 28px 16px 64px
+
+  .welcome-hero-board
+    min-height 186px
+
+  .wooden-sign
+    min-width 0
+    width 100%
+    height auto
+    padding 24px 20px
+
+  .wooden-sign h1
+    font-size 46px
+
+  .action-row
+    flex-direction column
+
+  .primary-button
+    width 100%
+
+  .history-heading
+    gap 12px
+
+  .history-heading h2
+    font-size 26px

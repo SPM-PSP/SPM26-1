@@ -24,13 +24,15 @@ const Login = (props) => {
   }
 
   const onFinish = async (values) => {
-    await io.login({
-      username: values.username,
-      password: values.password,
-    }).then(data=>{
+    try {
+      const data = await io.login({
+        username: values.username,
+        password: values.password,
+      })
       message.success('登录成功！')
       handleUserInfo(data)
-    })
+    } catch (e) {
+    }
   };
 
   const onFinishFailed = (errorInfo) => {
@@ -49,6 +51,7 @@ const Login = (props) => {
       message.success('注册成功，请直接登录')
       registerForm.resetFields()
       setRegisterVisible(false)
+    } catch (e) {
     } finally {
       setRegisterLoading(false)
     }

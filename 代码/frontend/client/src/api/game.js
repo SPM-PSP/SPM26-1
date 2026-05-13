@@ -51,33 +51,6 @@ export default {
     })
   },
 
-  getWolfSuggestions (params) {
-    return fetch({
-      url: urlPrefix + 'game/wolfSuggestions/auth',
-      method: 'get',
-      params,
-    })
-  },
-
-  getDebugRoles (params) {
-    return fetch({
-      url: urlPrefix + 'game/debug/roles',
-      method: 'get',
-      params,
-      headers: {
-        'X-Debug-Mode': localStorage.getItem('debugMode') || 'disabled'
-      }
-    })
-  },
-
-  sendWolfVoiceChat (params) {
-    return fetch({
-      url: urlPrefix + 'game/wolfVoiceChat/auth',
-      method: 'post',
-      data: params
-    })
-  },
-
   antidotePlayer (params) {
     return fetch({
       url: urlPrefix + 'game/antidotePlayer/auth',

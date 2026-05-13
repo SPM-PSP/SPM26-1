@@ -1,4 +1,5 @@
 import Cookies from 'js-cookie'
+import {isMockEnabled, isMockToken} from '@common/mock'
 
 const TokenKey = 'accessToken'
 
@@ -7,7 +8,12 @@ const TokenKey = 'accessToken'
  * @returns {*}
  */
 const getToken = () => {
-  return Cookies.get(TokenKey)
+  const token = Cookies.get(TokenKey)
+  if (token && isMockToken(token) && !isMockEnabled()) {
+    Cookies.remove(TokenKey)
+    return undefined
+  }
+  return token
 }
 
 const setToken = (token) => {

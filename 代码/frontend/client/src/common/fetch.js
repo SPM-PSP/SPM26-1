@@ -2,6 +2,7 @@ import axios from 'axios'
 import helper from '@helper'
 import {message, notification, Button} from 'antd'
 import settingStore from "../store/setting-store";
+import {isMockEnabled, mockFetch} from './mock'
 const service = axios.create({
   baseURL: '', // api的base_url
   timeout: 15000, // 请求超时时间
@@ -34,14 +35,16 @@ service.interceptors.response.use(
      * response.data.success是false抛错
      */
     if (response.data.success === false) {
+      const errorMessage = response.data.errorMessage || '请求失败'
 
       if(response.data.errorCode === 4005 || response.data.errorCode === '4005'){
         // 登录异常的处理
         const {logoutDialog , setLogoutDialog} = settingStore
+        helper.removeToken()
         if(logoutDialog){
           // 因为一个页面可能有多个接口调用，如果有多个就会导致显示多个notification
           // 所以加一个tag，如果显示过未登录notification后就遇到同样的错误就不要显示了
-          return;
+          return Promise.reject(errorMessage)
         }
         // 用户未登录，或者服务端重启过，jwt key 已经重置过，身份已经失效。
         const key = `open${Date.now()}`;
@@ -68,15 +71,14 @@ service.interceptors.response.use(
             window.location.reload()
           },
         })
-        helper.removeToken()
       }
       // todo：全局通用设置，这里统一处理response.data.success = false的情况，这样各个地方就不需要一直catch promise了
       // 约定：需要特殊处理的就在config中加参数比如初始化fetch的时候加一个overHandle = true ，额外处理error
       if(!response.config.overHandle){
-        message.error(response.data.errorMessage)
+        message.error(errorMessage)
       }
       // eslint-disable-next-line consistent-return
-      return Promise.reject(response.data.errorMessage)
+      return Promise.reject(errorMessage)
     }
     // eslint-disable-next-line consistent-return
     return response.data.data
@@ -88,4 +90,11 @@ service.interceptors.response.use(
   }
 )
 
-export default service
+const request = (config) => {
+  if (isMockEnabled()) {
+    return mockFetch(config)
+  }
+  return service(config)
+}
+
+export default request
