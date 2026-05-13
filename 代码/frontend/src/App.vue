@@ -277,7 +277,7 @@ const fallbackJudgeNotes = [
                 <p class="mt-4 text-[15px] leading-7 text-[#5f5643]">{{ issue.reason }}</p>
                 <div v-if="issue.history && issue.history.length" class="mt-5 rounded-[18px] bg-white/60 p-4">
                   <div class="flex items-center justify-between gap-3">
-                    <p class="text-xs uppercase tracking-[0.2em] text-[#8a7b67]">Speech History</p>
+                    <p class="text-xs uppercase tracking-[0.2em] text-[#8a7b67]">历史发言</p>
                     <p class="text-xs text-[#8a7b67]">{{ issue.history.length }} line(s)</p>
                   </div>
                   <div class="mt-3 space-y-3">
