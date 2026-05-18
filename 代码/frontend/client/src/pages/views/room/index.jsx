@@ -1958,6 +1958,19 @@ const Index = (props) => {
             ) : null}
           </section>
         </main>
+
+        <aside className="ready-right-panel dusk-right-panel">
+          <section className="ready-scroll-panel dusk-scroll-panel">
+            <div className="scroll-roll" />
+            <h3>发言记录</h3>
+            <p className="panel-subtitle">{gameDetail.dayTag || "黄昏"}</p>
+            {renderDayDiscussion()}
+            <div className="ready-rule-card">
+              <strong>系统</strong>
+              <span>{broadcastText || resultText}</span>
+            </div>
+          </section>
+        </aside>
       </div>
     )
   }
