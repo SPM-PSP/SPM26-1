@@ -82,6 +82,7 @@ const Index = (props) => {
 
   const [recordModal, setRecordModal] = useState(false)
   const [gameRecord, setGameRecord] = useState([])
+  const [nightMemoRecords, setNightMemoRecords] = useState([])
 
   const [currentAction, setCurrentAction] = useState('')
   const [actionModal, setActionModal] = useState(false)
@@ -120,6 +121,40 @@ const Index = (props) => {
 
   const isOwner = roomDetail && roomDetail.owner === user.username
   const currentRoleName = gameDetail.roleInfo ? gameDetail.roleInfo.role : null
+  const nightStageMap = {
+    0: {
+      role: null,
+      actionKey: null,
+      title: "暗影合拢",
+      subtitle: "所有人闭眼，等待村庄进入真正的夜晚。",
+      nav: "幕布",
+      accent: "curtain",
+    },
+    1: {
+      role: "predictor",
+      actionKey: "check",
+      title: "星眼低语",
+      subtitle: "预言家睁眼，选择一名玩家查验阵营。",
+      nav: "预言家行动",
+      accent: "seer",
+    },
+    2: {
+      role: "wolf",
+      actionKey: "assault",
+      title: "暗影觉醒",
+      subtitle: "狼人请睁眼，选择今晚袭击的目标。",
+      nav: "狼人行动",
+      accent: "wolf",
+    },
+    3: {
+      role: "witch",
+      actionKey: "poison",
+      title: "药瓶轻响",
+      subtitle: "女巫请睁眼，选择是否使用解药或毒药。",
+      nav: "女巫行动",
+      accent: "witch",
+    },
+  }
   const canRoleNextStage =
     gameDetail.status === 1 &&
     ((gameDetail.stage === 1 && currentRoleName === "predictor") ||
@@ -128,6 +163,7 @@ const Index = (props) => {
   const canOwnerNextStage = isOwner && gameDetail.status === 1
   const canNextStage = canOwnerNextStage || canRoleNextStage
   const isDayStage = gameDetail.status === 1 && (gameDetail.dayTag === "白天" || [5, 6].includes(Number(gameDetail.stage)))
+  const isNightStage = gameDetail.status === 1 && [0, 1, 2, 3].includes(Number(gameDetail.stage))
   const selectedPlayerCount = Number(gameSetting.playerCount || 9)
   const waitingPlayers = roomDetail.waitPlayer || []
   const occupiedSeatCount = seatInfo.filter(item => item.player).length
@@ -370,12 +406,52 @@ const Index = (props) => {
       setPlayerInfo(data.playerInfo || [])
       setSkillInfo(data.skill || [])
       setActionInfo(data.action || [])
+      syncNightMemoRecords(data)
       if(isBegin){
         openRoleCard(data.roleInfo)
       }
     }).catch(error=>{
       console.log('发生了错误！',error)
       message.error('获取游戏信息失败，请稍后重试')
+    })
+  }
+
+  const normalizeRecordDay = (value) => {
+    if(typeof value === 'number'){
+      return value
+    }
+    const match = String(value || '').match(/\d+/)
+    return match ? Number(match[0]) : null
+  }
+
+  const flattenGameRecord = (recordMap) => {
+    const rows = []
+    Object.keys(recordMap || {}).forEach(key => {
+      const group = recordMap[key] || {}
+      const day = normalizeRecordDay(group.key || key)
+      ;(group.content || []).forEach(item => {
+        if(!item || item.isTitle){
+          return
+        }
+        rows.push({
+          day: item.day !== undefined ? item.day : day,
+          stage: item.stage,
+          content: item.content || {},
+        })
+      })
+    })
+    return rows
+  }
+
+  const syncNightMemoRecords = (detail) => {
+    if(!detail || detail.status !== 1 || ![0, 1, 2, 3].includes(Number(detail.stage))){
+      setNightMemoRecords([])
+      return
+    }
+    apiGame.gameRecord({roomId: detail.roomId, gameId: detail._id}).then(data=>{
+      setNightMemoRecords(flattenGameRecord(data))
+    }).catch(()=>{
+      setNightMemoRecords([])
     })
   }
 
@@ -520,41 +596,28 @@ const Index = (props) => {
     })
   }
 
-  const useSkill = (key) => {
-    setCurrentAction(key)
-    if(key === 'antidote' || key === 'boom'){
-      playerAction(null, key, true)
-      return
-    }
+  const buildActionPlayers = (key) => {
     if(key === 'check'){
-      // 预言家查验, 计算查验数组
       let tmp = []
       playerInfo.forEach(item=>{
         let canCheck = true
         if(item.status === 0){
-          // 死人不能查
           canCheck = false
         } else if (item.isSelf){
-          // 不能查验自己
           canCheck = false
         } else if (item.camp !== null && item.camp !== undefined){
-          // 知晓身份的也不用查
           canCheck = false
         }
         tmp.push({...item, check: canCheck, isTarget: false})
       })
-      setActionPlayer(tmp)
-      setActionModal(true)
-      return
+      return tmp
     }
 
     if(key === 'assault' || key === 'shoot' || key === 'poison' || key === 'vote'){
-      // 预言家查验, 计算查验数组
       let tmp = []
       playerInfo.forEach(item=>{
         let canCheck = true
         if(item.status === 0){
-          // 不能对死人发动技能
           canCheck = false
         }
         if(!item.isTarget){
@@ -562,9 +625,44 @@ const Index = (props) => {
         }
         tmp.push({...item, check: canCheck, isTarget: false})
       })
+      return tmp
+    }
+
+    return null
+  }
+
+  const useSkill = (key) => {
+    setCurrentAction(key)
+    setActionResult(null)
+    if(key === 'antidote' || key === 'boom'){
+      playerAction(null, key, true)
+      return
+    }
+
+    const tmp = buildActionPlayers(key)
+    if(tmp){
       setActionPlayer(tmp)
       setActionModal(true)
       return;
+    }
+
+    message.error('未识别的动作！')
+  }
+
+  const startInlineAction = (key) => {
+    setCurrentAction(key)
+    setActionResult(null)
+    setActionModal(false)
+
+    if(key === 'antidote' || key === 'boom'){
+      playerAction(null, key, true)
+      return
+    }
+
+    const tmp = buildActionPlayers(key)
+    if(tmp){
+      setActionPlayer(tmp)
+      return
     }
 
     message.error('未识别的动作！')
@@ -641,11 +739,11 @@ const Index = (props) => {
 
   const actionFinish= (data) => {
     setActionResult(data)
-    let newCheckPlayer = JSON.parse(JSON.stringify(actionPlayer))
+    let newCheckPlayer = JSON.parse(JSON.stringify((actionPlayer && actionPlayer.length > 0) ? actionPlayer : playerInfo))
     let tmp = []
     newCheckPlayer.forEach(item=>{
       if(item.username === data.username){
-        let obj = {...item, camp: data.camp, campName: data.campName, isTarget: true}
+        let obj = {...item, camp: data.camp, campName: data.campName, selected: true}
         tmp.push(obj)
       } else {
         tmp.push(item)
@@ -1026,6 +1124,364 @@ const Index = (props) => {
     </div>
   )
 
+  const getNightSkill = (key) => (skillInfo || []).find(item => item.key === key)
+
+  const getActionLabel = (key) => {
+    const labelMap = {
+      check: "查验",
+      assault: "袭击",
+      kill: "袭击",
+      antidote: "解药",
+      poison: "毒药",
+      jump: "空过",
+    }
+    return labelMap[key] || (modalDescMap[key] ? modalDescMap[key].title : "等待")
+  }
+
+  const getPrivateNightLine = (broadcastText) => {
+    if(!broadcastText){
+      return null
+    }
+    if(currentRole.role === "predictor" && broadcastText.indexOf("查验") > -1){
+      return broadcastText
+    }
+    if(currentRole.role === "wolf" && (broadcastText.indexOf("袭击") > -1 || broadcastText.indexOf("狼人团队") > -1)){
+      return broadcastText
+    }
+    if(currentRole.role === "witch" && (
+      broadcastText.indexOf("死亡") > -1 ||
+      broadcastText.indexOf("解药") > -1 ||
+      broadcastText.indexOf("毒药") > -1
+    )){
+      return broadcastText
+    }
+    return null
+  }
+
+  const getPublicNightRecordLines = (day) => {
+    const textMap = {
+      check: "预言家读过一名玩家的身份。",
+      assault: "狼人选择了一个夜晚目标。",
+      kill: "狼人选择了一个夜晚目标。",
+      antidote: "女巫使用了一瓶药。",
+      poison: "女巫使用了一瓶药。",
+      jump: "有角色选择了空过。",
+    }
+    const added = {}
+    return (nightMemoRecords || []).reduce((list, item) => {
+      const content = item.content || {}
+      const key = content.key || content.action
+      const itemDay = normalizeRecordDay(item.day)
+      if(itemDay !== normalizeRecordDay(day) || !key || !textMap[key] || added[key]){
+        return list
+      }
+      added[key] = true
+      return list.concat(textMap[key])
+    }, [])
+  }
+
+  const buildNightMemoItems = (stage, broadcastText) => {
+    const items = []
+    const privateLine = getPrivateNightLine(broadcastText)
+    const actionLineMap = {
+      check: actionResult ? `你查验了${actionResult.position}号玩家（${actionResult.name}）：${actionResult.campName || "结果已记录"}。` : null,
+      assault: actionResult ? `你今晚袭击了${actionResult.position}号玩家（${actionResult.name}）。` : null,
+      antidote: actionResult && actionResult.position ? `你使用解药救下了${actionResult.position}号玩家（${actionResult.name}）。` : null,
+      poison: actionResult ? `你使用毒药选择了${actionResult.position}号玩家（${actionResult.name}）。` : null,
+    }
+
+    items.push("夜幕已经落下，所有玩家保持闭眼。")
+
+    if(stage === 0){
+      items.push("当前仍在幕布阶段，尚未产生夜间行动。")
+    }
+    if(stage >= 1){
+      if(currentRole.role === "predictor" && (actionLineMap.check || privateLine)){
+        items.push(actionLineMap.check || privateLine)
+      } else {
+        items.push(stage === 1 ? "预言家正在读一名玩家的身份。" : "预言家阶段已结束。")
+      }
+    }
+    if(stage >= 2){
+      if(currentRole.role === "wolf" && (actionLineMap.assault || privateLine)){
+        items.push(actionLineMap.assault || privateLine)
+      } else {
+        items.push(stage === 2 ? "狼人正在选择一个夜晚目标。" : "狼人已经选择了一个夜晚目标。")
+      }
+    }
+    if(stage >= 3){
+      if(currentRole.role === "witch" && (actionLineMap.antidote || actionLineMap.poison || privateLine)){
+        items.push(actionLineMap.antidote || actionLineMap.poison || privateLine)
+      } else {
+        items.push("女巫正在判断是否使用药剂。")
+      }
+    }
+
+    getPublicNightRecordLines(gameDetail.day).forEach(text => {
+      if(!items.includes(text)){
+        items.push(text)
+      }
+    })
+
+    return items
+  }
+
+  const getNightSystemTip = (stage) => {
+    const tipMap = {
+      0: {
+        title: "夜幕等待阶段",
+        text: "所有玩家请闭眼等待，夜晚行动即将开始。",
+      },
+      1: {
+        title: "预言家行动阶段",
+        text: "预言家请睁眼，选择一名玩家查验阵营。",
+      },
+      2: {
+        title: "狼人行动阶段",
+        text: "狼人请睁眼，选择今晚袭击的目标。",
+      },
+      3: {
+        title: "女巫行动阶段",
+        text: "女巫请查看夜间信息，并选择是否使用解药或毒药。",
+      },
+    }
+    return tipMap[stage] || {
+      title: "夜晚行动阶段",
+      text: "当前行动角色请完成夜间操作，其余玩家保持等待。",
+    }
+  }
+
+  const renderNightPlayer = (item, index, actionKey, canAct, targetMap) => {
+    const actionPlayerItem = targetMap[item.username] || targetMap[item.position] || item
+    const occupied = !!item.username
+    const canSelect = canAct && actionKey && actionPlayerItem.check
+    const isDead = occupied && item.status === 0
+    const currentStage = Number(gameDetail.stage || 0)
+    const canRevealNightStatus =
+      gameDetail.isOb ||
+      canAct ||
+      (currentRole.role === "wolf" && currentStage >= 2) ||
+      (currentRole.role === "witch" && currentStage >= 3)
+    const isSelected =
+      actionPlayerItem.selected ||
+      (actionResult && actionResult.username && actionResult.username === item.username)
+    const actionDesc = modalDescMap[actionKey] || {}
+
+    return (
+      <button
+        key={item.position || index}
+        className={cls({
+          "night-player-card": true,
+          "night-player-actionable": canSelect,
+          "night-player-muted": !canSelect && canAct,
+          "night-player-self": item.isSelf,
+          "night-player-dead": isDead && canRevealNightStatus,
+          "night-player-selected": isSelected,
+        })}
+        type="button"
+        disabled={!canSelect}
+        onClick={() => {
+          if(!canSelect){
+            return
+          }
+          const preparedPlayers = buildActionPlayers(actionKey) || []
+          setCurrentAction(actionKey)
+          setActionPlayer(preparedPlayers)
+          setActionModal(false)
+          playerAction(item, actionKey, true)
+        }}
+      >
+        <span className="night-player-number">{String(item.position || index + 1).padStart(2, "0")}</span>
+        <div className="night-player-portrait">
+          <img src={getPortrait(item.position || index + 1)} alt="" />
+          {isDead && canRevealNightStatus ? <div className="night-player-dead-mask">出局</div> : null}
+          {isSelected ? <div className="night-player-selected-mark">{actionKey === "check" ? "验" : "标"}</div> : null}
+        </div>
+        <div className="night-player-name">{item.name || "玩家"}</div>
+        <div className="night-player-note">
+          {isSelected ? "已选择目标" : (canSelect ? (actionDesc.buttonText || "选择") : (item.isSelf ? "我" : "沉睡中"))}
+        </div>
+        <div className="night-player-tags">
+          {item.campName ? <span className={item.camp === 1 ? "good" : "wolf"}>{item.campName}</span> : null}
+          {item.roleName ? <span>{item.roleName}</span> : null}
+        </div>
+      </button>
+    )
+  }
+
+  const renderNightRoom = () => {
+    const stage = Number(gameDetail.stage || 0)
+    const meta = nightStageMap[stage] || nightStageMap[0]
+    const canAct =
+      !!meta.role &&
+      !gameDetail.isOb &&
+      currentRole.status === 1 &&
+      currentRole.role === meta.role
+    const stageActionKeys = stage === 3 ? ["antidote", "poison"] : (meta.actionKey ? [meta.actionKey] : [])
+    const visibleSkills = stageActionKeys
+      .map(key => getNightSkill(key) || { key, name: modalDescMap[key] ? modalDescMap[key].title : key, show: false, canUse: false })
+      .filter(item => item.show)
+    const firstTargetSkill = visibleSkills.find(item => item.key !== "antidote" && item.key !== "boom" && item.canUse)
+    const activeActionKey =
+      canAct &&
+      currentAction &&
+      visibleSkills.some(item => item.key === currentAction && item.canUse) ?
+        currentAction :
+        (firstTargetSkill ? firstTargetSkill.key : null)
+    const activePlayers = activeActionKey ? (actionPlayer.length > 0 && currentAction === activeActionKey ? actionPlayer : (buildActionPlayers(activeActionKey) || [])) : []
+    const targetMap = {}
+    activePlayers.forEach(item => {
+      if(item.username){
+        targetMap[item.username] = item
+      }
+      targetMap[item.position] = item
+    })
+    const broadcastText = (gameDetail.broadcast || []).map(item => item.text).join("")
+    const aliveCount = (playerInfo || []).filter(item => item.status !== 0).length
+    const canRevealAliveCount =
+      gameDetail.isOb ||
+      (currentRole.role === "wolf" && stage >= 2) ||
+      (currentRole.role === "witch" && stage >= 3)
+    const timerText = timerTime !== null && timerTime > 0 ? timerTime + "s" : "等待钟声"
+    const activeActionLabel = activeActionKey ? getActionLabel(activeActionKey) : (currentAction && actionResult ? getActionLabel(currentAction) : "等待")
+    const nightMemoItems = buildNightMemoItems(stage, broadcastText)
+    const nightSystemTip = getNightSystemTip(stage)
+
+    return (
+      <div className={`room-ready-shell room-night-shell night-${meta.accent}`}>
+        {isMockEnabled() ? null : <Websocket url={'ws://' + utils.getWsUrl() + ':6003/lrs/' + roomId} onMessage={wsMessage} />}
+        <div className="night-bg" aria-hidden="true" />
+        <header className="ready-topbar night-topbar">
+          <div className="ready-brand">村落日志</div>
+          <nav>
+            <button type="button">游戏规则</button>
+            <button type="button">世界观</button>
+          </nav>
+          <div className="ready-room-plaque night-room-plaque">
+            <span>房间</span>
+            <strong>{roomDetail.password || roomDetail.key || roomDetail._id || "----"}</strong>
+          </div>
+          <div className="ready-top-actions">
+            <button type="button" aria-label="音量"><AudioOutlined /></button>
+            <button type="button" aria-label="设置"><SettingOutlined /></button>
+          </div>
+        </header>
+
+        <aside className="ready-sidebar night-sidebar">
+          <div className="ready-narrator">
+            <img src={roleCardMap[currentRole.role] || narratorAvatar} alt="" />
+            <div>
+              <strong>{`第${gameDetail.day || 0}天`}</strong>
+              <span>{`第${stage + 1}阶段 ${meta.nav}`}</span>
+            </div>
+          </div>
+          <nav>
+            <button type="button"><HomeOutlined />广场</button>
+            <button type="button"><TeamOutlined />玩家</button>
+            <button className="active" type="button"><BookOutlined />行动</button>
+            <button type="button" onClick={lookRecord}><EyeOutlined />日志</button>
+          </nav>
+          <div className="ready-summary">
+            <div><span>当前天数</span><strong>{`第${gameDetail.day || 0}天`}</strong></div>
+            <div><span>当前阶段</span><strong>{`第${stage + 1}阶段`}</strong></div>
+            <div><span>阶段名称</span><strong>{meta.nav}</strong></div>
+            <div><span>我的身份</span><strong>{currentRole.roleName || "未知"}</strong></div>
+          </div>
+          {canNextStage ? (
+            <button className="ready-start-btn" type="button" onClick={nextStage}>
+              下一阶段
+            </button>
+          ) : null}
+          <button className="ready-side-link" type="button" onClick={quitRoom}><LogoutOutlined />离开房间</button>
+        </aside>
+
+        <main className="ready-main night-main">
+          <section className="night-hero">
+            <div>
+              <div className="night-kicker">
+                <BulbOutlined />
+                <span>{`第${gameDetail.day || 0}天 - ${gameDetail.dayTag || "夜晚"} - 第${stage + 1}阶段（${meta.nav}）`}</span>
+              </div>
+              <h2>{canAct ? meta.title : "幕布低垂"}</h2>
+              <p>{canAct ? (broadcastText || meta.subtitle) : "夜色覆盖村庄。等待属于你的行动阶段到来。"}</p>
+            </div>
+            <div className="night-timer">
+              <span>距离黎明</span>
+              <strong>{timerText}</strong>
+            </div>
+          </section>
+
+          <section className="night-board">
+            {(playerInfo || []).map((item, index) => renderNightPlayer(item, index, activeActionKey, canAct, targetMap))}
+          </section>
+
+          <section className="night-actions">
+            {canAct && visibleSkills.length > 0 ? visibleSkills.map(item => {
+              const isDirectAction = item.key === "antidote" || item.key === "boom"
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={cls({
+                    "night-action-btn": true,
+                    "active": activeActionKey === item.key || isDirectAction,
+                  })}
+                  disabled={!item.canUse}
+                  onClick={() => startInlineAction(item.key)}
+                >
+                  <span>{item.key === "check" ? "查" : item.key === "assault" ? "袭" : item.key === "antidote" ? "救" : "毒"}</span>
+                  <strong>{item.name}</strong>
+                </button>
+              )
+            }) : (
+              <div className="night-curtain-note">当前不是你的行动阶段，请保持等待状态。</div>
+            )}
+          </section>
+
+          {actionResult && currentAction ? (
+            <section className="night-result">
+              <strong>{modalDescMap[currentAction] ? modalDescMap[currentAction].resultTitle : "行动结果"}</strong>
+              {currentAction === "check" ? (
+                <span>{`${actionResult.position}号 ${actionResult.name} 的阵营是：${actionResult.campName}`}</span>
+              ) : (
+                <span>{`${modalDescMap[currentAction] ? modalDescMap[currentAction].resultDesc : "目标"}${actionResult.position}号 ${actionResult.name}`}</span>
+              )}
+            </section>
+          ) : null}
+        </main>
+
+        <aside className="ready-right-panel night-right-panel">
+          <section className="ready-scroll-panel night-scroll-panel">
+            <div className="scroll-roll" />
+            <h3>夜晚纪要</h3>
+            <p className="panel-subtitle">{meta.nav}</p>
+            <div className="night-side-stats">
+              <div><span>存活</span><strong>{canRevealAliveCount ? `${aliveCount}人` : "未知"}</strong></div>
+              <div><span>可行动</span><strong>{canAct ? "是" : "否"}</strong></div>
+              <div><span>行动</span><strong>{activeActionLabel}</strong></div>
+            </div>
+            <div className="night-memo-list">
+              {nightMemoItems.map((item, index) => (
+                <div className="night-memo-item" key={item + index}>
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <p>{item}</p>
+                </div>
+              ))}
+            </div>
+            <div className="ready-rule-card">
+              <strong>{nightSystemTip.title}</strong>
+              <span>{nightSystemTip.text}</span>
+            </div>
+            <div className="night-side-actions">
+              <button type="button" onClick={() => getRoomDetail()}><ReloadOutlined />刷新</button>
+              <button type="button" onClick={lookRecord}><BookOutlined />查看记录</button>
+            </div>
+          </section>
+        </aside>
+      </div>
+    )
+  }
+
   const renderDayPlayer = (item, index) => {
     const occupied = !item.empty
     const isDead = occupied && item.status === 0
@@ -1230,7 +1686,7 @@ const Index = (props) => {
 
   return (
     <div className="room-container">
-      {isDayStage ? renderDayRoom() : (
+      {isNightStage ? renderNightRoom() : isDayStage ? renderDayRoom() : (
         <div className="room-wrap FBV">
 
           {/*websocket*/}
