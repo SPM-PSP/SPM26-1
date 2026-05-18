@@ -53,6 +53,8 @@ const {
 
 const villageSquareImage =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuB2suRmUFgwAHwsJ87LyeSx3ooFy_y-4bTkmyYI9zk5FkfJNq-OhbSk8QjNXpI-5ClWpqpPYWp6_VVx-Qr-tT3luviD56AzF0oS2Fu0myPhrI04lXsjUWiiaZor_yw9MgZYFj8UHX6DaAnYZqkLCiVvw7ZVdga4NRi-9i5jHwx81gknGV2q1b8dquA4dGTKhnFgrhkGn7sT05nxXW5140tSAd-K6Z1Kq-E0ukIi_87IsMZiafT71h0CSoMaq71QFUk9HiL7qwxt18I"
+const twilightVillageImage =
+  "https://lh3.googleusercontent.com/aida-public/AB6AXuAyfeodrJpok8kMQgsIfsTaUgRzSPC6u6LJPAlHSpfU114S-ATQ3PCbtnGNLEzhx05JqKsqKjTsyxXbcLsmuhy5s_uDQy_CR4Y3zpkb1gJiNcJSlvk_Xz96gFJ_z08XbFltqDIn_extK2Dy7vv51vh7g5bSBr48ipmIFi7fcqyoenycLkeCKgW2BGFG-_FDpDWQHuwfM6y_YIZh0KO0TVD4AIeB37zEENk6dBcjGZhMhAp7alAK1a61iSlIlK5VmO_ZsCEU1dnaGCw"
 const narratorAvatar =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuB8dVXn5R8gPFoigSGCZ8XqBatEYYXpeS7nOfWQaIH6xxoIqXgwyTKsB-ma2FCrSEmMq4ucb6PXawFwnMUQfrInQ5UILBrdJofipaXGq3qP3ca1FLuVreX8Ieoyhid9T2jqxltYpv8rsZnuDdN0fAPNjwzOsxGYuKvGkH4OwVXD-uprCB-vHru7htjSaDPThk_8OOB6aEl_SoyozSCHOYQ4HUcegEGPbHxnz_mM1JC84CcjAbDrpJ0chTtFmsThip_UMB-QHAdEy3c"
 const playerPortraits = [
@@ -83,6 +85,7 @@ const Index = (props) => {
   const [recordModal, setRecordModal] = useState(false)
   const [gameRecord, setGameRecord] = useState([])
   const [nightMemoRecords, setNightMemoRecords] = useState([])
+  const [duskRecordRows, setDuskRecordRows] = useState([])
 
   const [currentAction, setCurrentAction] = useState('')
   const [actionModal, setActionModal] = useState(false)
@@ -164,6 +167,7 @@ const Index = (props) => {
   const canNextStage = canOwnerNextStage || canRoleNextStage
   const isDayStage = gameDetail.status === 1 && (gameDetail.dayTag === "白天" || [5, 6].includes(Number(gameDetail.stage)))
   const isNightStage = gameDetail.status === 1 && [0, 1, 2, 3].includes(Number(gameDetail.stage))
+  const isDuskStage = gameDetail.status === 1 && (Number(gameDetail.stage) === 7 || gameDetail.dayTag === "黄昏")
   const selectedPlayerCount = Number(gameSetting.playerCount || 9)
   const waitingPlayers = roomDetail.waitPlayer || []
   const occupiedSeatCount = seatInfo.filter(item => item.player).length
@@ -407,6 +411,7 @@ const Index = (props) => {
       setSkillInfo(data.skill || [])
       setActionInfo(data.action || [])
       syncNightMemoRecords(data)
+      syncDuskRecords(data)
       if(isBegin){
         openRoleCard(data.roleInfo)
       }
@@ -452,6 +457,24 @@ const Index = (props) => {
       setNightMemoRecords(flattenGameRecord(data))
     }).catch(()=>{
       setNightMemoRecords([])
+    })
+  }
+
+  const isDuskDetail = (detail) => (
+    detail &&
+    detail.status === 1 &&
+    (Number(detail.stage) === 7 || detail.dayTag === "黄昏")
+  )
+
+  const syncDuskRecords = (detail) => {
+    if(!isDuskDetail(detail)){
+      setDuskRecordRows([])
+      return
+    }
+    apiGame.gameRecord({roomId: detail.roomId, gameId: detail._id}).then(data=>{
+      setDuskRecordRows(flattenGameRecord(data))
+    }).catch(()=>{
+      setDuskRecordRows([])
     })
   }
 
@@ -1669,6 +1692,276 @@ const Index = (props) => {
     )
   }
 
+  const getPlayerByRecordTarget = (target) => {
+    if(!target){
+      return null
+    }
+    return (playerInfo || []).find(item => (
+      (target.username && item.username === target.username) ||
+      (target.position && Number(item.position) === Number(target.position))
+    )) || null
+  }
+
+  const getRecordText = (row) => {
+    const content = row && row.content ? row.content : {}
+    if(content.text){
+      return content.text
+    }
+    if(content.type === "rich-text"){
+      return (content.content || []).map(item => item.text).join("")
+    }
+    return ""
+  }
+
+  const parseVoteNameCount = (name) => {
+    const value = String(name || "")
+    const match = value.match(/共(\d+)票/)
+    if(match){
+      return Number(match[1])
+    }
+    if(!value){
+      return 0
+    }
+    return value.split("、").filter(Boolean).length
+  }
+
+  const buildDuskVoteSummary = () => {
+    const currentDay = normalizeRecordDay(gameDetail.day)
+    const dayRows = (duskRecordRows || []).filter(item => normalizeRecordDay(item.day) === currentDay)
+    const voteRows = dayRows.filter(item => item.content && item.content.type === "vote")
+    const latestVoteStage = voteRows.reduce((stage, item) => {
+      const value = Number(item.stage)
+      return Number.isNaN(value) ? stage : Math.max(stage, value)
+    }, -1)
+    const latestVoteRows = latestVoteStage >= 0 ? voteRows.filter(item => Number(item.stage) === latestVoteStage) : voteRows
+    const exileRow = dayRows
+      .filter(item => {
+        const content = item.content || {}
+        return content.type === "action" && (content.actionName === "放逐" || content.action === "out")
+      })
+      .pop()
+    const noOutRow = dayRows.find(item => {
+      const text = getRecordText(item)
+      return text.indexOf("没有玩家出局") > -1 || text.indexOf("无人获得") > -1 || text.indexOf("平票") > -1
+    })
+    const exiledPlayer = exileRow && exileRow.content ? (getPlayerByRecordTarget(exileRow.content.from) || exileRow.content.from) : null
+    const rows = latestVoteRows.map((item, index) => {
+      const content = item.content || {}
+      const target = content.to || {}
+      const isAbstain = content.action === "abstained" || content.actionName === "弃票" || target.name === "弃票"
+      const player = isAbstain ? null : getPlayerByRecordTarget(target)
+      const count = parseVoteNameCount(target.name) || parseVoteNameCount(content.from && content.from.name)
+      return {
+        key: (target.username || target.name || "vote") + index,
+        isAbstain,
+        player,
+        target,
+        count,
+        voters: content.from && content.from.name ? content.from.name : "",
+      }
+    }).sort((a, b) => {
+      if(a.isAbstain !== b.isAbstain){
+        return a.isAbstain ? 1 : -1
+      }
+      return b.count - a.count
+    })
+    const validTotal = rows.reduce((total, item) => item.isAbstain ? total : total + item.count, 0)
+    const abstainTotal = rows.reduce((total, item) => item.isAbstain ? total + item.count : total, 0)
+    const noOutText = noOutRow ? getRecordText(noOutRow) : ""
+    return {
+      rows,
+      validTotal,
+      abstainTotal,
+      exiledPlayer,
+      exileText: exileRow ? getRecordText(exileRow) : noOutText,
+      noOut: !exiledPlayer,
+    }
+  }
+
+  const renderVoteMarks = (count, active) => {
+    const visibleCount = Math.min(count || 0, 8)
+    return (
+      <div className={active ? "dusk-vote-marks active" : "dusk-vote-marks"}>
+        {Array.from({ length: visibleCount }).map((_, index) => <span key={index}>!</span>)}
+        {count > visibleCount ? <em>{`+${count - visibleCount}`}</em> : null}
+      </div>
+    )
+  }
+
+  const renderDuskVoteRow = (item, summary) => {
+    const target = item.target || {}
+    const player = item.player || target
+    const isExiled = summary.exiledPlayer && !item.isAbstain && (
+      (summary.exiledPlayer.username && player.username === summary.exiledPlayer.username) ||
+      (summary.exiledPlayer.position && Number(player.position) === Number(summary.exiledPlayer.position))
+    )
+    const displayName = item.isAbstain ?
+      "弃票" :
+      `${player.position || target.position || "?"}号 ${player.name || target.name || "玩家"}`
+    const subText = item.isAbstain ? "未投出有效目标" : (player.roleName || player.campName || "身份未公开")
+
+    return (
+      <div
+        key={item.key}
+        className={cls({
+          "dusk-vote-row": true,
+          "dusk-vote-exiled": isExiled,
+          "dusk-vote-abstain": item.isAbstain,
+        })}
+      >
+        <div className="dusk-vote-person">
+          <div className="dusk-vote-avatar">
+            {item.isAbstain ? <MinusCircleOutlined /> : <img src={getPortrait(player.position || target.position || 1)} alt="" />}
+          </div>
+          <div>
+            <strong>{displayName}</strong>
+            <span>{subText}</span>
+          </div>
+        </div>
+        {renderVoteMarks(item.count, isExiled)}
+        <div className="dusk-vote-count">{`${item.count || 0}票`}</div>
+        {item.voters ? <div className="dusk-voters">{`来自：${item.voters}`}</div> : null}
+      </div>
+    )
+  }
+
+  const renderDuskRoom = () => {
+    const stage = Number(gameDetail.stage || 0)
+    const summary = buildDuskVoteSummary()
+    const exiled = summary.exiledPlayer || {}
+    const broadcastText = (gameDetail.broadcast || []).map(item => item.text).join("")
+    const aliveCount = (playerInfo || []).filter(item => item.status !== 0).length
+    const visibleActions = []
+    ;(skillInfo || []).forEach(item => {
+      if(item.show){
+        visibleActions.push({...item, source: "skill"})
+      }
+    })
+    ;(actionInfo || []).forEach(item => {
+      if(item.show && !visibleActions.some(action => action.key === item.key)){
+        visibleActions.push({...item, source: "action"})
+      }
+    })
+    const resultTitle = summary.noOut ? "无人被放逐" : `${exiled.position || "?"}号 ${exiled.name || "玩家"}`
+    const resultText = summary.exileText || broadcastText || "投票结算完成，等待进入下一阶段。"
+
+    return (
+      <div className="room-ready-shell room-dusk-shell">
+        {isMockEnabled() ? null : <Websocket url={'ws://' + utils.getWsUrl() + ':6003/lrs/' + roomId} onMessage={wsMessage} />}
+        <div className="dusk-bg" aria-hidden="true">
+          <img src={twilightVillageImage} alt="" />
+        </div>
+        <header className="ready-topbar dusk-topbar">
+          <div className="ready-brand">村落日志</div>
+          <nav>
+            <button type="button">游戏规则</button>
+            <button type="button">世界观</button>
+          </nav>
+          <div className="ready-room-plaque dusk-room-plaque">
+            <span>房间</span>
+            <strong>{roomDetail.password || roomDetail.key || roomDetail._id || "----"}</strong>
+          </div>
+          <div className="ready-top-actions">
+            <button type="button" aria-label="音量"><AudioOutlined /></button>
+            <button type="button" aria-label="设置"><SettingOutlined /></button>
+          </div>
+        </header>
+
+        <aside className="ready-sidebar dusk-sidebar">
+          <div className="ready-narrator dusk-narrator">
+            <img src={roleCardMap[currentRole.role] || narratorAvatar} alt="" />
+            <div>
+              <strong>{`第${gameDetail.day || 1}天`}</strong>
+              <span>{`${gameDetail.dayTag || "黄昏"} - 第${stage + 1}阶段`}</span>
+            </div>
+          </div>
+          <nav>
+            <button type="button"><HomeOutlined />白天阶段</button>
+            <button type="button"><BulbOutlined />夜晚阶段</button>
+            <button className="active" type="button"><CrownOutlined />黄昏审判</button>
+            <button type="button" onClick={lookRecord}><BookOutlined />村庄记录</button>
+            <button type="button"><TeamOutlined />玩家名单</button>
+          </nav>
+          <div className="ready-summary dusk-summary">
+            <div><span>当前天数</span><strong>{`第${gameDetail.day || 1}天`}</strong></div>
+            <div><span>当前阶段</span><strong>{`第${stage + 1}阶段`}</strong></div>
+            <div><span>阶段名称</span><strong>{gameDetail.stageName || "放逐结算"}</strong></div>
+            <div><span>存活玩家</span><strong>{`${aliveCount}人`}</strong></div>
+          </div>
+          <button className="ready-side-link" type="button" onClick={quitRoom}><LogoutOutlined />离开房间</button>
+        </aside>
+
+        <main className="ready-main dusk-main">
+          <section className="dusk-stage-heading">
+            <div className="dusk-kicker">
+              <CrownOutlined />
+              <span>黄昏阶段 · 投票结算与放逐公布</span>
+            </div>
+            <h2>审判阶段结束</h2>
+            <p>{broadcastText || "票型已经归档，村庄等待最后的结算与下一次钟声。"}</p>
+          </section>
+
+          <section className="dusk-grid">
+            <div className="dusk-result-panel">
+              <div className="dusk-portrait-wrap">
+                <div className={summary.noOut ? "dusk-exile-portrait dusk-noout-portrait" : "dusk-exile-portrait"}>
+                  {summary.noOut ? <UserOutlined /> : <img src={getPortrait(exiled.position || 1)} alt="" />}
+                  {summary.noOut ? null : <div className="dusk-exile-stamp">出局</div>}
+                </div>
+                {summary.noOut ? null : <span className="dusk-exile-number">{`${exiled.position || "?"}号`}</span>}
+              </div>
+              <h3>{resultTitle}</h3>
+              <p>{resultText}</p>
+              <div className="dusk-result-tags">
+                {summary.noOut ? <span>没有玩家出局</span> : <span>{exiled.roleName || "身份未公开"}</span>}
+                {!summary.noOut && exiled.campName ? <span>{exiled.campName}</span> : null}
+              </div>
+            </div>
+
+            <div className="dusk-vote-panel">
+              <div className="dusk-panel-title">
+                <div><BookOutlined /><strong>计票表</strong></div>
+                <span>{`有效票：${summary.validTotal}`}</span>
+              </div>
+              <div className="dusk-vote-list">
+                {summary.rows.length > 0 ? summary.rows.map(item => renderDuskVoteRow(item, summary)) : (
+                  <div className="dusk-empty-record">暂无公开票型记录，可通过“查看记录”确认完整事件。</div>
+                )}
+              </div>
+              <div className="dusk-vote-footer">
+                <span>{`弃票：${summary.abstainTotal}票`}</span>
+                <span>{`阶段：${gameDetail.stageName || "放逐结算"}`}</span>
+              </div>
+            </div>
+          </section>
+
+          <section className="dusk-action-bar">
+            <div className="dusk-action-left">
+              <button type="button" onClick={() => getRoomDetail()}><ReloadOutlined />刷新</button>
+              <button type="button" onClick={lookRecord}><BookOutlined />查看记录</button>
+              {visibleActions.map(item => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className="active"
+                  disabled={!item.canUse}
+                  onClick={() => useSkill(item.key)}
+                >
+                  <BulbOutlined />{item.name}
+                </button>
+              ))}
+            </div>
+            {canNextStage ? (
+              <button className="dusk-next-btn" type="button" onClick={nextStage}>
+                进入夜晚 <span>→</span>
+              </button>
+            ) : null}
+          </section>
+        </main>
+      </div>
+    )
+  }
+
   if(errorPage){
     return (
       <div className="error-view FBV FBAC">
@@ -1686,7 +1979,7 @@ const Index = (props) => {
 
   return (
     <div className="room-container">
-      {isNightStage ? renderNightRoom() : isDayStage ? renderDayRoom() : (
+      {isNightStage ? renderNightRoom() : isDuskStage ? renderDuskRoom() : isDayStage ? renderDayRoom() : (
         <div className="room-wrap FBV">
 
           {/*websocket*/}
