@@ -1548,8 +1548,8 @@
   --surface-low #151a14
   --surface-mid #20261f
   --surface-high #2b3229
-  --primary #a90c0c
-  --primary-dark #650305
+  --primary #6f1115
+  --primary-dark #3f080b
   --secondary #ffdf9a
   --secondary-soft #3a3426
   --tertiary #d6c7aa
@@ -1625,39 +1625,7 @@
   color var(--secondary)
 
 .night-main
-  padding 36px 40px 24px
-
-.night-hero
-  display flex
-  justify-content space-between
-  align-items flex-end
-  gap 28px
-  margin-bottom 34px
-
-.night-kicker
-  display flex
-  align-items center
-  gap 10px
-  color var(--secondary)
-  font-size 13px
-  font-weight 900
-  letter-spacing .12em
-
-.night-hero h2
-  margin 12px 0 8px
-  color #f5f3eb
-  font-size 62px
-  line-height 1
-  font-weight 900
-  letter-spacing 0
-
-.night-hero p
-  max-width 620px
-  margin 0
-  color rgba(236,232,220,.76)
-  font-size 18px
-  line-height 1.7
-  font-style italic
+  padding 22px 30px 18px
 
 .night-timer
   min-width 170px
@@ -1681,85 +1649,68 @@
   font-size 38px
   line-height 1
 
-.night-board
-  min-height 360px
-  display grid
-  grid-template-columns repeat(5, minmax(118px, 1fr))
-  gap 22px
-  align-items stretch
-  padding 10px 0 8px
+.night-square-card
+  height 100%
 
-.night-player-card
-  position relative
-  min-height 218px
-  border 2px solid transparent
-  border-radius 4px
-  padding 18px 16px 16px
+.night-status-banner
+  min-width 360px
+  max-width 520px
+  border-color rgba(255,223,154,.54)
+  background rgba(37,41,35,.92)
+  box-shadow 0 18px 36px rgba(0,0,0,.24)
+
+.night-status-banner h2
+  color var(--secondary)
+  letter-spacing .1em
+
+.night-status-banner p
+  color rgba(236,232,220,.74)
+
+.night-orbit
+  width min(980px, 100%)
+  min-height 500px
+  margin 10px 0 8px
+
+.night-day-player
   color #ece8dc
-  background rgba(38,43,37,.88)
-  box-shadow 0 18px 36px rgba(0,0,0,.2)
-  display flex
-  flex-direction column
-  align-items center
-  font-family inherit
   cursor default
-  transition transform .18s ease, border-color .18s ease, background .18s ease
 
-.night-player-card:disabled
+.night-day-player:disabled
   color #ece8dc
 
 .night-player-actionable
   cursor pointer
-  border-color rgba(255,223,154,.38)
 
-.night-player-actionable:hover
-  transform translateY(-5px)
-  border-color var(--secondary)
-  background rgba(51,58,49,.95)
+.night-player-actionable .night-seat-frame
+  box-shadow 0 0 0 3px rgba(160,174,144,.28), 0 18px 32px rgba(0,0,0,.28)
+
+.night-player-actionable:hover .night-seat-frame
+  transform scale(1.08) rotate(0deg)
 
 .night-player-muted
   opacity .5
 
-.night-player-self
-  background rgba(83,65,35,.92)
+.night-day-player.day-player-self .night-seat-frame
+  background #2e382f
+  border-bottom-color #121711
 
 .night-player-dead
   opacity .6
 
-.night-player-selected
-  border-color #ffb4a8
-  box-shadow 0 0 0 1px rgba(255,180,168,.4), 0 18px 36px rgba(0,0,0,.24)
+.night-player-selected .night-seat-frame
+  box-shadow 0 0 0 3px rgba(111,17,21,.66), 0 18px 32px rgba(0,0,0,.28)
 
-.night-player-number
-  position absolute
-  right -2px
-  top -12px
-  min-width 34px
-  height 26px
-  line-height 26px
-  color #2a1b00
-  background var(--secondary)
-  font-size 13px
-  font-weight 900
+.night-seat-frame
+  background #253129
+  border 2px solid rgba(172,184,157,.34)
+  border-bottom 5px solid #101610
 
-.night-player-portrait
-  position relative
-  width 100%
-  aspect-ratio 1
-  max-width 126px
-  overflow hidden
-  border 2px solid rgba(255,223,154,.2)
-  background #f3eee0
-
-.night-player-portrait img
-  width 100%
-  height 100%
-  object-fit cover
+.night-seat-frame img
   filter grayscale(.85) contrast(.95)
   transition filter .2s ease
 
-.night-player-actionable:hover .night-player-portrait img,
-.night-player-selected .night-player-portrait img
+.night-player-actionable:hover .night-seat-frame img,
+.night-player-selected .night-seat-frame img
   filter grayscale(0)
 
 .night-player-dead-mask,
@@ -1770,39 +1721,52 @@
   align-items center
   justify-content center
   color #fff
-  background rgba(90,0,5,.56)
+  background rgba(63,8,11,.66)
   font-size 22px
   font-weight 900
 
 .night-player-selected-mark
-  background rgba(169,12,12,.44)
+  background rgba(111,17,21,.58)
   font-size 34px
+  line-height 1
 
-.night-player-name
-  width 100%
-  margin-top 14px
+.night-day-player .ready-seat-name
+  color #2a1b00
+  background var(--secondary)
+
+.night-day-player .ready-seat-number
   color #f7f2e8
-  font-size 17px
-  font-weight 900
-  text-align center
-  white-space nowrap
-  overflow hidden
-  text-overflow ellipsis
+  background var(--primary)
 
-.night-player-note
-  margin-top 5px
+.night-day-player .ready-seat-note
   color var(--secondary)
-  font-size 11px
-  font-weight 900
-  text-align center
+  min-height 16px
 
 .night-player-tags
-  min-height 20px
-  display flex
-  flex-wrap wrap
-  justify-content center
-  gap 4px
-  margin-top 8px
+  min-height 18px
+  margin-top 5px
+
+.night-player-empty
+  opacity .62
+
+.night-player-empty .night-seat-frame
+  background #31352b
+  border-color rgba(172,184,157,.24)
+  border-bottom-color #1a1f17
+
+.night-center-piece
+  width 170px
+  height 170px
+  color var(--secondary)
+  background rgba(37,41,35,.68)
+  border-color rgba(255,223,154,.14)
+  box-shadow inset 0 20px 40px rgba(0,0,0,.16), 0 20px 36px rgba(0,0,0,.2)
+
+.night-center-piece strong
+  color #f7f2e8
+
+.night-center-piece span
+  color rgba(236,232,220,.62)
 
 .night-player-tags span
   padding 2px 6px
@@ -1814,23 +1778,23 @@
 
 .night-player-tags .wolf
   color #fff
-  background #a90c0c
+  background var(--primary)
 
 .night-player-tags .good
   color #102c17
   background #b7ccb9
 
 .night-actions
-  min-height 120px
+  min-height 88px
   display flex
   justify-content center
   align-items center
-  gap 30px
-  margin-top 22px
+  gap 18px
+  margin-top 8px
 
 .night-action-btn
-  width 118px
-  min-height 118px
+  width 106px
+  min-height 72px
   border 0
   border-radius 2px
   display flex
@@ -1846,17 +1810,17 @@
   cursor pointer
 
 .night-action-btn span
-  width 58px
-  height 58px
+  width 34px
+  height 34px
   display flex
   align-items center
   justify-content center
   color #fff
   background #181b17
-  font-size 30px
+  font-size 20px
 
 .night-action-btn strong
-  font-size 16px
+  font-size 14px
 
 .night-action-btn.active span
   background var(--primary)
@@ -1879,16 +1843,16 @@
   max-width 620px
   margin 8px auto 0
   padding 14px 18px
-  border-left 3px solid #ffb4a8
+  border-left 3px solid var(--primary)
   color #f7f2e8
-  background rgba(169,12,12,.18)
+  background rgba(63,8,11,.36)
   display flex
   gap 12px
   align-items center
   justify-content center
 
 .night-result strong
-  color #ffb4a8
+  color var(--secondary)
 
 .night-right-panel
   background #10140f
@@ -1964,8 +1928,8 @@
   width 28px
   height 28px
   line-height 28px
-  color #10140f
-  background var(--secondary)
+  color #f7f2e8
+  background var(--primary)
   font-size 12px
   font-weight 900
   text-align center
@@ -1985,17 +1949,20 @@
 
 .night-side-actions button
   min-height 46px
-  border 0
+  border 1px solid rgba(255,223,154,.14)
   border-radius 4px
   display flex
   align-items center
   justify-content center
   gap 8px
-  color #10140f
-  background var(--secondary)
+  color #f7f2e8
+  background var(--primary)
   font-family inherit
   font-weight 900
   cursor pointer
+
+.night-side-actions button:hover
+  background #812025
 
 .settings .setting-cell
   min-height 38px
@@ -2024,8 +1991,9 @@
   .night-bg
     inset 76px 300px 0 220px
 
-  .night-board
-    grid-template-columns repeat(4, minmax(118px, 1fr))
+  .night-orbit
+    width min(860px, 100%)
+    min-height 460px
 
   .ready-sidebar
     padding 24px
@@ -2082,17 +2050,6 @@
 
   .night-main
     padding 28px 24px
-
-  .night-hero
-    flex-direction column
-    align-items flex-start
-
-  .night-hero h2
-    font-size 42px
-
-  .night-board
-    grid-template-columns repeat(2, minmax(132px, 1fr))
-    min-height 0
 
   .night-actions
     flex-wrap wrap

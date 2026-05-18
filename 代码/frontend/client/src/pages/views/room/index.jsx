@@ -1294,10 +1294,12 @@ const Index = (props) => {
       <button
         key={item.position || index}
         className={cls({
-          "night-player-card": true,
+          "ready-seat-card ready-day-player night-day-player": true,
+          "ready-seat-empty": !occupied,
+          "night-player-empty": !occupied,
           "night-player-actionable": canSelect,
           "night-player-muted": !canSelect && canAct,
-          "night-player-self": item.isSelf,
+          "day-player-self": occupied && item.isSelf,
           "night-player-dead": isDead && canRevealNightStatus,
           "night-player-selected": isSelected,
         })}
@@ -1314,20 +1316,26 @@ const Index = (props) => {
           playerAction(item, actionKey, true)
         }}
       >
-        <span className="night-player-number">{String(item.position || index + 1).padStart(2, "0")}</span>
-        <div className="night-player-portrait">
-          <img src={getPortrait(item.position || index + 1)} alt="" />
+        <div className="ready-seat-frame night-seat-frame">
+          {occupied ? (
+            <img src={getPortrait(item.position || index + 1)} alt="" />
+          ) : (
+            <div className="ready-seat-placeholder">
+              <UserOutlined />
+            </div>
+          )}
+          <span className="ready-seat-number">{item.position || index + 1}号</span>
           {isDead && canRevealNightStatus ? <div className="night-player-dead-mask">出局</div> : null}
-          {isSelected ? <div className="night-player-selected-mark">{actionKey === "check" ? "验" : "标"}</div> : null}
+          {isSelected ? <div className="night-player-selected-mark">{actionKey === "check" ? "验" : "☠"}</div> : null}
         </div>
-        <div className="night-player-name">{item.name || "玩家"}</div>
-        <div className="night-player-note">
-          {isSelected ? "已选择目标" : (canSelect ? (actionDesc.buttonText || "选择") : (item.isSelf ? "我" : "沉睡中"))}
+        <div className="ready-seat-name">{occupied ? (item.name || "玩家") : "空缺"}</div>
+        <div className="ready-seat-note">
+          {occupied ? (isSelected ? "已选择目标" : (canSelect ? (actionDesc.buttonText || "选择") : (item.isSelf ? "我" : ""))) : "未参局"}
         </div>
-        <div className="night-player-tags">
+        {occupied ? <div className="day-player-tags night-player-tags">
           {item.campName ? <span className={item.camp === 1 ? "good" : "wolf"}>{item.campName}</span> : null}
           {item.roleName ? <span>{item.roleName}</span> : null}
-        </div>
+        </div> : null}
       </button>
     )
   }
@@ -1419,58 +1427,59 @@ const Index = (props) => {
         </aside>
 
         <main className="ready-main night-main">
-          <section className="night-hero">
-            <div>
-              <div className="night-kicker">
+          <section className="ready-square-card night-square-card">
+            <div className="ready-status-banner night-status-banner">
+              <h2>{meta.nav}</h2>
+              <p>{canAct ? (broadcastText || meta.subtitle) : nightSystemTip.text}</p>
+            </div>
+
+            <div className="ready-orbit night-orbit">
+              {dayPlayerSlots.map((item, index) => (
+                <div className={`ready-seat-slot ready-seat-slot-${index + 1}`} key={index + 1}>
+                  {renderNightPlayer(item, index, activeActionKey, canAct, targetMap)}
+                </div>
+              ))}
+              <div className="ready-center-piece night-center-piece">
                 <BulbOutlined />
-                <span>{`第${gameDetail.day || 0}天 - ${gameDetail.dayTag || "夜晚"} - 第${stage + 1}阶段（${meta.nav}）`}</span>
+                <strong>夜晚中心</strong>
+                <span>{meta.nav}</span>
               </div>
-              <h2>{canAct ? meta.title : "幕布低垂"}</h2>
-              <p>{canAct ? (broadcastText || meta.subtitle) : "夜色覆盖村庄。等待属于你的行动阶段到来。"}</p>
             </div>
-            <div className="night-timer">
-              <span>距离黎明</span>
-              <strong>{timerText}</strong>
-            </div>
-          </section>
 
-          <section className="night-board">
-            {(playerInfo || []).map((item, index) => renderNightPlayer(item, index, activeActionKey, canAct, targetMap))}
-          </section>
-
-          <section className="night-actions">
-            {canAct && visibleSkills.length > 0 ? visibleSkills.map(item => {
-              const isDirectAction = item.key === "antidote" || item.key === "boom"
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={cls({
-                    "night-action-btn": true,
-                    "active": activeActionKey === item.key || isDirectAction,
-                  })}
-                  disabled={!item.canUse}
-                  onClick={() => startInlineAction(item.key)}
-                >
-                  <span>{item.key === "check" ? "查" : item.key === "assault" ? "袭" : item.key === "antidote" ? "救" : "毒"}</span>
-                  <strong>{item.name}</strong>
-                </button>
-              )
-            }) : (
-              <div className="night-curtain-note">当前不是你的行动阶段，请保持等待状态。</div>
-            )}
-          </section>
-
-          {actionResult && currentAction ? (
-            <section className="night-result">
-              <strong>{modalDescMap[currentAction] ? modalDescMap[currentAction].resultTitle : "行动结果"}</strong>
-              {currentAction === "check" ? (
-                <span>{`${actionResult.position}号 ${actionResult.name} 的阵营是：${actionResult.campName}`}</span>
-              ) : (
-                <span>{`${modalDescMap[currentAction] ? modalDescMap[currentAction].resultDesc : "目标"}${actionResult.position}号 ${actionResult.name}`}</span>
+            <section className="night-actions">
+              {canAct && visibleSkills.length > 0 ? visibleSkills.map(item => {
+                const isDirectAction = item.key === "antidote" || item.key === "boom"
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={cls({
+                      "night-action-btn": true,
+                      "active": activeActionKey === item.key || isDirectAction,
+                    })}
+                    disabled={!item.canUse}
+                    onClick={() => startInlineAction(item.key)}
+                  >
+                    <span>{item.key === "check" ? "查" : item.key === "assault" ? "袭" : item.key === "antidote" ? "救" : "毒"}</span>
+                    <strong>{item.name}</strong>
+                  </button>
+                )
+              }) : (
+                <div className="night-curtain-note">当前不是你的行动阶段，请保持等待状态。</div>
               )}
             </section>
-          ) : null}
+
+            {actionResult && currentAction ? (
+              <section className="night-result">
+                <strong>{modalDescMap[currentAction] ? modalDescMap[currentAction].resultTitle : "行动结果"}</strong>
+                {currentAction === "check" ? (
+                  <span>{`${actionResult.position}号 ${actionResult.name} 的阵营是：${actionResult.campName}`}</span>
+                ) : (
+                  <span>{`${modalDescMap[currentAction] ? modalDescMap[currentAction].resultDesc : "目标"}${actionResult.position}号 ${actionResult.name}`}</span>
+                )}
+              </section>
+            ) : null}
+          </section>
         </main>
 
         <aside className="ready-right-panel night-right-panel">
