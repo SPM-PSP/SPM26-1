@@ -3,7 +3,7 @@ module.exports = {
     {
       // api的接口全部转到6001的服务端去
       context: ['/api'],
-      target: 'http://10.135.49.6:6001',
+      target: 'http://192.168.22.60:6001',
       changeOrigin: true,
     },
   ],

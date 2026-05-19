@@ -23,102 +23,68 @@ const Btn = (props) => {
 
   // 复盘分析功能
   const analyzeReplay = () => {
-    console.log('🔍 复盘按钮点击');
-    console.log('📋 游戏详情:', gameDetail);
-    
     if (gameDetail.status !== 2) {
-      console.log('❌ 游戏未结束，状态:', gameDetail.status);
       message.error('游戏尚未结束，无法进行复盘分析！');
       return;
     }
     
     if (!gameDetail._id) {
-      console.log('❌ 游戏ID为空');
       message.error('游戏ID不存在，无法进行复盘分析！');
       return;
     }
     
-    console.log('✅ 开始复盘分析，游戏ID:', gameDetail._id);
     setReplayLoading(true);
     
     const params = {
       gameId: gameDetail._id,
-      enableAI: false, // 可以根据需要开启AI分析
-      outputDir: 'replay_analysis'
     };
     
-    console.log('📤 发送复盘请求:', params);
-    
-    apiGame.gameReplay(params).then((response) => {
-      console.log('📥 收到复盘响应:', response);
+    apiGame.gameReplay(params).then((data) => {
       setReplayLoading(false);
+      message.success((data && data.message) || '复盘分析完成！');
       
-      if (response.success) {
-        message.success('复盘分析完成！');
-        
-        // 可以在这里显示分析结果或下载文件
-        console.log('复盘分析结果:', response.data);
-        
-        // 直接显示游戏记录和复盘分析
-        if (response.data && response.data.gameRecord) {
-          const gameRecord = response.data.gameRecord;
-          const analysisFiles = response.data.analysisFiles;
-          
-          // 读取复盘分析文件内容
-          fetch(`/api/game/replay/file?file=${analysisFiles.text}`)
-            .then(res => res.text())
-            .then(analysisText => {
-              Modal.info({
-                title: '游戏复盘报告',
-                width: 800,
-                content: (
-                  <div style={{maxHeight: '500px', overflowY: 'auto'}}>
-                    <h3>📋 游戏记录</h3>
-                    <p>游戏ID: {gameRecord.game_id}</p>
-                    <p>房间ID: {gameRecord.room_id}</p>
-                    <p>游戏天数: {gameRecord.days}</p>
-                    <p>胜利阵营: {gameRecord.winner === 1 ? '好人阵营' : gameRecord.winner === 2 ? '狼人阵营' : '未知'}</p>
-                    
-                    <h3>📊 复盘分析</h3>
-                    <pre style={{whiteSpace: 'pre-wrap', fontSize: '12px'}}>
-                      {analysisText}
-                    </pre>
-                    
-                    <p><strong>分析文件:</strong> {analysisFiles.json}</p>
-                  </div>
-                ),
-                okText: '确定'
-              });
-            })
-            .catch(() => {
-              // 如果读取文件失败，显示基本信息
-              Modal.info({
-                title: '游戏复盘报告',
-                width: 600,
-                content: (
-                  <div>
-                    <h3>📋 游戏记录</h3>
-                    <p>游戏ID: {gameRecord.game_id}</p>
-                    <p>房间ID: {gameRecord.room_id}</p>
-                    <p>游戏天数: {gameRecord.days}</p>
-                    <p>胜利阵营: {gameRecord.winner === 1 ? '好人阵营' : gameRecord.winner === 2 ? '狼人阵营' : '未知'}</p>
-                    
-                    <h3>📊 复盘分析</h3>
-                    <p>分析文件已生成: {analysisFiles.text}</p>
-                  </div>
-                ),
-                okText: '确定'
-              });
-            });
-        }
-      } else {
-        console.log('❌ 复盘分析失败:', response);
-        message.error('复盘分析失败：' + (response.errorMessage || '未知错误'));
+      const result = (data && data.result) || data || {};
+      const gameRecord = result.gameRecord || result.game_record || {};
+      const analysisFiles = result.analysisFiles || result.analysis_files || {};
+      const filePath = analysisFiles.text || analysisFiles.path || result.textPath || result.path;
+
+      const openReplayModal = (analysisText) => {
+        Modal.info({
+          title: '游戏复盘报告',
+          width: 800,
+          content: (
+            <div style={{maxHeight: '500px', overflowY: 'auto'}}>
+              <h3>游戏记录</h3>
+              <p>游戏ID: {gameRecord.game_id || gameDetail._id}</p>
+              {gameRecord.room_id || gameDetail.roomId ? <p>房间ID: {gameRecord.room_id || gameDetail.roomId}</p> : null}
+              {gameRecord.days ? <p>游戏天数: {gameRecord.days}</p> : null}
+              {gameRecord.winner !== undefined ? <p>胜利阵营: {gameRecord.winner === 1 ? '好人阵营' : gameRecord.winner === 0 ? '狼人阵营' : '未知'}</p> : null}
+              
+              <h3>复盘分析</h3>
+              <pre style={{whiteSpace: 'pre-wrap', fontSize: '12px'}}>
+                {analysisText || JSON.stringify(result, null, 2)}
+              </pre>
+              
+              {analysisFiles.json ? <p><strong>分析文件:</strong> {analysisFiles.json}</p> : null}
+            </div>
+          ),
+          okText: '确定'
+        });
+      };
+
+      if (filePath) {
+        fetch(`/api/game/replay/file?path=${encodeURIComponent(filePath)}`)
+          .then(res => res.text())
+          .then(openReplayModal)
+          .catch(() => {
+          openReplayModal('')
+        });
+        return;
       }
+      openReplayModal('');
     }).catch((error) => {
-      console.log('❌ 复盘请求失败:', error);
       setReplayLoading(false);
-      message.error('复盘分析请求失败：' + error.message);
+      message.error('复盘分析请求失败：' + (error.message || error));
     });
   };
 
@@ -133,7 +99,8 @@ const Btn = (props) => {
       okText: "确定",
       cancelText: "取消",
       onOk() {
-        apiGame.nextStage(params).then(() => {
+        const stageApi = !isOwner && canRoleNextStage ? apiGame.userNextStage : apiGame.nextStage;
+        stageApi(params).then(() => {
           message.success("操作成功！");
           getRoomDetail();
         });

@@ -27,6 +27,14 @@ export default {
     })
   },
 
+  userNextStage (params) {
+    return fetch({
+      url: urlPrefix + 'game/userNextStage/auth',
+      method: 'get',
+      params,
+    })
+  },
+
   gameRecord (params) {
     return fetch({
       url: urlPrefix + 'game/record/auth',
@@ -48,6 +56,15 @@ export default {
       url: urlPrefix + 'game/assaultPlayer/auth',
       method: 'get',
       params,
+    })
+  },
+
+  wolfSuggestions (params) {
+    return fetch({
+      url: urlPrefix + 'game/wolfSuggestions/auth',
+      method: 'get',
+      params,
+      overHandle: true,
     })
   },
 
@@ -120,6 +137,34 @@ export default {
       url: urlPrefix + 'game/replay/health/auth',
       method: 'get',
       params,
+    })
+  },
+
+  replayFile (params) {
+    return fetch({
+      url: urlPrefix + 'game/replay/file',
+      method: 'get',
+      params,
+      overHandle: true,
+    })
+  },
+
+  saveLastWords (params) {
+    return fetch({
+      url: urlPrefix + 'game/saveLastWords/auth',
+      method: 'post',
+      data: params,
+    })
+  },
+
+  debugRoles (params) {
+    return fetch({
+      url: urlPrefix + 'game/debug/roles',
+      method: 'get',
+      params,
+      headers: {
+        'X-Debug-Mode': 'enabled',
+      },
     })
   },
 

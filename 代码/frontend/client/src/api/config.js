@@ -21,8 +21,8 @@ export default {
   startGame (params) {
     return fetch({
       url: urlPrefix + 'game/start/auth',
-      method: 'get',
-      params,
+      method: 'post',
+      data: params,
       timeout: 70000,
     })
   },
@@ -38,6 +38,14 @@ export default {
   nextStage (params) {
     return fetch({
       url: urlPrefix + 'game/nextStage/auth',
+      method: 'get',
+      params,
+    })
+  },
+
+  userNextStage (params) {
+    return fetch({
+      url: urlPrefix + 'game/userNextStage/auth',
       method: 'get',
       params,
     })
@@ -64,6 +72,15 @@ export default {
       url: urlPrefix + 'game/assaultPlayer/auth',
       method: 'get',
       params,
+    })
+  },
+
+  wolfSuggestions (params) {
+    return fetch({
+      url: urlPrefix + 'game/wolfSuggestions/auth',
+      method: 'get',
+      params,
+      overHandle: true,
     })
   },
 
@@ -120,6 +137,14 @@ export default {
       url: urlPrefix + 'game/destroy/auth',
       method: 'get',
       params,
+    })
+  },
+
+  saveLastWords (params) {
+    return fetch({
+      url: urlPrefix + 'game/saveLastWords/auth',
+      method: 'post',
+      data: params,
     })
   },
 

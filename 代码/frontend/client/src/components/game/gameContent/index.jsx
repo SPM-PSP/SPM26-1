@@ -195,7 +195,7 @@ const Footer = (props) => {
         ) : null
       }
       {
-        gameDetail.status === 1 && gameDetail.stage === 5 && !gameDetail.isOb && currentRole.status === 1 ? (
+        gameDetail.status === 1 && Number(gameDetail.stage) === 5 && !gameDetail.isOb && currentRole.status === 1 ? (
           <div className="voice-action-wrap mar-t10 FBV FBAC">
             {
               gameDetail.speechTurn && gameDetail.speechTurn.currentSpeaker ? (

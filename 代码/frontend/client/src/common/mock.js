@@ -8,8 +8,8 @@ const mockUser = {
   _id: 'mock-user-001',
   username: 'host',
   name: '格林镇长',
-  role: 'host',
-  defaultRole: 'host',
+  roles: ['player'],
+  defaultRole: 'player',
 }
 
 const mockRoleProfiles = {
@@ -133,6 +133,8 @@ const createRoom = (status = 0) => ({
   password: 'MOCK',
   owner: mockUser.username,
   status,
+  count: 9,
+  wait: ['guest-01'],
   gameId: status === 1 ? MOCK_GAME_ID : null,
   seat: createSeat(),
   waitPlayer: [
@@ -149,6 +151,8 @@ let mockState = {
   votes: [],
   exileResult: null,
   actions: [],
+  speechRecords: [],
+  speechRecordCursor: 1000,
 }
 
 const stageMap = [
@@ -156,8 +160,10 @@ const stageMap = [
   { stage: 1, dayTag: '夜晚', stageName: '预言家行动', broadcast: '预言家睁眼，可以查验一名玩家的阵营。' },
   { stage: 2, dayTag: '夜晚', stageName: '狼人行动', broadcast: '狼人请睁眼，选择今晚袭击的目标。' },
   { stage: 3, dayTag: '夜晚', stageName: '女巫行动', broadcast: '女巫请睁眼，可以选择使用解药或毒药。' },
+  { stage: 4, dayTag: '白天', stageName: '天亮公布', broadcast: '天亮了，昨夜信息正在公布。' },
   { stage: 5, dayTag: '白天', stageName: '发言阶段', broadcast: '天亮了，请按顺序发言。' },
   { stage: 6, dayTag: '白天', stageName: '投票放逐', broadcast: '所有玩家开始投票，选择你怀疑的目标。' },
+  { stage: 6.5, dayTag: '白天', stageName: 'PK投票', broadcast: '平票玩家进入 PK 投票阶段。' },
   { stage: 7, dayTag: '黄昏', stageName: '放逐结算', broadcast: '放逐结果正在结算，新的夜晚即将到来。' },
 ]
 
@@ -289,7 +295,7 @@ const getMockGame = () => {
     playerInfo: getVisiblePlayers(),
     skill,
     action: [
-      { key: 'vote', name: '投票', show: stageInfo.stage === 6, canUse: stageInfo.stage === 6 && !hasVoted },
+      { key: 'vote', name: '投票', show: [6, 6.5].includes(stageInfo.stage), canUse: [6, 6.5].includes(stageInfo.stage) && !hasVoted },
     ],
     broadcast: [
       { text: broadcast, level: stageInfo.stage === 7 && mockState.exileResult && !mockState.exileResult.noOut ? 2 : 4 },
@@ -297,15 +303,43 @@ const getMockGame = () => {
     systemTip: [
       { text: '当前为前端 mock 模式，所有数据均来自浏览器本地模拟。', level: 6 },
     ],
-    speechRecords: [],
+    speechRecords: clone(mockState.speechRecords),
     speechTurn: {
       currentSpeaker: {
         username: currentRole.username,
         name: currentRole.name,
         position: currentRole.position,
       },
+      currentIndex: 0,
+      total: mockPlayers.length,
+      order: mockPlayers.map(item => ({
+        username: item.username,
+        name: item.name,
+        position: item.position,
+      })),
+    },
+    winner: null,
+  }
+}
+
+const saveMockSpeechRecord = (type, text) => {
+  const selfPlayer = getMockSelfPlayer()
+  mockState.speechRecordCursor += 1
+  const record = {
+    _id: mockState.speechRecordCursor,
+    day: mockState.stage === 0 ? 0 : 1,
+    stage: mockState.stage,
+    type,
+    text,
+    source: type === 'lastWords' ? 'player' : 'human',
+    from: {
+      username: selfPlayer.username,
+      name: selfPlayer.name,
+      position: selfPlayer.position,
     },
   }
+  mockState.speechRecords.push(record)
+  return record
 }
 
 const settleMockVote = () => {
@@ -605,6 +639,7 @@ export const mockFetch = (config = {}) => {
         mockState.votes = []
         mockState.exileResult = null
         mockState.actions = []
+        mockState.speechRecords = []
         resolve(MOCK_ROOM_ID)
         return
       }
@@ -631,6 +666,7 @@ export const mockFetch = (config = {}) => {
         mockState.votes = []
         mockState.exileResult = null
         mockState.actions = []
+        mockState.speechRecords = []
         resolve({ success: true })
         return
       }
@@ -653,6 +689,7 @@ export const mockFetch = (config = {}) => {
         mockState.votes = []
         mockState.exileResult = null
         mockState.actions = []
+        mockState.speechRecords = []
         resolve({ _id: MOCK_GAME_ID })
         return
       }
@@ -662,7 +699,7 @@ export const mockFetch = (config = {}) => {
         return
       }
 
-      if (url === '/api/game/nextStage/auth') {
+      if (url === '/api/game/nextStage/auth' || url === '/api/game/userNextStage/auth') {
         const index = stageMap.findIndex(item => item.stage === mockState.stage)
         const next = stageMap[index + 1] || stageMap[1]
         if (next.stage === 7) {
@@ -675,6 +712,24 @@ export const mockFetch = (config = {}) => {
         }
         mockState.stage = next.stage
         resolve(clone(getMockGame()))
+        return
+      }
+
+      if (url === '/api/game/wolfSuggestions/auth') {
+        const aliveWolf = mockPlayers.find(item => item.role === 'wolf' && item.status === 1 && item.username !== mockUser.username)
+        const target = mockPlayers.find(item => item.role !== 'wolf' && item.status === 1 && item.username !== mockUser.username)
+        resolve({
+          hasAiWolf: !!aliveWolf,
+          suggestions: aliveWolf && target ? [
+            {
+              aiId: aliveWolf.username,
+              content: {
+                target: target.username,
+                speechText: `建议今晚优先观察${target.position}号（${target.name}），他的白天发言最容易带节奏。`,
+              },
+            },
+          ] : [],
+        })
         return
       }
 
@@ -849,14 +904,15 @@ export const mockFetch = (config = {}) => {
         mockState.votes = []
         mockState.exileResult = null
         mockState.actions = []
+        mockState.speechRecords = []
         resolve({ _id: MOCK_ROOM_ID })
         return
       }
 
       if (url === '/api/game/replay/auth') {
         resolve({
-          success: true,
-          data: {
+          message: '复盘分析完成',
+          result: {
             gameRecord: {
               game_id: MOCK_GAME_ID,
               room_id: MOCK_ROOM_ID,
@@ -878,12 +934,32 @@ export const mockFetch = (config = {}) => {
       }
 
       if (url === '/api/voice/speech/auth') {
-        resolve({ text: '这是一段 mock 发言文本' })
+        const text = (config.data && config.data.text) || '这是一段 mock 发言文本'
+        const record = saveMockSpeechRecord('speech', text)
+        resolve({
+          text,
+          recordId: record._id,
+          from: record.from,
+          nextSpeaker: null,
+        })
         return
       }
 
       if (url === '/api/voice/stt/auth') {
         resolve({ text: '这是一段 mock 语音识别结果' })
+        return
+      }
+
+      if (url === '/api/game/saveLastWords/auth') {
+        const text = (config.data && (config.data.content || config.data.text)) || '这是 mock 遗言'
+        const record = saveMockSpeechRecord('lastWords', text)
+        resolve({
+          message: '遗言保存成功',
+          data: {
+            _id: record._id,
+          },
+          nextSpeaker: null,
+        })
         return
       }
 

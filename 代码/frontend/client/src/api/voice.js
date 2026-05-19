@@ -48,4 +48,14 @@ export default {
       },
     })
   },
+
+  speechText (params = {}) {
+    return fetch({
+      url: urlPrefix + 'voice/speech/auth',
+      method: 'post',
+      data: params,
+      timeout: 90000,
+      overHandle: true,
+    })
+  },
 }

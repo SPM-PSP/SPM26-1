@@ -86,6 +86,7 @@ const Index = (props) => {
   const [gameRecord, setGameRecord] = useState([])
   const [nightMemoRecords, setNightMemoRecords] = useState([])
   const [duskRecordRows, setDuskRecordRows] = useState([])
+  const [wolfAdvice, setWolfAdvice] = useState(null)
 
   const [currentAction, setCurrentAction] = useState('')
   const [actionModal, setActionModal] = useState(false)
@@ -165,7 +166,7 @@ const Index = (props) => {
       (gameDetail.stage === 3 && currentRoleName === "witch"))
   const canOwnerNextStage = isOwner && gameDetail.status === 1
   const canNextStage = canOwnerNextStage || canRoleNextStage
-  const isDayStage = gameDetail.status === 1 && (gameDetail.dayTag === "白天" || [5, 6].includes(Number(gameDetail.stage)))
+  const isDayStage = gameDetail.status === 1 && (gameDetail.dayTag === "白天" || [5, 6, 6.5].includes(Number(gameDetail.stage)))
   const isNightStage = gameDetail.status === 1 && [0, 1, 2, 3].includes(Number(gameDetail.stage))
   const isDuskStage = gameDetail.status === 1 && (Number(gameDetail.stage) === 7 || gameDetail.dayTag === "黄昏")
   const selectedPlayerCount = Number(gameSetting.playerCount || 9)
@@ -372,12 +373,38 @@ const Index = (props) => {
       return
     }
     setVoiceSubmitting(true)
-    apiVoice.speech(audioBlob, {
+    const isLastWords = Number(gameDetail.stage) === 7
+    const speechParams = {
       roomId: gameDetail.roomId,
-      gameId: gameDetail._id
+      gameId: gameDetail._id,
+    }
+    apiVoice.stt(audioBlob).then(result => {
+      const text = result && result.text ? result.text : ''
+      if(!text){
+        return Promise.reject(new Error('未识别到发言内容'))
+      }
+      if(isLastWords){
+        return apiGame.saveLastWords({
+          ...speechParams,
+          content: text,
+          audioUrl: '',
+          userInfo: {
+            username: currentRole.username,
+            name: currentRole.name,
+            position: currentRole.position,
+          },
+        })
+      }
+      return apiVoice.speechText({
+        ...speechParams,
+        text,
+      }).catch(() => apiVoice.speech(audioBlob, speechParams))
     }).then(data=>{
-      message.success('发言已提交：' + data.text)
+      const text = data && data.text ? data.text : '已保存'
+      message.success((isLastWords ? '遗言已提交：' : '发言已提交：') + text)
       initGame(gameDetail._id, gameDetail.roomId)
+    }).catch(error => {
+      message.error(error && error.message ? error.message : (isLastWords ? '遗言提交失败' : '发言提交失败'))
     }).finally(()=>{
       setVoiceSubmitting(false)
     })
@@ -412,6 +439,7 @@ const Index = (props) => {
       setActionInfo(data.action || [])
       syncNightMemoRecords(data)
       syncDuskRecords(data)
+      syncWolfAdvice(data)
       if(isBegin){
         openRoleCard(data.roleInfo)
       }
@@ -478,6 +506,18 @@ const Index = (props) => {
     })
   }
 
+  const syncWolfAdvice = (detail) => {
+    if(!detail || Number(detail.stage) !== 2 || detail.isOb || !detail.roleInfo || detail.roleInfo.role !== 'wolf'){
+      setWolfAdvice(null)
+      return
+    }
+    apiGame.wolfSuggestions({roomId: detail.roomId, gameId: detail._id}).then(data=>{
+      setWolfAdvice(data || null)
+    }).catch(()=>{
+      setWolfAdvice(null)
+    })
+  }
+
   const initSeat = (detail) => {
     if(!detail.seat){
       let p = []
@@ -519,7 +559,7 @@ const Index = (props) => {
   }
 
   const seatIn = (position) => {
-    apiRoom.seatIn({ id: roomDetail._id, position }).then(() => {
+    apiRoom.seatIn({ roomId: roomDetail._id, position }).then(() => {
       message.success("入座成功")
       if (isMockEnabled()) {
         getRoomDetail()
@@ -537,7 +577,7 @@ const Index = (props) => {
       return
     }
 
-    apiRoom.kickPlayer({ id: roomDetail._id, position: item.key }).then(() => {
+    apiRoom.kickPlayer({ roomId: roomDetail._id, position: item.key }).then(() => {
       message.success("踢人成功")
       setKickMode(false)
       if (isMockEnabled()) {
@@ -551,7 +591,7 @@ const Index = (props) => {
       message.warn("新昵称不能为空")
       return
     }
-    apiRoom.modifyNameInRoom({ id: user._id, roomId: roomDetail._id, name: newName }).then(() => {
+    apiRoom.modifyNameInRoom({ userId: user._id, roomId: roomDetail._id, name: newName }).then(() => {
       message.success("修改成功")
       setModifyModal(false)
       setNewName(null)
@@ -611,7 +651,8 @@ const Index = (props) => {
       okText: "确定",
       cancelText: "取消",
       onOk() {
-        apiGame.nextStage(params).then(() => {
+        const stageApi = !isOwner && canRoleNextStage ? apiGame.userNextStage : apiGame.nextStage
+        stageApi(params).then(() => {
           message.success("操作成功！")
           getRoomDetail()
         })
@@ -761,12 +802,13 @@ const Index = (props) => {
   }
 
   const actionFinish= (data) => {
-    setActionResult(data)
+    const result = data && typeof data === 'object' ? data : {}
+    setActionResult(result)
     let newCheckPlayer = JSON.parse(JSON.stringify((actionPlayer && actionPlayer.length > 0) ? actionPlayer : playerInfo))
     let tmp = []
     newCheckPlayer.forEach(item=>{
-      if(item.username === data.username){
-        let obj = {...item, camp: data.camp, campName: data.campName, selected: true}
+      if(result.username && item.username === result.username){
+        let obj = {...item, camp: result.camp, campName: result.campName, selected: true}
         tmp.push(obj)
       } else {
         tmp.push(item)
@@ -835,10 +877,14 @@ const Index = (props) => {
       setActionResult(null)
       closeAllModel()
       initGame(gameDetail._id, roomDetail._id)
+    } else if (msg === 'refreshRecord') {
+      if(gameDetail._id){
+        initGame(gameDetail._id, roomDetail._id)
+      }
     } else if (msg === 'gameStart'){
       getRoomDetail(true)
     } else if (msg === 'gameOver') {
-      apiGame.gameResult({id: gameDetail._id}).then(data=>{
+      apiGame.gameResult({roomId: gameDetail.roomId, gameId: gameDetail._id}).then(data=>{
         // 关闭所有的弹窗
         closeAllModel()
         showWinner(data)
@@ -854,10 +900,17 @@ const Index = (props) => {
         getRoomDetail()
       }
     } else {
-      // 处理定时器
-      let msgData = JSON.parse(msg)
-      if(msgData.time !== null ){
+      let msgData = null
+      try {
+        msgData = JSON.parse(msg)
+      } catch (e) {
+        return
+      }
+      if(msgData && msgData.time !== null && msgData.time !== undefined){
         setTimerTime(msgData.time)
+      }
+      if(msgData && (msgData.type === 'realtimeSpeechText' || msgData.type === 'realtimeSpeechAudio')){
+        return
       }
     }
   }
@@ -1377,6 +1430,13 @@ const Index = (props) => {
     const activeActionLabel = activeActionKey ? getActionLabel(activeActionKey) : (currentAction && actionResult ? getActionLabel(currentAction) : "等待")
     const nightMemoItems = buildNightMemoItems(stage, broadcastText)
     const nightSystemTip = getNightSystemTip(stage)
+    const showWolfAdvice =
+      currentRole.role === "wolf" &&
+      stage === 2 &&
+      wolfAdvice &&
+      wolfAdvice.hasAiWolf &&
+      Array.isArray(wolfAdvice.suggestions) &&
+      wolfAdvice.suggestions.length > 0
 
     return (
       <div className={`room-ready-shell room-night-shell night-${meta.accent}`}>
@@ -1474,8 +1534,10 @@ const Index = (props) => {
                 <strong>{modalDescMap[currentAction] ? modalDescMap[currentAction].resultTitle : "行动结果"}</strong>
                 {currentAction === "check" ? (
                   <span>{`${actionResult.position}号 ${actionResult.name} 的阵营是：${actionResult.campName}`}</span>
-                ) : (
+                ) : actionResult.position ? (
                   <span>{`${modalDescMap[currentAction] ? modalDescMap[currentAction].resultDesc : "目标"}${actionResult.position}号 ${actionResult.name}`}</span>
+                ) : (
+                  <span>操作已记录，请等待阶段刷新。</span>
                 )}
               </section>
             ) : null}
@@ -1500,6 +1562,17 @@ const Index = (props) => {
                 </div>
               ))}
             </div>
+            {showWolfAdvice ? (
+              <div className="wolf-advice-panel">
+                <strong>狼队 AI 建议</strong>
+                {wolfAdvice.suggestions.map((item, index) => (
+                  <div className="wolf-advice-item" key={item.aiId || index}>
+                    <span>{item.aiId || `AI-${index + 1}`}</span>
+                    <p>{item.content && item.content.speechText ? item.content.speechText : "暂无建议"}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <div className="ready-rule-card">
               <strong>{nightSystemTip.title}</strong>
               <span>{nightSystemTip.text}</span>
@@ -1573,7 +1646,7 @@ const Index = (props) => {
   const renderDayRoom = () => {
     const currentSpeaker = gameDetail.speechTurn && gameDetail.speechTurn.currentSpeaker
     const canSpeak =
-      gameDetail.stage === 5 &&
+      Number(gameDetail.stage) === 5 &&
       !gameDetail.isOb &&
       currentRole.status === 1 &&
       currentSpeaker &&
@@ -1840,6 +1913,13 @@ const Index = (props) => {
     const exiled = summary.exiledPlayer || {}
     const broadcastText = (gameDetail.broadcast || []).map(item => item.text).join("")
     const aliveCount = (playerInfo || []).filter(item => item.status !== 0).length
+    const currentSpeaker = gameDetail.speechTurn && gameDetail.speechTurn.currentSpeaker
+    const canLastWords =
+      stage === 7 &&
+      !gameDetail.isOb &&
+      currentRole.status === 0 &&
+      currentSpeaker &&
+      currentSpeaker.username === currentRole.username
     const visibleActions = []
     ;(skillInfo || []).forEach(item => {
       if(item.show){
@@ -1948,6 +2028,16 @@ const Index = (props) => {
             <div className="dusk-action-left">
               <button type="button" onClick={() => getRoomDetail()}><ReloadOutlined />刷新</button>
               <button type="button" onClick={lookRecord}><BookOutlined />查看记录</button>
+              <button
+                type="button"
+                className={voiceRecording ? "active" : ""}
+                disabled={!canLastWords || voiceSubmitting}
+                onClick={() => {
+                  voiceRecording ? stopVoiceRecord() : startVoiceRecord()
+                }}
+              >
+                <AudioOutlined />{voiceRecording ? "结束遗言" : "遗言"}
+              </button>
               {visibleActions.map(item => (
                 <button
                   key={item.key}
@@ -1974,6 +2064,12 @@ const Index = (props) => {
             <h3>发言记录</h3>
             <p className="panel-subtitle">{gameDetail.dayTag || "黄昏"}</p>
             {renderDayDiscussion()}
+            {currentSpeaker ? (
+              <div className="ready-rule-card">
+                <strong>当前遗言</strong>
+                <span>{`${currentSpeaker.position}号 ${currentSpeaker.name}`}</span>
+              </div>
+            ) : null}
             <div className="ready-rule-card">
               <strong>系统</strong>
               <span>{broadcastText || resultText}</span>
@@ -2153,7 +2249,7 @@ const Index = (props) => {
                 <div className="content FBH FBAC FBJC">
                   <div>
                     {
-                      currentAction === 'check' ?  (
+                      currentAction === 'check' && actionResult.position ?  (
                         <>
                           <span className="color-green bolder">{actionResult.position + '号玩家（' + actionResult.name + ')'}</span>
                           <span>的身份是：</span>
@@ -2163,11 +2259,13 @@ const Index = (props) => {
                             'color-red': actionResult.camp !== 1
                           })}>{actionResult.campName}</span>
                         </>
-                      ) : (
+                      ) : actionResult.position ? (
                         <>
                           <span>{modalDescMap[currentAction] ? modalDescMap[currentAction].resultDesc : ''}</span>
                           <span className="color-red bolder">{actionResult.position + '号玩家（' + actionResult.name + ')'}</span>
                         </>
+                      ) : (
+                        <span>操作已记录，请等待阶段刷新。</span>
                       )
                     }
                   </div>

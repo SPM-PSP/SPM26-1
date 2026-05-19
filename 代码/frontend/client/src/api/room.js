@@ -1,5 +1,18 @@
 import fetch from '@common/fetch'
 const urlPrefix = '/api/'
+
+const withRoomIdAlias = (params = {}) => ({
+  ...params,
+  roomId: params.roomId || params.id,
+  id: params.id || params.roomId,
+})
+
+const withUserIdAlias = (params = {}) => ({
+  ...params,
+  userId: params.userId || params.id,
+  id: params.id || params.userId,
+})
+
 export default {
 
   createRoom (params) {
@@ -30,7 +43,7 @@ export default {
     return fetch({
       url: urlPrefix + 'room/seat/auth',
       method: 'get',
-      params,
+      params: withRoomIdAlias(params),
     })
   },
 
@@ -38,7 +51,7 @@ export default {
     return fetch({
       url: urlPrefix + 'room/kick/auth',
       method: 'get',
-      params,
+      params: withRoomIdAlias(params),
     })
   },
 
@@ -54,7 +67,7 @@ export default {
     return fetch({
       url: urlPrefix + 'room/modifyName/auth',
       method: 'get',
-      params,
+      params: withUserIdAlias(params),
     })
   }
 

@@ -78,7 +78,7 @@ const Ready = (props) => {
       message.warn("新昵称不能为空");
       return;
     }
-    apiRoom.modifyNameInRoom({ id: user._id, roomId: roomDetail._id, name: newName }).then(() => {
+    apiRoom.modifyNameInRoom({ userId: user._id, roomId: roomDetail._id, name: newName }).then(() => {
       message.success("修改成功");
       setModifyModal(false);
       setNewName(null);
@@ -86,7 +86,7 @@ const Ready = (props) => {
   };
 
   const seatIn = (index) => {
-    apiRoom.seatIn({ id: roomDetail._id, position: index }).then(() => {
+    apiRoom.seatIn({ roomId: roomDetail._id, position: index }).then(() => {
       message.success("入座成功");
     });
   };
@@ -101,7 +101,7 @@ const Ready = (props) => {
       return;
     }
 
-    apiRoom.kickPlayer({ id: roomDetail._id, position: item.key }).then(() => {
+    apiRoom.kickPlayer({ roomId: roomDetail._id, position: item.key }).then(() => {
       message.success("踢人成功");
       setKick(false);
     });
