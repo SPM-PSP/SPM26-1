@@ -35,6 +35,7 @@ module.exports = app => {
   router.get('/api/game/record/auth', $middleware.auth, $controller.gameController.commonGameRecord)
   router.get('/api/game/checkPlayer/auth', $middleware.auth, $controller.gameController.checkPlayer)
   router.get('/api/game/assaultPlayer/auth', $middleware.auth, $controller.gameController.assaultPlayer)
+  router.get('/api/game/wolfSuggestions/auth', $middleware.auth, $controller.gameController.getWolfSuggestions)
   router.get('/api/game/antidotePlayer/auth', $middleware.auth, $controller.gameController.antidotePlayer)
   router.get('/api/game/votePlayer/auth', $middleware.auth, $controller.gameController.votePlayer)
   router.get('/api/game/poisonPlayer/auth', $middleware.auth, $controller.gameController.poisonPlayer)
@@ -48,8 +49,8 @@ module.exports = app => {
   router.post('/api/voice/tts/auth', $middleware.auth, $controller.voiceController.tts)
   router.post('/api/voice/speech/auth', $middleware.auth, $controller.voiceController.speech)
 
-  router.get('/api/game/wolfSuggestions/auth', $middleware.auth, $controller.gameController.getWolfSuggestions)
-  router.post('/api/game/wolfVoiceChat/auth', $controller.gameController.wolfVoiceChat)
-  router.get('/api/game/debug/roles', $controller.gameController.getDebugRoles)
+  router.post('/api/game/saveLastWords/auth', $middleware.auth, $controller.gameController.saveLastWords)
 
+  
+  
 }

@@ -53,6 +53,21 @@ class Application {
 
     // 初始化日志系统
     this.$log4 = initLog4(this)
+    this.$app.use(async (ctx, next) => {
+      try {
+        await next()
+      } catch (err) {
+        const message = err && err.stack ? err.stack : String(err)
+        this.$log4.errorLogger.error(`[request error] ${ctx.method} ${ctx.url}: ${message}`)
+        ctx.status = err.status || 500
+        ctx.body = {
+          success: false,
+          data: null,
+          errorCode: -1,
+          errorMessage: err.message || 'Internal Server Error'
+        }
+      }
+    })
 
     // 初始化mysql model
     this.$model = initMysqlModel(this);

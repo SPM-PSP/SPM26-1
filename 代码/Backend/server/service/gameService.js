@@ -80,14 +80,16 @@ module.exports = app => ({
   async getSpeechTurnState(gameInstance) {
     const { $service, $helper, $model } = app
     const { gameTag, player } = $model
-    if(!gameInstance || gameInstance.stage !== 5){
+    if(!gameInstance || (gameInstance.stage !== 5 && gameInstance.stage !== 7)){
       return $helper.wrapResult(true, null)
     }
+    // 根据阶段选择不同的desc
+    const desc = gameInstance.stage === 7 ? 'lastWordsOrder' : 'speakOrder'
     let orderTag = await $service.baseService.queryOne(gameTag, {
       roomId: gameInstance.roomId,
       gameId: gameInstance._id,
       day: gameInstance.day,
-      desc: 'speakOrder',
+      desc: desc,
       mode: 2
     })
     if(!orderTag){
@@ -95,27 +97,30 @@ module.exports = app => ({
     }
     let order = Array.isArray(orderTag.value2) ? orderTag.value2 : []
     if(order.length < 1){
-      let alivePlayers = await $service.baseService.query(player, {
-        roomId: gameInstance.roomId,
-        gameId: gameInstance._id,
-        status: 1
-      }, {}, { sort: { position: 1 } })
-      alivePlayers = alivePlayers || []
-      const startIndex = Math.max(0, alivePlayers.findIndex(item => item.username === orderTag.target))
-      const direction = String(orderTag.value || '').trim() === 'desc' ? -1 : 1
-      for(let i = 0; i < alivePlayers.length; i++){
-        const index = (startIndex + direction * i + alivePlayers.length) % alivePlayers.length
-        const item = alivePlayers[index]
-        order.push({
-          username: item.username,
-          name: item.name,
-          position: item.position
+      // 只有发言阶段需要自动生成发言顺序，遗言阶段不需要
+      if (gameInstance.stage === 5) {
+        let alivePlayers = await $service.baseService.query(player, {
+          roomId: gameInstance.roomId,
+          gameId: gameInstance._id,
+          status: 1
+        }, {}, { sort: { position: 1 } })
+        alivePlayers = alivePlayers || []
+        const startIndex = Math.max(0, alivePlayers.findIndex(item => item.username === orderTag.target))
+        const direction = String(orderTag.value || '').trim() === 'desc' ? -1 : 1
+        for(let i = 0; i < alivePlayers.length; i++){
+          const index = (startIndex + direction * i + alivePlayers.length) % alivePlayers.length
+          const item = alivePlayers[index]
+          order.push({
+            username: item.username,
+            name: item.name,
+            position: item.position
+          })
+        }
+        await $service.baseService.updateById(gameTag, orderTag._id, {
+          value2: order,
+          value3: { currentIndex: 0 }
         })
       }
-      await $service.baseService.updateById(gameTag, orderTag._id, {
-        value2: order,
-        value3: { currentIndex: 0 }
-      })
     }
     const currentIndex = Number(orderTag.value3 && orderTag.value3.currentIndex ? orderTag.value3.currentIndex : 0)
     return $helper.wrapResult(true, {
@@ -781,40 +786,6 @@ module.exports = app => ({
         conn.sendText('gameOver')
       }
     })
-
-    const autoReplayEnabled =
-      process.env.AUTO_TRIGGER_REPLAY_ANALYSIS === 'true' ||
-      !!(app.$config.aiReplayService && app.$config.aiReplayService.autoAnalyze === true)
-
-    if(autoReplayEnabled){
-      setImmediate(async () => {
-        try {
-          const latestGame = await $service.baseService.queryById(game, gameInstance._id)
-          const replayResult = await $service.replayService.analyzeGame(latestGame, {
-            enableAI: process.env.REPLAY_ENABLE_AI === 'true',
-            aiModel: process.env.REPLAY_AI_MODEL || 'gpt-4',
-            outputDir: process.env.REPLAY_OUTPUT_DIR || 'replay_analysis',
-            desensitize: process.env.REPLAY_DESENSITIZE !== 'false'
-          })
-
-          if(!replayResult.result){
-            if(app.$log4 && app.$log4.errorLogger){
-              app.$log4.errorLogger.error('[gameService] auto replay analysis failed: ' + replayResult.errorMessage)
-            }
-            return
-          }
-
-          if(app.$log4 && app.$log4.commonLogger){
-            app.$log4.commonLogger.info('[gameService] auto replay analysis completed for game ' + gameInstance._id)
-          }
-        } catch (e) {
-          if(app.$log4 && app.$log4.errorLogger){
-            app.$log4.errorLogger.error('[gameService] auto replay analysis crashed: ' + e.toString())
-          }
-        }
-      })
-    }
-
     return $helper.wrapResult(true , 'Y')
   },
 
@@ -893,6 +864,16 @@ module.exports = app => ({
 
     // 修改游戏状态
     let update = {stage: nextStage}
+    
+    // 如果进入遗言阶段，初始化遗言发言轮次
+    if(nextStage === 7){
+      let lastWordsResult = await $service.stageService.initLastWordsStage(gameInstance._id)
+      if(!lastWordsResult.result){
+        return lastWordsResult
+      }
+      // 无论有没有死亡玩家都进入遗言阶段，让房主自己控制
+      console.log('🎤 进入遗言阶段，房主可以手动控制游戏流程')
+    }
     if(nextStage === 0){
       update.day = gameInstance.day + 1
       let recordObject = {

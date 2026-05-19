@@ -15,12 +15,14 @@ function getRoleConfig(roomId, playerCount) {
   const exampleConfigs = {
     // 9人局配置示例
     '9': [
-      { position: 9, role: 'hunter' }     // 9号位是猎人（AI）
+      { position: 8, role: 'wolf' },      // 2号位是狼人
+      { position: 9, role: 'wolf' }       // 9号位是狼人
     ],
     
     // 6人局配置示例（保留备用）
     '6': [
-      { position: 6, role: 'witch' }       // 6号位是女巫（AI）
+      { position: 2, role: 'wolf' },       // 6号位是女巫（AI）
+      { position: 3, role: 'wolf' }
     ],
     
     // 12人局配置示例（保留备用）

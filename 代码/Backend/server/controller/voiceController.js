@@ -92,8 +92,10 @@ module.exports = app => ({
         return
       }
 
-      const audioBuffer = $service.voiceService.getAudioBuffer(ctx)
-      const sttResult = await $service.voiceService.sttFromBuffer(audioBuffer)
+      const speechText = (body.text || body.content || '').trim()
+      const sttResult = speechText
+        ? { text: speechText }
+        : await $service.voiceService.sttFromBuffer($service.voiceService.getAudioBuffer(ctx))
       const recordObject = {
         roomId: gameInstance.roomId,
         gameId: gameInstance._id,
@@ -142,6 +144,7 @@ module.exports = app => ({
         const aiIds = aiPlayers.map(p => p.username)
         
         // 使用广播接口发送事件给所有AI
+        if(aiIds.length > 0){
         const axios = require('axios')
         const getBaseUrl = () => {
           return process.env.AI_SERVICE_BASE_URL ||
@@ -164,6 +167,7 @@ module.exports = app => ({
             'Content-Type': 'application/json'
           }
         })
+        }
       } catch (error) {
         // AI服务调用失败不影响发言功能，只记录日志
         if(app.$log4 && app.$log4.errorLogger){

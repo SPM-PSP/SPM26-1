@@ -368,6 +368,11 @@
       return
     }
 
+    // 重新查询当前玩家状态，确保获取最新的死亡状态（特别是投票出局后）
+    if(!isOb){
+      currentPlayer = await $service.baseService.queryOne(player, {roomId: gameInstance.roomId, gameId: gameInstance._id, username: currentUser.username})
+    }
+
     // 获取当前玩家的技能状态
     let skillInfo = await $service.gameService.getSkillStatusInGame(ctx, gameInstance._id)
     if(!skillInfo.result){
@@ -401,19 +406,24 @@
       gameId: gameInstance._id,
       isCommon: 1
     }, {}, { sort: { _id: -1 }, limit: 20 })
-    speechRecordList = (speechRecordList || [])
-      .filter(item => item.content && item.content.type === 'speech')
+    speechRecordList = speechRecordList || []
+    console.log('获取到的所有记录:', speechRecordList.map(item => ({_id: item._id, type: item.content?.type, text: item.content?.text})))
+    speechRecordList = speechRecordList
+      .filter(item => item.content && (item.content.type === 'speech' || item.content.type === 'lastWords'))
       .reverse()
+    console.log('过滤后的记录:', speechRecordList.map(item => ({_id: item._id, type: item.content?.type, text: item.content?.text})))
+    speechRecordList = speechRecordList
       .map(item => ({
         _id: item._id,
         day: item.day,
         stage: item.stage,
+        type: item.content.type,
         text: item.content.text,
         source: item.content.source,
         from: item.content.from
       }))
     let speechTurnInfo = null
-    if(gameInstance.stage === 5){
+    if(gameInstance.stage === 5 || gameInstance.stage === 7){
       let speechTurnResult = await $service.gameService.getSpeechTurnState(gameInstance)
       if(speechTurnResult.result && speechTurnResult.data){
         speechTurnInfo = {
@@ -472,8 +482,12 @@
       ctx.body = $helper.Result.fail(-1,'gameId不能为空！')
       return
     }
-    let gameInstance = await $service.baseService.queryById(game, gameId)
     let currentUser = await $service.baseService.userInfo(ctx)
+    let gameInstance = await $service.baseService.queryById(game, gameId)
+    if(!gameInstance){
+      ctx.body = $helper.Result.fail(-1,'游戏不存在！')
+      return
+    }
 
     let obResult = await $service.roomService.isOb(gameInstance.roomId, currentUser.username)
     let isOb = obResult.result && obResult.data === 'Y'
@@ -565,10 +579,6 @@
         ctx.body = $helper.Result.fail(-1,'您不是该房间房主，无权进行此操作！')
         return
       }
-    }
-    if(!gameInstance){
-      ctx.body = $helper.Result.fail(-1,'游戏不存在！')
-      return
     }
     if(gameInstance.status === 2){
       ctx.body = $helper.Result.fail(-1,'游戏已经结束！' + $support.getGameWinner(gameInstance))
@@ -675,8 +685,8 @@
    * @apiGroup 游戏模块
    */
   async checkPlayer (ctx) {
-    const { $service, $helper, $model } = app
-    const { game, player, action, vision, record, $ws } = $model
+    const { $service, $helper, $model, $ws } = app
+    const { game, player, action, vision, record } = $model
     const { roomId, gameId, username } = ctx.query
     if(!roomId || roomId === ''){
       ctx.body = $helper.Result.fail(-1,'roomId不能为空！')
@@ -793,12 +803,14 @@
       campName: targetCampName,
     }
 
-    $ws.connections.forEach(function (conn) {
-      let url = '/lrs/' + gameInstance.roomId
-      if(conn.path === url){
-        conn.sendText('refreshGame')
-      }
-    })
+    if($ws && $ws.connections){
+      $ws.connections.forEach(function (conn) {
+        let url = '/lrs/' + gameInstance.roomId
+        if(conn.path === url){
+          conn.sendText('refreshGame')
+        }
+      })
+    }
 
     ctx.body = $helper.Result.success(r)
   },
@@ -808,7 +820,7 @@
    * @apiGroup 游戏模块
    */
   async assaultPlayer (ctx) {
-    const { $service, $helper, $model } = app
+    const { $service, $helper, $model, $ws } = app
     const { game, player, action } = $model
     const { roomId, gameId, username } = ctx.query
     if(!roomId || roomId === ''){
@@ -1024,7 +1036,7 @@
    * @apiGroup 游戏模块
    */
   async votePlayer (ctx) {
-    const { $service, $helper, $model } = app
+    const { $service, $helper, $model, $ws } = app
     const { game, player, action } = $model
     const { roomId, gameId, username } = ctx.query
     if(!roomId || roomId === ''){
@@ -1121,30 +1133,30 @@
       const aiPlayers = alivePlayers.filter(p => p.username.startsWith('ai_'))
       const aiIds = aiPlayers.map(p => p.username)
       
-      // 使用广播接口发送事件给所有AI
-      const { $helper } = app
-      const axios = require('axios')
-      const getBaseUrl = () => {
-        return process.env.AI_SERVICE_BASE_URL ||
-          (app.$config.aiService && app.$config.aiService.baseUrl) ||
-          'http://127.0.0.1:8001'
-      }
-      
-      await axios({
-        method: 'post',
-        url: getBaseUrl() + '/internal/ai/game/events/broadcast',
-        data: {
-          gameId: String(gameInstance._id),
-          event: voteEvent,
-          aiIds: aiIds, // 指定要发送的AI列表
-          candidateTargets: candidateTargets,
-          asyncMode: true
-        },
-        timeout: 12000,
-        headers: {
-          'Content-Type': 'application/json'
+      if(aiIds.length > 0){
+        const axios = require('axios')
+        const getBaseUrl = () => {
+          return process.env.AI_SERVICE_BASE_URL ||
+            (app.$config.aiService && app.$config.aiService.baseUrl) ||
+            'http://127.0.0.1:8001'
         }
-      })
+
+        await axios({
+          method: 'post',
+          url: getBaseUrl() + '/internal/ai/game/events/broadcast',
+          data: {
+            gameId: String(gameInstance._id),
+            event: voteEvent,
+            aiIds: aiIds,
+            candidateTargets: candidateTargets,
+            asyncMode: true
+          },
+          timeout: 12000,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+      }
     } catch (error) {
       // AI服务调用失败不影响投票功能，只记录日志
       if(app.$log4 && app.$log4.errorLogger){
@@ -1158,6 +1170,16 @@
       position: targetPlayer.position,
     }
     ctx.body = $helper.Result.success(r)
+    
+    // 发送投票更新通知
+    if($ws && $ws.connections){
+      $ws.connections.forEach(function (conn) {
+        let url = '/lrs/' + roomId
+        if(conn.path === url){
+          conn.sendText('refreshGame')
+        }
+      })
+    }
   },
 
   /**
@@ -1927,6 +1949,24 @@
         return
       }
 
+      const aliveAiWolf = await $service.baseService.queryOne(player, {
+        roomId: roomId,
+        gameId: gameId,
+        role: 'wolf',
+        status: 1,
+        username: { $like: 'ai_%' }
+      })
+
+      if(!aliveAiWolf){
+        ctx.body = $helper.Result.success({
+          suggestions: [],
+          day: gameInstance.day,
+          stage: gameInstance.stage,
+          hasAiWolf: false
+        })
+        return
+      }
+
       // 获取当前轮次的AI建议
       const suggestions = await $service.baseService.query(record, {
         roomId: roomId,
@@ -1939,7 +1979,8 @@
       ctx.body = $helper.Result.success({
         suggestions: suggestions || [],
         day: gameInstance.day,
-        stage: gameInstance.stage
+        stage: gameInstance.stage,
+        hasAiWolf: true
       })
     } catch (error) {
       if(app.$log4 && app.$log4.errorLogger){
@@ -2090,6 +2131,120 @@
       ctx.body = $helper.Result.success({ message: '语音消息已发送' })
     } catch (error) {
       ctx.body = $helper.Result.fail(-1, '发送语音消息失败: ' + error.message)
+    }
+  },
+
+  /**
+   * @api {post} /api/game/saveLastWords/auth 保存遗言
+   * @apiGroup 游戏模块
+   */
+  async saveLastWords (ctx) {
+    const { $service, $helper, $model, $ws } = app
+    const { room, game, user, player, record } = $model
+    const { roomId, gameId, content, audioUrl, userInfo } = ctx.request.body || {}
+
+    if(!roomId || !gameId || !content){
+      ctx.body = $helper.Result.fail(-1, '参数不完整')
+      return
+    }
+
+    try {
+      console.log('💬 保存遗言:', { roomId, gameId, userInfo, content })
+      const gameInstance = await $service.baseService.queryById(game, gameId)
+      if(!gameInstance){
+        ctx.body = $helper.Result.fail(-1, '游戏不存在')
+        return
+      }
+      if(gameInstance.stage !== 7){
+        ctx.body = $helper.Result.fail(-1, '当前不是遗言阶段，不能发表遗言')
+        return
+      }
+      if(Number(gameInstance.day) > 1){
+        ctx.body = $helper.Result.fail(-1, '第2天及以后死亡玩家没有遗言')
+        return
+      }
+
+      const currentUser = await $service.baseService.userInfo(ctx)
+      const currentPlayer = await $service.baseService.queryOne(player, {
+        roomId,
+        gameId,
+        username: currentUser.username
+      })
+      if(!currentPlayer){
+        ctx.body = $helper.Result.fail(-1, '未查询到你在该游戏中')
+        return
+      }
+      if(currentPlayer.status !== 0){
+        ctx.body = $helper.Result.fail(-1, '只有出局玩家可以发表遗言')
+        return
+      }
+
+      const turnResult = await $service.gameService.getSpeechTurnState(gameInstance)
+      if(!turnResult.result){
+        ctx.body = $helper.Result.fail(turnResult.errorCode, turnResult.errorMessage)
+        return
+      }
+      const currentSpeaker = turnResult.data && turnResult.data.currentSpeaker
+      if(!currentSpeaker || currentSpeaker.username !== currentPlayer.username){
+        ctx.body = $helper.Result.fail(-1, '还没有轮到你发表遗言')
+        return
+      }
+
+      // 保存遗言记录
+      const lastWordsRecord = await $service.baseService.save(record, {
+        roomId: gameInstance.roomId,
+        gameId: gameInstance._id,
+        day: gameInstance.day,
+        stage: gameInstance.stage,
+        view: [], // 公开可见
+        isCommon: 1, // 公共记录
+        isTitle: 0,
+        content: {
+          type: 'lastWords',
+          source: 'player',
+          text: content,
+          audioUrl: audioUrl,
+          from: {
+            username: currentPlayer.username,
+            name: currentPlayer.name,
+            position: currentPlayer.position
+          },
+          timestamp: new Date().toISOString()
+        }
+      })
+      const advanceResult = await $service.gameService.advanceSpeechTurn(gameInstance)
+
+      // 通过WebSocket实时广播遗言
+      const lastWordsMessage = {
+        type: 'lastWords',
+        roomId: roomId,
+        gameId: gameId,
+        content: content,
+        audioUrl: audioUrl,
+        player: userInfo,
+        timestamp: new Date().toISOString()
+      }
+
+      $ws.connections.forEach(function (conn) {
+        if(conn.roomId === roomId && conn.gameId === gameId){
+          console.log('📡 发送遗言给:', conn.userInfo?.username)
+          conn.send(JSON.stringify(lastWordsMessage))
+        }
+      })
+
+      ctx.body = $helper.Result.success({ 
+        message: '遗言保存成功',
+        data: lastWordsRecord,
+        nextSpeaker: advanceResult.result && advanceResult.data ? advanceResult.data.currentSpeaker : null
+      })
+      if(advanceResult.result && advanceResult.data && advanceResult.data.finished){
+        setImmediate(async () => {
+          await $service.gameService.moveToNextStage(gameInstance._id)
+        })
+      }
+    } catch (error) {
+      console.error('保存遗言失败:', error)
+      ctx.body = $helper.Result.fail(-1, '保存遗言失败: ' + error.message)
     }
   }
 })

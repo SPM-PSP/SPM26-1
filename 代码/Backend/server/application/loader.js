@@ -223,10 +223,40 @@ function initSchedule(app) {
 
 const initWs = function () {
   const ws = require('nodejs-websocket');
+  const getRoomPath = (connection) => {
+    const path = connection.path || ''
+    const match = path.match(/^\/lrs\/([^/?]+)/)
+    return match ? ('/lrs/' + match[1]) : path
+  }
+  const relayTypes = [
+    'wolfVoiceSignaling',
+    'wolfChat',
+    'debugTest',
+    'wolfVoiceChat',
+    'realtimeSpeechAudio',
+    'realtimeSpeechText'
+  ]
+  const relayToRoom = (connection, message) => {
+    const roomPath = getRoomPath(connection)
+    server.connections.forEach(function (conn) {
+      if(getRoomPath(conn) === roomPath){
+        conn.sendText(message)
+      }
+    })
+  }
   const server = ws
     .createServer(function (connection) {
       connection.on('text', function (str) {
         console.log('Received ' + str);
+        try {
+          const data = JSON.parse(str)
+          if(data && relayTypes.includes(data.type)){
+            relayToRoom(connection, JSON.stringify(data))
+            return
+          }
+        } catch (e) {
+          // Non-JSON messages keep the old echo behavior.
+        }
         connection.sendText(str.toUpperCase() + '!!!');
       });
       connection.on('close', function (code, reason) {

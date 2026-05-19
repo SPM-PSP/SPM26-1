@@ -7,11 +7,53 @@ module.exports = app => ({
    */
   async predictorStage(id) {
     const { $service, $helper, $model, $support } = app
-    const { game, player, action, record } = $model
+    const { game, player, action, record, gameTag } = $model
     if(!id){
       return $helper.wrapResult(false, 'gameId为空！', -1)
     }
     let gameInstance = await $service.baseService.queryById(game, id)
+
+    // 只有第1天的死亡玩家拥有遗言；第2天及以后进入遗言阶段时不安排发言者。
+    if(Number(gameInstance.day) > 1){
+      let tagObject = {
+        roomId: gameInstance.roomId,
+        gameId: gameInstance._id,
+        day: gameInstance.day,
+        stage: 7,
+        dayStatus: 2,
+        desc: 'lastWordsOrder',
+        mode: 2,
+        value: 'desc',
+        target: '',
+        name: null,
+        position: null,
+        value2: [],
+        value3: {
+          currentIndex: 0
+        }
+      }
+
+      await $service.baseService.save(gameTag, tagObject)
+      await $service.baseService.save(record, {
+        roomId: gameInstance.roomId,
+        gameId: gameInstance._id,
+        day: gameInstance.day,
+        stage: 7,
+        view: [],
+        isCommon: 1,
+        isTitle: 0,
+        content: {
+          type: 'system',
+          text: '第2天及以后死亡玩家没有遗言'
+        }
+      })
+
+      return $helper.wrapResult(true, {
+        speakOrder: [],
+        firstSpeaker: null,
+        noLastWordsAfterDayOne: true
+      })
+    }
     let checkAction = await $service.baseService.queryOne(action,{gameId: gameInstance._id, roomId: gameInstance.roomId, day: gameInstance.day, stage: 1, action: 'check'})
     if(!checkAction) {
       // 空过
@@ -292,8 +334,25 @@ module.exports = app => ({
       if(poisonAction && poisonAction.to){
         let poisonPlayer = await $service.baseService.queryOne(player, {roomId: gameInstance.roomId, gameId: gameInstance._id, username: poisonAction.to});
         let witchPlayer = await $service.baseService.queryOne(player, {roomId: gameInstance.roomId, gameId: gameInstance._id, username: poisonAction.from});
+        
+        // 先保存死亡标签到gameTag，确保状态同步
+        let tagObject = {
+          roomId: gameInstance.roomId,
+          gameId: gameInstance._id,
+          day: gameInstance.day,
+          stage: gameInstance.stage,
+          dayStatus: gameInstance.stage < 4 ? 1 : 2,
+          desc: 'poison',
+          mode: 1,
+          target: poisonPlayer.username,
+          name: poisonPlayer.name,
+          position: poisonPlayer.position
+        }
+        await $service.baseService.save(gameTag, tagObject)
+        
         // 注册玩家死亡
         await $service.baseService.updateById(player, poisonPlayer._id, {status: 0, outReason: 'poison'});
+        
         let recordObject = {
           roomId: gameInstance.roomId,
           gameId: gameInstance._id,
@@ -323,20 +382,6 @@ module.exports = app => ({
         }
       }
       await $service.baseService.save(record, recordObject)
-
-      let tagObject = {
-        roomId: gameInstance.roomId,
-        gameId: gameInstance._id,
-        day: gameInstance.day,
-        stage: gameInstance.stage,
-        dayStatus: gameInstance.stage < 4 ? 1 : 2,
-        desc: 'poison',
-        mode: 1,
-        target: poisonPlayer.username,
-        name: poisonPlayer.name,
-        position: poisonPlayer.position
-      }
-      await $service.baseService.save(gameTag, tagObject)
     }
 
     if(!saveAction && !poisonAction){
@@ -970,5 +1015,155 @@ module.exports = app => ({
 
     await $service.gameService.settleGameOver(gameInstance._id)
     return $helper.wrapResult(true, needPk)
+  },
+
+  /**
+   * 初始化遗言阶段发言轮次
+   * @param id
+   * @returns {Promise<{result}>}
+   */
+  async initLastWordsStage (id) {
+    const { $service, $helper, $model, $support } = app
+    const { game, player, record, gameTag } = $model
+    if(!id){
+      return $helper.wrapResult(false, 'gameId为空！', -1)
+    }
+    
+    let gameInstance = await $service.baseService.queryById(game, id)
+    
+    // 查找今天死亡的玩家
+    let deadPlayers = await $service.baseService.query(player, {
+      gameId: gameInstance._id, 
+      roomId: gameInstance.roomId, 
+      status: 0
+    })
+    
+    // 过滤出今天死亡的玩家（通过检查gameTag记录）
+    const todayDeadPlayers = []
+    for(const deadPlayer of deadPlayers){
+      // 检查投票出局的死亡记录
+      const voteDeathTag = await $service.baseService.queryOne(gameTag, {
+        gameId: gameInstance._id,
+        roomId: gameInstance.roomId,
+        day: gameInstance.day,
+        desc: 'vote', // 投票出局的死亡记录
+        target: deadPlayer.username
+      })
+      // 检查夜晚被狼人击杀的死亡记录
+      const assaultDeathTag = await $service.baseService.queryOne(gameTag, {
+        gameId: gameInstance._id,
+        roomId: gameInstance.roomId,
+        day: gameInstance.day,
+        desc: 'assault', // 狼人击杀的死亡记录
+        target: deadPlayer.username
+      })
+      
+      if(voteDeathTag || assaultDeathTag){
+        todayDeadPlayers.push(deadPlayer)
+      }
+    }
+    
+    // 无论有没有死亡玩家都进入遗言阶段，让房主自己控制
+    if(todayDeadPlayers.length === 0){
+      console.log('🔇 今天没有死亡玩家，但仍进入遗言阶段让房主控制')
+      
+      // 创建空的遗言发言轮次（没有发言者）
+      let tagObject = {
+        roomId: gameInstance.roomId,
+        gameId: gameInstance._id,
+        day: gameInstance.day,
+        stage: 7, // 遗言阶段
+        dayStatus: 2,
+        desc: 'lastWordsOrder',
+        mode: 2,
+        value: 'desc', // 按座位号从大到小
+        target: '', // 没有发言者
+        name: null,
+        position: null,
+        value2: [], // 空的发言顺序
+        value3: {
+          currentIndex: 0
+        }
+      }
+      
+      await $service.baseService.save(gameTag, tagObject)
+      
+      // 创建遗言阶段记录
+      let recordObject = {
+        roomId: gameInstance.roomId,
+        gameId: gameInstance._id,
+        day: gameInstance.day,
+        stage: 7,
+        view: [],
+        isCommon: 1,
+        isTitle: 0,
+        content: {
+          type: 'system',
+          text: '遗言阶段开始，今天没有死亡玩家，房主可以手动控制游戏流程'
+        }
+      }
+      await $service.baseService.save(record, recordObject)
+      
+      return $helper.wrapResult(true, { 
+        speakOrder: [],
+        firstSpeaker: null,
+        noDeadPlayers: true
+      })
+    }
+    
+    console.log('💀 今天死亡的玩家:', todayDeadPlayers.map(p => `${p.position}号(${p.name})`))
+    
+    // 按座位号从大到小排序发言顺序
+    const sortedDeadPlayers = todayDeadPlayers.sort((a, b) => b.position - a.position)
+    
+    const speakOrder = sortedDeadPlayers.map(player => ({
+      username: player.username,
+      name: player.name,
+      position: player.position
+    }))
+    
+    // 创建遗言发言轮次tag
+    let tagObject = {
+      roomId: gameInstance.roomId,
+      gameId: gameInstance._id,
+      day: gameInstance.day,
+      stage: 7, // 遗言阶段
+      dayStatus: 2,
+      desc: 'lastWordsOrder',
+      mode: 2,
+      value: 'desc', // 按座位号从大到小
+      target: speakOrder[0].username, // 第一个发言者
+      name: speakOrder[0].name,
+      position: speakOrder[0].position,
+      value2: speakOrder,
+      value3: {
+        currentIndex: 0
+      }
+    }
+    
+    await $service.baseService.save(gameTag, tagObject)
+    
+    // 创建遗言阶段记录
+    let recordObject = {
+      roomId: gameInstance.roomId,
+      gameId: gameInstance._id,
+      day: gameInstance.day,
+      stage: 7,
+      view: [],
+      isCommon: 1,
+      isTitle: 0,
+      content: {
+        type: 'system',
+        text: `遗言阶段开始，今天死亡的${speakOrder.length}位玩家将按座位号从大到小顺序发表遗言`
+      }
+    }
+    await $service.baseService.save(record, recordObject)
+    
+    console.log('🎤 遗言发言顺序初始化完成:', speakOrder)
+    
+    return $helper.wrapResult(true, { 
+      speakOrder,
+      firstSpeaker: speakOrder[0]
+    })
   }
 })

@@ -645,6 +645,127 @@ module.exports = app => {
         if(actionName === 'assault' && actor.role === 'wolf'){
           const privateVision = await buildPrivateVision(actor)
           
+          console.log('[aiService] AI狼人夜行动调试信息:', {
+            actor: actor.username,
+            wolfDecisionMode: privateVision.wolfDecisionMode,
+            allWolfPlayers: wolfPlayers.map(w => ({ username: w.username, isAI: isAiId(w.username) })),
+            totalWolves: wolfPlayers.length,
+            aiWolves: wolfPlayers.filter(w => isAiId(w.username)).length
+          })
+          
+          // 全AI狼人场景：使用night-consensus接口
+          if(!privateVision.wolfDecisionMode || privateVision.wolfDecisionMode === 'auto_execute'){
+            // 检查是否所有狼人都是AI
+            const allWolfPlayers = wolfPlayers.filter(wolf => wolf.status === 1)
+            const aiWolfPlayers = allWolfPlayers.filter(wolf => isAiId(wolf.username))
+            
+            // 如果所有狼人都是AI，使用night-consensus流程
+            if(allWolfPlayers.length > 0 && allWolfPlayers.length === aiWolfPlayers.length){
+              // 只在第一个AI狼人时执行consensus，避免重复调用
+              if(actor.username === aiWolfPlayers[0].username){
+                try {
+                  const consensusResult = await this.werewolfNightConsensus(
+                    gameInstance, 
+                    aiWolfPlayers.map(wolf => wolf.username),
+                    {
+                      visibleEvents,
+                      candidateTargets,
+                      privateVision: {
+                        wolfTeammates: privateVision.wolfTeammates,
+                        allowFriendlyFire: false
+                      }
+                    }
+                  )
+                  
+                  if(consensusResult.result && consensusResult.data){
+                    const consensusData = consensusResult.data
+                    
+                    // 使用新的finalKillTarget和executionDecision字段
+                    const finalKillTarget = consensusData.finalKillTarget
+                    const executionDecision = consensusData.executionDecision
+                    
+                    if(finalKillTarget && executionDecision){
+                      // 直接使用AI端返回的最终击杀目标
+                      const finalTargetPlayer = await getTargetPlayer(finalKillTarget)
+                      
+                      if(finalTargetPlayer){
+                        // 为所有AI狼人保存击杀行动
+                        for(const wolfAi of aiWolfPlayers){
+                          await saveActionIfNeeded(wolfAi, finalTargetPlayer, 'assault')
+                          results.push({ 
+                            aiId: wolfAi.username, 
+                            success: true, 
+                            action: 'assault', 
+                            target: finalTargetPlayer.username,
+                            consensusTarget: consensusData.consensusTarget,
+                            finalKillTarget: finalKillTarget,
+                            executionDecision: executionDecision,
+                            mode: 'consensus_execute'
+                          })
+                        }
+                      } else {
+                        console.error('[aiService] finalKillTarget对应的玩家不存在:', finalKillTarget)
+                        // 回退到旧的执行方式
+                        await fallbackToOldExecution(consensusData, aiWolfPlayers, results, getTargetPlayer, saveActionIfNeeded)
+                      }
+                    } else {
+                      // 新字段不存在，回退到旧的执行方式
+                      console.log('[aiService] 新字段不存在，回退到旧的执行方式')
+                      await fallbackToOldExecution(consensusData, aiWolfPlayers, results, getTargetPlayer, saveActionIfNeeded)
+                    }
+                  } else {
+                    // consensus失败，回退到单个AI处理
+                    console.log('[aiService] night-consensus失败，回退到单个AI处理:', consensusResult.errorMessage)
+                  }
+
+                  // 旧的执行方式作为回退方案
+                  const fallbackToOldExecution = async (consensusData, aiWolfPlayers, results, getTargetPlayer, saveActionIfNeeded) => {
+                    for(const wolfAi of aiWolfPlayers){
+                      const wolfPrivateVision = consensusData.privateVisionByAiId && consensusData.privateVisionByAiId[wolfAi.username] 
+                        ? consensusData.privateVisionByAiId[wolfAi.username]
+                        : consensusData.sharedPrivateVision
+                      
+                      const finalInvokeResult = await this.invokeAgent(gameInstance, wolfAi.username, {
+                        stage: 'night_action',
+                        visibleEvents,
+                        alivePlayers: aliveIds,
+                        candidateTargets,
+                        privateVision: wolfPrivateVision,
+                        asyncMode: false
+                      })
+                      
+                      if(finalInvokeResult.result && finalInvokeResult.data && finalInvokeResult.data.decision){
+                        const finalDecision = finalInvokeResult.data.decision
+                        const finalTargetKey = finalDecision.skillTarget
+                        const finalTargetPlayer = await getTargetPlayer(finalTargetKey)
+                        
+                        if(finalTargetPlayer){
+                          await saveActionIfNeeded(wolfAi, finalTargetPlayer, 'assault')
+                          results.push({ 
+                            aiId: wolfAi.username, 
+                            success: true, 
+                            action: 'assault', 
+                            target: finalTargetPlayer.username,
+                            consensusTarget: consensusData.consensusTarget,
+                            mode: 'consensus_execute_fallback'
+                          })
+                        } else {
+                          results.push({ aiId: wolfAi.username, success: false, error: 'consensus target not found' })
+                        }
+                      } else {
+                        results.push({ aiId: wolfAi.username, success: false, error: 'consensus execution failed' })
+                      }
+                    }
+                  }
+                } catch (error) {
+                  console.log('[aiService] night-consensus异常，回退到单个AI处理:', error.toString())
+                }
+              }
+              // 其他AI狼人跳过处理，等待第一个AI完成consensus流程
+              continue
+            }
+          }
+          
           // 如果是建议模式，保存AI建议而不是执行行动
           if(privateVision.wolfDecisionMode === 'advice_only'){
             // 保存AI建议到记录表，供真人狼人查看
@@ -787,6 +908,37 @@ module.exports = app => {
      * @param {Array} candidateTargets 候选目标列表（可选）
      * @returns {Promise}
      */
+    async werewolfNightConsensus(gameInstance, werewolfAiIds, params = {}) {
+      const { $service, $helper, $model } = app
+      const { player } = $model
+      
+      // 获取所有存活玩家
+      const alivePlayers = await $service.baseService.query(player, {
+        roomId: gameInstance.roomId,
+        gameId: gameInstance._id,
+        status: 1
+      })
+      const aliveIds = alivePlayers.map(item => item.username)
+      
+      // 获取狼人玩家信息
+      const wolfPlayers = alivePlayers.filter(item => item.role === 'wolf')
+      const wolfTeammates = wolfPlayers.map(wolf => wolf.username)
+      
+      return await post('/internal/ai/werewolf/night-consensus', {
+        requestId: params.requestId || ('req_wolf_consensus_' + gameInstance._id + '_' + Date.now()),
+        gameId: String(gameInstance._id),
+        werewolfAiIds: werewolfAiIds,
+        visibleEvents: params.visibleEvents || [],
+        alivePlayers: aliveIds,
+        candidateTargets: params.candidateTargets || aliveIds.filter(id => !wolfTeammates.includes(id)),
+        privateVision: {
+          wolfTeammates: wolfTeammates,
+          allowFriendlyFire: params.allowFriendlyFire || false,
+          ...params.privateVision
+        }
+      })
+    },
+
     async sendPublicEvent(gameInstance, event, candidateTargets = null) {
       const { $helper } = app
       
