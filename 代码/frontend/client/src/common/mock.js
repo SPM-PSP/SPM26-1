@@ -153,6 +153,7 @@ let mockState = {
   actions: [],
   speechRecords: [],
   speechRecordCursor: 1000,
+  winner: null,
 }
 
 const stageMap = [
@@ -318,7 +319,7 @@ const getMockGame = () => {
         position: item.position,
       })),
     },
-    winner: null,
+    winner: mockState.winner,
   }
 }
 
@@ -640,6 +641,7 @@ export const mockFetch = (config = {}) => {
         mockState.exileResult = null
         mockState.actions = []
         mockState.speechRecords = []
+        mockState.winner = null
         resolve(MOCK_ROOM_ID)
         return
       }
@@ -667,6 +669,7 @@ export const mockFetch = (config = {}) => {
         mockState.exileResult = null
         mockState.actions = []
         mockState.speechRecords = []
+        mockState.winner = null
         resolve({ success: true })
         return
       }
@@ -690,6 +693,7 @@ export const mockFetch = (config = {}) => {
         mockState.exileResult = null
         mockState.actions = []
         mockState.speechRecords = []
+        mockState.winner = null
         resolve({ _id: MOCK_GAME_ID })
         return
       }
@@ -881,10 +885,15 @@ export const mockFetch = (config = {}) => {
       }
 
       if (url === '/api/game/result/auth') {
+        const requestedWinner = config.params && config.params.winner !== undefined
+          ? Number(config.params.winner)
+          : (mockState.winner !== null ? mockState.winner : 1)
+        const winner = requestedWinner === 0 ? 0 : 1
+        mockState.winner = winner
         mockState.gameStatus = 2
         resolve({
-          winner: 1,
-          winnerString: '好人阵营',
+          winner,
+          winnerString: winner === 0 ? '狼人阵营' : '好人阵营',
         })
         return
       }
@@ -905,6 +914,7 @@ export const mockFetch = (config = {}) => {
         mockState.exileResult = null
         mockState.actions = []
         mockState.speechRecords = []
+        mockState.winner = null
         resolve({ _id: MOCK_ROOM_ID })
         return
       }

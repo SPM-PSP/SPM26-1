@@ -174,6 +174,37 @@
 .winner-title
   font-size 18px
 
+.mock-settlement-tools
+  position fixed
+  left 18px
+  bottom 18px
+  z-index 20
+  display flex
+  align-items center
+  gap 8px
+  padding 8px 10px
+  border 1px solid rgba(122, 0, 11, .18)
+  border-radius 4px
+  background rgba(254, 249, 235, .94)
+  box-shadow 0 12px 28px -18px rgba(29, 28, 19, .45)
+  font-family Georgia, 'Noto Serif SC', 'Noto Serif', serif
+  span
+    color #5a4b32
+    font-size 12px
+    font-weight 700
+  button
+    height 28px
+    padding 0 12px
+    border 0
+    border-radius 3px
+    color #fff
+    background #63000a
+    font-size 12px
+    font-weight 800
+    cursor pointer
+  button:last-child
+    background #2d6a4f
+
 .room-ready-shell
   --surface #fef9eb
   --surface-low #f8f3e5
@@ -311,6 +342,30 @@
   border 2px solid var(--primary)
   object-fit cover
 
+.ready-narrator img.identity-portrait
+  object-position center 18%
+
+.ready-narrator-portrait
+  width 56px
+  height 56px
+  flex none
+  overflow hidden
+  border 2px solid var(--primary)
+  border-radius 50%
+  background #fff
+
+.ready-narrator-portrait img
+  width 100%
+  height 100%
+  border 0
+  border-radius 0
+  object-fit cover
+
+.ready-narrator-portrait img.identity-portrait
+  object-position center 15%
+  transform scale(1.3)
+  transform-origin center 22%
+
 .ready-narrator strong
   display block
   color var(--primary)
@@ -384,6 +439,21 @@
 .ready-start-btn:disabled
   opacity .48
   cursor not-allowed
+
+.ready-end-btn
+  min-height 52px
+  border 2px solid var(--primary)
+  border-radius 14px
+  color var(--primary)
+  background rgba(254,249,235,.7)
+  font-family inherit
+  font-size 17px
+  font-weight 900
+  cursor pointer
+
+.ready-end-btn:hover
+  color #fff
+  background var(--primary)
 
 .ready-side-link
   margin-top auto
@@ -553,6 +623,9 @@
   object-fit cover
   background #fff
 
+.ready-seat-frame img.identity-portrait
+  object-position center 18%
+
 .ready-seat-placeholder
   display flex
   align-items center
@@ -615,6 +688,40 @@
 .ready-day-player.day-player-self .ready-seat-frame
   background #85171b
   border-bottom-color var(--primary-dark)
+
+.room-day-shell .ready-day-player.day-player-self
+  position relative
+  filter drop-shadow(0 0 13px rgba(126,17,24,.32))
+
+.room-day-shell .ready-day-player.day-player-self .ready-seat-frame
+  background #7e1118
+  border-bottom-color #4a0006
+  box-shadow 0 0 0 4px #f3c96e, 0 0 0 7px rgba(126,17,24,.32), 0 20px 34px rgba(74,0,6,.3)
+
+.room-day-shell .ready-day-player.day-player-self .ready-seat-frame:before
+  content '我'
+  position absolute
+  z-index 4
+  top -15px
+  right -14px
+  width 29px
+  height 29px
+  line-height 27px
+  border 2px solid #7e1118
+  border-radius 50%
+  background #ffdf9a
+  color #7e1118
+  box-shadow 0 5px 12px rgba(74,0,6,.28)
+  font-size 13px
+  font-weight 900
+  text-align center
+
+.room-day-shell .ready-day-player.day-player-self .ready-seat-name
+  box-shadow 0 0 0 2px #f3c96e
+
+.room-day-shell .ready-day-player.day-player-self .ready-seat-note
+  color #7e1118
+  font-weight 900
 
 .ready-day-player.day-player-dead
   opacity .72
@@ -923,6 +1030,10 @@
 
 .dusk-narrator img
   object-fit cover
+  background #fff
+  border-color var(--primary)
+
+.dusk-narrator .ready-narrator-portrait
   background #fff
   border-color var(--primary)
 
@@ -1295,6 +1406,21 @@
   flex-wrap wrap
   gap 12px
 
+.dusk-voice-status
+  min-height 32px
+  display inline-flex
+  align-items center
+  padding 0 10px
+  border-radius 8px
+  color #73796e
+  background rgba(254,249,235,.72)
+  font-size 12px
+  font-weight 900
+
+.dusk-voice-status.active
+  color var(--primary)
+  background rgba(225,234,213,.92)
+
 .dusk-action-bar button
   min-height 56px
   border 0
@@ -1557,6 +1683,160 @@
 .dusk-scroll-panel .ready-rule-card span
   color #514337
 
+.room-settlement-shell .settlement-bg:after
+  background linear-gradient(0deg, rgba(244,234,219,.97), rgba(244,234,219,.5) 48%, rgba(47,33,26,.12))
+
+.settlement-main
+  gap 22px
+
+.settlement-grid
+  grid-template-columns minmax(285px, 360px) minmax(420px, 1fr)
+  gap 22px
+
+.settlement-result-panel
+  min-height 390px
+  padding-top 28px
+
+.settlement-winner-portrait
+  position relative
+  width 158px
+  height 190px
+  margin-bottom 22px
+  padding 6px
+  border-radius 8px
+  background #f7efe4
+  box-shadow 0 18px 34px rgba(42,27,18,.24)
+  display flex
+  align-items center
+  justify-content center
+  color rgba(126,17,24,.5)
+  font-size 58px
+
+.settlement-winner-portrait img
+  width 100%
+  height 100%
+  border-radius 4px
+  object-fit cover
+  object-position center 18%
+
+.settlement-victory-stamp
+  position absolute
+  right -18px
+  bottom 18px
+  transform rotate(-9deg)
+  padding 6px 12px
+  border 4px solid #7e1118
+  border-radius 5px
+  color #7e1118
+  background rgba(247,239,228,.95)
+  font-size 25px
+  font-weight 900
+  line-height 1
+  letter-spacing .08em
+
+.settlement-roster-panel
+  min-height 390px
+
+.settlement-roster
+  display grid
+  grid-template-columns repeat(2, minmax(190px, 1fr))
+  gap 10px
+  margin-top 18px
+  min-height 0
+  overflow-y auto
+
+.settlement-player
+  min-height 62px
+  display grid
+  grid-template-columns 46px minmax(0, 1fr) auto
+  align-items center
+  gap 10px
+  padding 7px 10px
+  border 1px solid rgba(86,70,52,.13)
+  border-radius 8px
+  background rgba(247,239,228,.44)
+
+.settlement-player.winner
+  border-color rgba(94,88,61,.25)
+  background rgba(217,201,173,.52)
+
+.settlement-player.out:not(.winner)
+  opacity .65
+
+.settlement-player img
+  width 46px
+  height 46px
+  border-radius 50%
+  object-fit cover
+  object-position center 18%
+
+.settlement-player strong
+  display block
+  overflow hidden
+  color #241913
+  font-size 13px
+  font-weight 900
+  white-space nowrap
+  text-overflow ellipsis
+
+.settlement-player span
+  display block
+  margin-top 3px
+  color #5d5245
+  font-size 11px
+  font-weight 800
+
+.settlement-player em
+  padding 4px 7px
+  border-radius 999px
+  color #675747
+  background rgba(248,242,233,.9)
+  font-size 10px
+  font-style normal
+  font-weight 900
+
+.settlement-player.winner em
+  color #7e1118
+  background rgba(248,242,233,.96)
+
+.settlement-actions
+  min-height 88px
+
+.settlement-again-btn
+  min-width 174px
+
+.settlement-wait-owner
+  color #6a5c4b
+  font-size 13px
+  font-weight 900
+
+.settlement-report-meta
+  display flex
+  flex-direction column
+  gap 5px
+  margin-bottom 14px
+  padding 12px
+  border-left 3px solid var(--primary)
+  background rgba(232,214,189,.42)
+  color #514337
+  font-size 12px
+  font-weight 900
+
+.settlement-report-text
+  flex 1
+  min-height 100px
+  margin 0 0 14px
+  padding 13px
+  overflow-y auto
+  border 1px solid rgba(86,70,52,.12)
+  border-radius 4px
+  color #3b2d24
+  background rgba(247,239,228,.5)
+  font-family Georgia, 'Noto Serif SC', 'Noto Serif', serif
+  font-size 12px
+  line-height 1.7
+  white-space pre-wrap
+
 .room-night-shell
   --surface #10140f
   --surface-low #151a14
@@ -1609,6 +1889,10 @@
   box-shadow 22px 0 42px rgba(0,0,0,.26)
 
 .night-sidebar .ready-narrator img
+  background #252a23
+  border-color rgba(255,223,154,.45)
+
+.night-sidebar .ready-narrator-portrait
   background #252a23
   border-color rgba(255,223,154,.45)
 
@@ -1718,6 +2002,46 @@
   background #253129
   border 2px solid rgba(172,184,157,.34)
   border-bottom 5px solid #101610
+
+.room-night-shell .night-day-player.day-player-self
+  position relative
+  filter drop-shadow(0 0 16px rgba(255,223,154,.34))
+
+.room-night-shell .night-day-player.day-player-self.night-player-muted:not(.night-player-dead)
+  opacity 1
+
+.room-night-shell .night-day-player.day-player-self .night-seat-frame
+  background #453825
+  border 2px solid #ffdf9a
+  border-bottom 5px solid #b4863a
+  box-shadow 0 0 0 3px rgba(255,223,154,.28), 0 0 23px rgba(255,223,154,.3), 0 20px 34px rgba(0,0,0,.38)
+
+.room-night-shell .night-day-player.day-player-self .night-seat-frame:before
+  content '我'
+  position absolute
+  z-index 4
+  top -15px
+  right -14px
+  width 29px
+  height 29px
+  line-height 27px
+  border 2px solid #6f1115
+  border-radius 50%
+  background #ffdf9a
+  color #6f1115
+  box-shadow 0 5px 13px rgba(0,0,0,.36)
+  font-size 13px
+  font-weight 900
+  text-align center
+
+.room-night-shell .night-day-player.day-player-self .ready-seat-name
+  color #fff2c8
+  background #6f1115
+  box-shadow 0 0 0 2px rgba(255,223,154,.72)
+
+.room-night-shell .night-day-player.day-player-self .ready-seat-note
+  color #ffdf9a
+  font-weight 900
 
 .night-seat-frame img
   filter grayscale(.85) contrast(.95)
@@ -1898,6 +2222,33 @@
 .night-scroll-panel .ready-rule-card span
   color rgba(236,232,220,.72)
 
+.night-countdown-panel
+  margin 0 0 14px
+  padding 16px 14px
+  border 1px solid rgba(255,223,154,.18)
+  background rgba(255,223,154,.07)
+  text-align center
+
+.night-countdown-panel span
+  display block
+  color rgba(236,232,220,.68)
+  font-size 12px
+  font-weight 900
+
+.night-countdown-panel strong
+  display block
+  margin 4px 0
+  color var(--secondary)
+  font-size 40px
+  line-height 1.1
+  font-weight 1000
+
+.night-countdown-panel p
+  margin 0
+  color rgba(236,232,220,.7)
+  font-size 12px
+  font-weight 900
+
 .night-side-stats
   display grid
   gap 12px
@@ -1991,6 +2342,104 @@
   line-height 1.5
   font-weight 800
 
+.wolf-chat-panel
+  margin 0 0 18px
+  padding 14px
+  border 1px solid rgba(255,223,154,.16)
+  border-left 4px solid #d4237a
+  background rgba(10,10,12,.22)
+
+.wolf-chat-title
+  display flex
+  align-items center
+  justify-content space-between
+  gap 10px
+  margin-bottom 12px
+
+.wolf-chat-title strong
+  color #ffdcc3
+  font-size 14px
+  font-weight 900
+
+.wolf-chat-title button
+  min-height 32px
+  padding 0 10px
+  border 1px solid rgba(255,223,154,.2)
+  border-radius 4px
+  color #f7f2e8
+  background rgba(255,255,255,.04)
+  font-size 12px
+  font-weight 900
+  cursor pointer
+
+.wolf-chat-title button.active
+  border-color #d4237a
+  color #ffffff
+  background #d4237a
+
+.wolf-chat-list
+  max-height 150px
+  overflow-y auto
+  display flex
+  flex-direction column
+  gap 8px
+  margin-bottom 12px
+
+.wolf-chat-item
+  padding 8px 10px
+  border 1px solid rgba(255,223,154,.1)
+  background rgba(255,255,255,.035)
+
+.wolf-chat-item.self
+  border-color rgba(212,35,122,.35)
+  background rgba(212,35,122,.16)
+
+.wolf-chat-item span
+  display block
+  margin-bottom 4px
+  color rgba(236,232,220,.58)
+  font-size 12px
+  font-weight 900
+
+.wolf-chat-item p
+  margin 0
+  color rgba(236,232,220,.88)
+  font-size 13px
+  line-height 1.45
+  font-weight 800
+
+.wolf-chat-input
+  display grid
+  grid-template-columns 1fr 36px
+  gap 8px
+
+.wolf-chat-input .ant-input
+  height 36px
+  border 1px solid rgba(255,223,154,.16)
+  border-radius 4px
+  color #f7f2e8
+  background rgba(255,255,255,.06)
+
+.wolf-chat-input button
+  border 0
+  border-radius 4px
+  color #ffffff
+  background #d4237a
+  cursor pointer
+
+.realtime-voice-tip
+  display flex
+  align-items center
+  gap 8px
+  margin 0 0 14px
+  padding 10px 12px
+  border 1px solid rgba(84,100,50,.24)
+  border-radius 4px
+  color #546432
+  background rgba(215,234,171,.24)
+  font-size 13px
+  font-weight 900
+
 .night-side-actions
   display grid
   grid-template-columns 1fr 1fr
@@ -2041,6 +2490,9 @@
   .night-bg
     inset 76px 300px 0 220px
 
+  .dusk-bg
+    inset 76px 300px 0 220px
+
   .night-orbit
     width min(860px, 100%)
     min-height 460px
@@ -2065,6 +2517,9 @@
   .ready-center-piece
     width 176px
     height 176px
+
+  .settlement-roster
+    grid-template-columns 1fr
 
 @media (max-width 980px)
   .room-ready-shell
@@ -2097,6 +2552,20 @@
   .night-bg
     position fixed
     inset 76px 0 0 0
+
+  .dusk-bg
+    position fixed
+    inset 76px 0 0 0
+
+  .dusk-main
+    padding 28px 24px
+
+  .dusk-grid,
+  .settlement-grid
+    grid-template-columns 1fr
+
+  .dusk-right-panel
+    padding 0 24px 30px
 
   .night-main
     padding 28px 24px
