@@ -1,4 +1,4 @@
-import {observable, action, makeObservable} from 'mobx'
+import {observable, action, makeObservable, runInAction} from 'mobx'
 import helper from '@helper'
 import apiUser from '@api/user'
 import apiConfig from '@api/config'
@@ -58,13 +58,17 @@ class AppStore {
 
   @action getUserInfo = async () => {
     const r = await apiUser.getUserInfo()
-    this.loading = false
-    this.user = r
+    runInAction(() => {
+      this.loading = false
+      this.user = r
+    })
   }
 
   @action getRouteMap = async () => {
     const r = await apiConfig.getRoute()
-    this.routeMap = r
+    runInAction(() => {
+      this.routeMap = r
+    })
   }
 
   @action getPageConfig = async () => {
@@ -92,15 +96,19 @@ class AppStore {
 
     Promise.all([p1,p2, p3,]).then((r)=>{
       // 拥有的权限路由
-      this.routeMap = initRouteMap(r[0]) || []
-      // 用户配置初始化
-      this.user = r[1] || {}
-      this.currentRole = r[1].defaultRole || ''
-      // ui权限
-      this.cPermission = r[2] || []
-      this.loading = false
+      runInAction(() => {
+        this.routeMap = initRouteMap(r[0]) || []
+        // 用户配置初始化
+        this.user = r[1] || {}
+        this.currentRole = r[1].defaultRole || ''
+        // ui权限
+        this.cPermission = r[2] || []
+        this.loading = false
+      })
     }).catch(()=>{
-      this.loading = false
+      runInAction(() => {
+        this.loading = false
+      })
     })
   }
 }

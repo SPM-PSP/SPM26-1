@@ -48,6 +48,9 @@ const Record = (props) => {
               <div key={item.key}>
                 {
                   (item.content || []).map((record, index)=>{
+                    const content = record.content || {}
+                    const from = content.from || {}
+                    const to = content.to || {}
                     return (
                       <div
                         className={cls({
@@ -55,23 +58,30 @@ const Record = (props) => {
                         })}
                         key={'record' + index}>
                         {
-                          record.content.type === 'text' ? (
+                          content.type === 'text' || content.type === 'system' || content.type === 'speech' || content.type === 'lastWords' ? (
                             <div className={cls({
                               'cell-title': record.isTitle,
                               'cell-normal': !record.isTitle,
-                              'color-red': record.content.level === 2,
-                              'color-green': record.content.level === 3,
-                              'color-blue': record.content.level === 4,
-                              'color-pink': record.content.level === 5,
-                              'color-orange': record.content.level === 6,
-                            })}>{record.content.text}</div>
+                              'color-red': content.level === 2,
+                              'color-green': content.level === 3,
+                              'color-blue': content.level === 4,
+                              'color-pink': content.level === 5,
+                              'color-orange': content.level === 6,
+                            })}>
+                              {content.type === 'speech' || content.type === 'lastWords' ? (
+                                <span>
+                                  {(content.from && content.from.name ? content.from.name : '玩家') + '：'}
+                                </span>
+                              ) : null}
+                              {content.text}
+                            </div>
                           ) : null
                         }
                         {
-                          record.content.type === 'rich-text' ? (
+                          content.type === 'rich-text' ? (
                             <div className="FBH FBAC" style={{flexWrap: 'wrap'}}>
                               {
-                                (record.content.content || []).map((itm, index)=>{
+                                (content.content || []).map((itm, index)=>{
                                   return (
                                     <div key={'itd'+ index} className={cls({
                                       'txt': true,
@@ -88,64 +98,64 @@ const Record = (props) => {
                           ) : null
                         }
                         {
-                          record.content.type === 'action' ? (
+                          content.type === 'action' ? (
                             <div className="action-cell FBH FBAC">
                               <div className="from-wrap FBAC FBH">
                                 {
-                                  record.content.from.role ? (
-                                    <img className="icon mar-r5" src={roleIconMap[record.content.from.role]} />
+                                  from.role ? (
+                                    <img className="icon mar-r5" src={roleIconMap[from.role]} />
                                   ) : null
                                 }
                                 {
-                                  record.content.from.position ? (
-                                    <div className="txt">{record.content.from.position + '号'}</div>
+                                  from.position ? (
+                                    <div className="txt">{from.position + '号'}</div>
                                   ) : null
                                 }
                                 {
-                                  record.content.from.position ? (
+                                  from.position ? (
                                     <div className="txt">{'('}</div>
                                   ) : null
                                 }
                                 {
-                                  record.content.from.name ? (
-                                    <div className="txt color-main">{record.content.from.name}</div>
+                                  from.name ? (
+                                    <div className="txt color-main">{from.name}</div>
                                   ) : null
                                 }
                                 {
-                                  record.content.from.position ? (
+                                  from.position ? (
                                     <div className="txt">{')'}</div>
                                   ) : null
                                 }
                               </div>
                               <div className="action-wrap FBV FBAC FBJE">
-                                <img className="arrow" src={arrowIconMap[record.content.level]}/>
+                                <img className="arrow" src={arrowIconMap[content.level]}/>
                                 <div className={cls({
                                   'action-name': true,
-                                  'color-red': record.content.level === 2,
-                                  'color-green': record.content.level === 3,
-                                  'color-blue': record.content.level === 4,
-                                  'color-pink': record.content.level === 5,
-                                  'color-orange': record.content.level === 6,
-                                })}>{record.content.actionName}</div>
+                                  'color-red': content.level === 2,
+                                  'color-green': content.level === 3,
+                                  'color-blue': content.level === 4,
+                                  'color-pink': content.level === 5,
+                                  'color-orange': content.level === 6,
+                                })}>{content.actionName}</div>
                               </div>
                               <div className="to-wrap FBAC FBH FBJC">
                                 {
-                                  record.content.to.name ? (
+                                  to.name ? (
                                     <>
                                       {
-                                        record.content.to.role ? (
-                                          <img className="icon mar-r5" src={roleIconMap[record.content.to.role]} />
+                                        to.role ? (
+                                          <img className="icon mar-r5" src={roleIconMap[to.role]} />
                                         ) : null
                                       }
                                       {
-                                        record.content.to.position ? (<div className="txt">{record.content.to.position + '号'}</div>) : null
+                                        to.position ? (<div className="txt">{to.position + '号'}</div>) : null
                                       }
                                       {
-                                        record.content.to.position ? (<div className="txt">{'('}</div>) : null
+                                        to.position ? (<div className="txt">{'('}</div>) : null
                                       }
-                                      <div className="txt color-main">{record.content.to.name}</div>
+                                      <div className="txt color-main">{to.name}</div>
                                       {
-                                        record.content.to.position ? (<div className="txt">{')'}</div>) : null
+                                        to.position ? (<div className="txt">{')'}</div>) : null
                                       }
                                     </>
                                   ) : (
@@ -154,7 +164,7 @@ const Record = (props) => {
                                 }
                               </div>
                               {
-                                record.content.from.status === 0 ? (
+                                from.status === 0 ? (
                                   <>
                                     <div className="dead-grey" />
                                     <div className="dead-text FBH FBAC FBJC">
@@ -168,38 +178,38 @@ const Record = (props) => {
                           ) : null
                         }
                         {
-                          record.content.type === 'vote' ? (
+                          content.type === 'vote' ? (
                             <div className="vote-cell FBH FBAC">
                               <div className="from-wrap FBAC FBH">
                                 {
-                                  record.content.from.role ? (
-                                    <img className="icon mar-r5" src={roleIconMap[record.content.from.role]} />
+                                  from.role ? (
+                                    <img className="icon mar-r5" src={roleIconMap[from.role]} />
                                   ) : null
                                 }
                                 {
-                                  record.content.from.position ? (
-                                    <div className="txt">{record.content.from.position + '号'}</div>
+                                  from.position ? (
+                                    <div className="txt">{from.position + '号'}</div>
                                   ) : null
                                 }
                                 {
-                                  record.content.from.position ? (
+                                  from.position ? (
                                     <div className="txt">{'('}</div>
                                   ) : null
                                 }
                                 {
-                                  record.content.from.name ? (
+                                  from.name ? (
                                     <div className={cls({
                                       'txt': true,
-                                      'color-red': record.content.level === 2,
-                                      'color-green': record.content.level === 3,
-                                      'color-blue': record.content.level === 4,
-                                      'color-pink': record.content.level === 5,
-                                      'color-orange': record.content.level === 6,
-                                    })}>{record.content.from.name}</div>
+                                      'color-red': content.level === 2,
+                                      'color-green': content.level === 3,
+                                      'color-blue': content.level === 4,
+                                      'color-pink': content.level === 5,
+                                      'color-orange': content.level === 6,
+                                    })}>{from.name}</div>
                                   ) : null
                                 }
                                 {
-                                  record.content.from.position ? (
+                                  from.position ? (
                                     <div className="txt">{')'}</div>
                                   ) : null
                                 }
@@ -207,26 +217,26 @@ const Record = (props) => {
                               <div className="action-wrap FBH FBAC">
                                 <div className={cls({
                                   'action-name mar-r5': true,
-                                  'color-red': record.content.level === 2,
-                                  'color-green': record.content.level === 3,
-                                  'color-blue': record.content.level === 4,
-                                  'color-pink': record.content.level === 5,
-                                  'color-orange': record.content.level === 6,
-                                })}>{record.content.actionName}</div>
-                                <img className="arrow" src={arrowIconMap[record.content.level]}/>
+                                  'color-red': content.level === 2,
+                                  'color-green': content.level === 3,
+                                  'color-blue': content.level === 4,
+                                  'color-pink': content.level === 5,
+                                  'color-orange': content.level === 6,
+                                })}>{content.actionName}</div>
+                                <img className="arrow" src={arrowIconMap[content.level]}/>
                               </div>
                               <div className="to-wrap FBAC FBH FBJC">
                                 {
-                                  record.content.to.name ? (
+                                  to.name ? (
                                     <>
                                       <div className={cls({
                                         'txt': true,
-                                        'color-red': record.content.level === 2,
-                                        'color-green': record.content.level === 3,
-                                        'color-blue': record.content.level === 4,
-                                        'color-pink': record.content.level === 5,
-                                        'color-orange': record.content.level === 6,
-                                      })}>{record.content.to.name}</div>
+                                        'color-red': content.level === 2,
+                                        'color-green': content.level === 3,
+                                        'color-blue': content.level === 4,
+                                        'color-pink': content.level === 5,
+                                        'color-orange': content.level === 6,
+                                      })}>{to.name}</div>
                                     </>
                                   ) : null
                                 }

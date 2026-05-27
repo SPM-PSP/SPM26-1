@@ -3,10 +3,15 @@ module.exports = {
     {
       // api的接口全部转到6001的服务端去
       context: ['/api'],
-      target: 'http://192.168.22.60:6001',
+      target: 'http://10.135.50.32:6001',
       changeOrigin: true,
     },
   ],
+  websocket: {
+    // 默认跟随上面的 API proxy target；如果 websocket 和 API 不在同一台机器，再单独填 dev。
+    dev: '',
+    prd: '120.48.51.123',
+  },
   // antd 主题配置
   antdThemeConfig: {
     '@primary-color': '#4169E1', // 全局主色

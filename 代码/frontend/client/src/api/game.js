@@ -112,7 +112,10 @@ export default {
     return fetch({
       url: urlPrefix + 'game/result/auth',
       method: 'get',
-      params,
+      params: {
+        ...params,
+        id: params.id || params.gameId,
+      },
     })
   },
 
