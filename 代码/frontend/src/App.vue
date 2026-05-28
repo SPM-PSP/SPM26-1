@@ -1,84 +1,53 @@
 <script setup>
-import { computed } from "vue";
-import { reportData } from "./data/reportAdapter";
-
-const metricLabels = {
-  cognitiveConsistency: "Consistency",
-  stressResponse: "Pressure",
-  strategyPurity: "Strategy",
-  expressiveness: "Expression",
-  deceptionScore: "Deception",
-};
+import { computed, onMounted } from "vue";
+import { reportData, isLoading, loadError, loadReport } from "./data/reportAdapter";
 
 const sectionNav = [
   { id: "overview", label: "总览", icon: "dashboard" },
-  { id: "timeline", label: "时间线", icon: "timeline" },
-  { id: "evidence", label: "关键证据", icon: "history_edu" },
-  { id: "players", label: "玩家画像", icon: "groups" },
-  { id: "network", label: "关系网络", icon: "share" },
-  { id: "actions", label: "行动建议", icon: "task_alt" },
+  { id: "skills", label: "技能评估", icon: "auto_awesome" },
+  { id: "evidence", label: "票型与发言", icon: "history_edu" },
+  { id: "mistakes", label: "关键失误", icon: "warning" },
+  { id: "recommendations", label: "策略建议", icon: "school" },
 ];
 
-const highlightedPlayers = computed(() =>
-  reportData.players.map((player) => {
-    const riskLevel = Math.round(player.metrics.deceptionScore * 100);
-    return {
-      ...player,
-      riskLevel,
-      bars: Object.entries(player.metrics).map(([key, value]) => ({
-        key,
-        label: metricLabels[key] || key,
-        value,
-      })),
-    };
-  }),
-);
-
-function metricTone(key, value) {
-  if (key === "deceptionScore") {
-    return value > 0.7 ? "bg-claret" : "bg-[#d8b0b1]";
+function goBack() {
+  if (window.opener) {
+    window.close();
+  } else {
+    window.history.back();
   }
-  if (value > 0.75) return "bg-forest";
-  if (value > 0.55) return "bg-moss";
-  return "bg-[#b8a48a]";
 }
 
-function relationTone(type) {
-  if (type === "ally") return "bg-[#f0d9be] text-[#6d3900]";
-  if (type === "suspect") return "bg-[#f5d0cc] text-[#8a1b1e]";
-  return "bg-[#dfe8c7] text-[#40521f]";
-}
+onMounted(() => {
+  const params = new URLSearchParams(window.location.search);
+  const gameId = params.get("gameId");
+  if (gameId) {
+    loadReport(gameId);
+  }
+});
 
-function roleTone(roleKey) {
-  if (roleKey === "werewolf") return "bg-claret text-white";
-  if (roleKey === "seer") return "bg-[#efe1c7] text-[#6d3900]";
-  return "bg-[#dde5cc] text-[#3d4c1d]";
-}
-
-const fallbackHeroTags = [
-  "Issue: truth did not become trust",
-  "Risk: false consensus locked too fast",
-  "Focus: rebuild the vote path",
-];
-
-const fallbackJudgeNotes = [
-  {
-    label: "Key Finding",
-    text: "Wolves did not win through one explosive move. They won by defining what the table should keep doubting.",
-  },
-  {
-    label: "Village Error",
-    text: "Correct information never became public proof, and the village side failed to build a correction loop in round two.",
-  },
-  {
-    label: "Review Focus",
-    text: "The review is not only about who was right, but about who controlled topic framing and side selection.",
-  },
-];
+const summaryParagraphs = computed(() => reportData.value.summaryParagraphs || []);
+const heroTags = computed(() => reportData.value.heroTags || []);
+const overview = computed(() => reportData.value.overview || []);
+const voteRounds = computed(() => reportData.value.voteRounds || []);
+const speechIssues = computed(() => reportData.value.speechIssues || []);
+const skillEvaluations = computed(() => reportData.value.skillEvaluations || []);
+const mistakes = computed(() => reportData.value.mistakes || []);
+const strategyRecommendations = computed(() => reportData.value.strategyRecommendations || []);
 </script>
 
 <template>
   <div class="min-h-screen bg-parchment text-ink">
+    <div
+      v-if="isLoading"
+      class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-parchment/90 backdrop-blur-sm"
+    >
+      <p class="font-headline text-2xl font-bold italic text-forest mb-3">月夜审判</p>
+      <p class="text-sm text-[#7f765f]">正在生成复盘报告，请稍候...</p>
+    </div>
+    <div v-if="loadError" class="fixed top-20 left-1/2 -translate-x-1/2 z-[100] rounded-2xl bg-[#f5d0cc] px-6 py-3 text-[#8a1b1e] text-sm shadow">
+      {{ loadError }}
+    </div>
     <header
       class="fixed inset-x-0 top-0 z-50 border-b border-[#e8dfcf] bg-parchment/85 backdrop-blur-xl"
     >
@@ -90,13 +59,15 @@ const fallbackJudgeNotes = [
           </div>
         </div>
         <div class="flex items-center gap-3 text-sm text-[#746b57]">
-          <span class="rounded-full border border-[#d8cfbf] px-3 py-1">Game {{ reportData.meta.gameId }}</span>
-          <a
-            href="/"
+          <span v-if="isLoading" class="rounded-full border border-[#d8cfbf] px-3 py-1 animate-pulse">分析中...</span>
+          <span v-else class="rounded-full border border-[#d8cfbf] px-3 py-1">Game {{ reportData.meta.gameId }}</span>
+          <button
+            type="button"
             class="rounded-full bg-claret px-4 py-2 font-semibold text-white shadow-sm transition hover:bg-[#7a0b15]"
+            @click="goBack"
           >
-            返回大厅
-          </a>
+            返回结算
+          </button>
         </div>
       </div>
     </header>
@@ -138,11 +109,11 @@ const fallbackJudgeNotes = [
                 {{ reportData.meta.winningCamp }}
               </h1>
               <p class="mt-5 max-w-2xl text-lg leading-8 text-[#fff2e0]">
-                {{ reportData.meta.narrator }}
+                {{ summaryParagraphs[0] || reportData.meta.narrator }}
               </p>
               <div class="mt-8 flex flex-wrap gap-3">
                 <span
-                  v-for="tag in reportData.heroTags || fallbackHeroTags"
+                  v-for="tag in heroTags"
                   :key="tag"
                   class="rounded-full bg-white/14 px-4 py-2 text-sm"
                 >
@@ -155,7 +126,7 @@ const fallbackJudgeNotes = [
               <p class="text-sm uppercase tracking-[0.24em] text-[#ffe7d8]">案件摘要</p>
               <div class="mt-5 space-y-4">
                 <div
-                  v-for="item in reportData.overview"
+                  v-for="item in overview"
                   :key="item.label"
                   class="rounded-[22px] bg-[#fffaf2]/10 p-4"
                 >
@@ -170,54 +141,27 @@ const fallbackJudgeNotes = [
           </div>
         </section>
 
-        <section class="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-          <article
-            v-for="item in reportData.overview"
-            :key="item.label"
-            class="rounded-[26px] border border-[#eadfce] bg-wheat p-6 shadow-vellum"
-          >
-            <p class="text-sm text-[#7e735f]">{{ item.label }}</p>
-            <p class="mt-3 font-headline text-3xl font-bold italic text-claret">{{ item.value }}</p>
-            <p class="mt-3 text-sm leading-6 text-[#615844]">{{ item.note }}</p>
-          </article>
-        </section>
-
-        <section id="timeline" class="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
-          <article class="rounded-[28px] border border-[#eadfce] bg-wheat p-7 shadow-vellum md:p-9">
-            <div class="flex items-center gap-3">
-              <span class="material-symbols-outlined text-[28px] text-claret">timeline</span>
-              <h2 class="font-headline text-3xl font-bold italic text-claret">关键转折点</h2>
-            </div>
-            <div class="relative mt-10 space-y-9 border-l-2 border-[#d8cfbf] pl-7">
-              <div v-for="item in reportData.timeline" :key="item.title" class="relative">
-                <div
-                  class="absolute -left-[2.05rem] top-1 flex h-10 w-10 items-center justify-center rounded-full bg-paper text-claret shadow-sm"
-                >
-                  <span class="material-symbols-outlined text-[20px]">{{ item.icon }}</span>
-                </div>
-                <p class="text-xs uppercase tracking-[0.28em] text-[#8d7d67]">{{ item.stage }}</p>
-                <h3 class="mt-2 font-headline text-2xl font-bold text-ink">{{ item.title }}</h3>
-                <p class="mt-3 max-w-2xl text-[15px] leading-7 text-[#5f5643]">{{ item.detail }}</p>
-              </div>
-            </div>
-          </article>
-
+        <!-- 独立的 AI 总览模块已隐藏，摘要信息保留在页面顶部的胜负总览中。 -->
+        <section id="skills">
           <article class="rounded-[28px] border border-[#eadfce] bg-paper p-7 shadow-vellum md:p-9">
             <div class="flex items-center gap-3">
-              <span class="material-symbols-outlined text-[28px] text-[#6d3900]">visibility</span>
-              <h2 class="font-headline text-3xl font-bold italic text-[#6d3900]">Judge Notes</h2>
+              <span class="material-symbols-outlined text-[28px] text-[#6d3900]">auto_awesome</span>
+              <h2 class="font-headline text-3xl font-bold italic text-[#6d3900]">技能评估</h2>
             </div>
-            <div class="mt-8 space-y-4">
+            <div class="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <div
-                v-for="note in reportData.judgeNotes || fallbackJudgeNotes"
-                :key="note.label"
+                v-for="skill in skillEvaluations"
+                :key="`${skill.title}-${skill.detail}`"
                 class="rounded-[22px] bg-parchment p-5"
               >
-                <p class="text-xs uppercase tracking-[0.22em] text-[#8a7b67]">{{ note.label }}</p>
+                <p class="font-headline text-xl font-bold text-[#513318]">{{ skill.title }}</p>
                 <p class="mt-3 text-base leading-7 text-[#5c503d]">
-                  {{ note.text }}
+                  {{ skill.detail }}
                 </p>
               </div>
+              <p v-if="!skillEvaluations.length" class="rounded-[22px] bg-parchment p-5 text-sm text-[#8a7b67] md:col-span-2 xl:col-span-3">
+                本次报告未提供技能评估。
+              </p>
             </div>
           </article>
         </section>
@@ -230,7 +174,7 @@ const fallbackJudgeNotes = [
             </div>
             <div class="mt-8 space-y-4">
               <div
-                v-for="round in reportData.voteRounds"
+                v-for="round in voteRounds"
                 :key="round.round"
                 class="rounded-[22px] bg-paper p-5"
               >
@@ -239,7 +183,7 @@ const fallbackJudgeNotes = [
                     <p class="text-xs uppercase tracking-[0.24em] text-[#8a7b67]">{{ round.round }}</p>
                     <h3 class="mt-1 font-headline text-2xl font-bold text-ink">{{ round.headline }}</h3>
                   </div>
-                  <div class="flex flex-wrap gap-2">
+                  <div v-if="round.players.length" class="flex flex-wrap gap-2">
                     <span
                       v-for="player in round.players"
                       :key="player"
@@ -249,20 +193,28 @@ const fallbackJudgeNotes = [
                     </span>
                   </div>
                 </div>
-                <p class="mt-4 text-[15px] leading-7 text-[#5f5643]">{{ round.summary }}</p>
+                <p v-if="round.voteSummary !== round.headline" class="mt-4 text-[15px] leading-7 text-[#5f5643]">
+                  {{ round.voteSummary }}
+                </p>
+                <div v-if="round.anomaly" class="mt-4 rounded-[16px] bg-[#fbf2e5] px-4 py-3 text-[15px] leading-7 text-[#5f5643]">
+                  <span class="mr-2 font-semibold text-claret">观察</span>{{ round.anomaly }}
+                </div>
               </div>
+              <p v-if="!voteRounds.length" class="rounded-[22px] bg-paper p-5 text-sm text-[#8a7b67]">
+                本次报告未提供票型分析。
+              </p>
             </div>
           </article>
 
           <article class="rounded-[28px] border border-[#eadfce] bg-paper p-7 shadow-vellum md:p-9">
             <div class="flex items-center gap-3">
               <span class="material-symbols-outlined text-[28px] text-claret">record_voice_over</span>
-              <h2 class="font-headline text-3xl font-bold italic text-claret">Speech Clips</h2>
+              <h2 class="font-headline text-3xl font-bold italic text-claret">发言问题</h2>
             </div>
             <div class="mt-8 space-y-4">
               <div
-                v-for="issue in reportData.speechIssues"
-                :key="`${issue.player}-${issue.round}`"
+                v-for="issue in speechIssues"
+                :key="`${issue.player}-${issue.issue}`"
                 class="rounded-[22px] border border-[#e6dccc] bg-parchment p-5"
               >
                 <div class="flex flex-wrap items-center gap-3">
@@ -270,154 +222,64 @@ const fallbackJudgeNotes = [
                     {{ issue.player }}
                   </span>
                 </div>
-                <p class="mt-4 text-xs uppercase tracking-[0.2em] text-[#8a7b67]">策略分析</p>
-                <p class="mt-4 border-l-2 border-[#d6c5b7] pl-4 font-headline text-xl italic leading-8 text-[#513318]">
-                  "{{ issue.excerpt }}"
+                <p class="mt-4 text-xs uppercase tracking-[0.2em] text-[#8a7b67]">识别到的问题</p>
+                <p class="mt-3 border-l-2 border-[#d6c5b7] pl-4 text-[16px] leading-8 text-[#513318]">
+                  {{ issue.issue }}
                 </p>
-                <p class="mt-4 text-[15px] leading-7 text-[#5f5643]">{{ issue.reason }}</p>
-                <div v-if="issue.history && issue.history.length" class="mt-5 rounded-[18px] bg-white/60 p-4">
-                  <div class="flex items-center justify-between gap-3">
-                    <p class="text-xs uppercase tracking-[0.2em] text-[#8a7b67]">历史发言</p>
-                    <p class="text-xs text-[#8a7b67]">{{ issue.history.length }} line(s)</p>
-                  </div>
-                  <div class="mt-3 space-y-3">
-                    <div
-                      v-for="entry in issue.history"
-                      :key="`${issue.player}-${entry.label}-${entry.text}`"
-                      class="rounded-[16px] border border-[#eadfce] bg-paper px-4 py-3"
-                    >
-                      <p class="text-xs uppercase tracking-[0.16em] text-[#8a7b67]">{{ entry.label }}</p>
-                      <p class="mt-2 text-[15px] leading-7 text-[#5f5643]">{{ entry.text }}</p>
-                    </div>
-                  </div>
-                </div>
+                <p v-if="issue.reason" class="mt-4 text-[15px] leading-7 text-[#5f5643]">{{ issue.reason }}</p>
               </div>
+              <p v-if="!speechIssues.length" class="rounded-[22px] bg-parchment p-5 text-sm text-[#8a7b67]">
+                本次报告未标记发言问题。
+              </p>
             </div>
           </article>
         </section>
 
-        <section id="players" class="rounded-[28px] border border-[#eadfce] bg-wheat p-7 shadow-vellum md:p-9">
+        <section id="mistakes" class="rounded-[28px] border border-[#eadfce] bg-wheat p-7 shadow-vellum md:p-9">
           <div class="flex items-center gap-3">
-            <span class="material-symbols-outlined text-[28px] text-[#6d3900]">auto_stories</span>
-            <h2 class="font-headline text-3xl font-bold italic text-[#6d3900]">玩家画像</h2>
+            <span class="material-symbols-outlined text-[28px] text-claret">warning</span>
+            <h2 class="font-headline text-3xl font-bold italic text-claret">关键失误</h2>
           </div>
-          <div class="mt-8 grid gap-6 xl:grid-cols-2">
+          <div class="mt-8 grid gap-4 md:grid-cols-2">
             <article
-              v-for="player in highlightedPlayers"
-              :key="player.id"
-              class="rounded-[24px] bg-paper p-6"
+              v-for="(mistake, index) in mistakes"
+              :key="`${mistake.title}-${mistake.detail}`"
+              class="flex gap-4 rounded-[22px] bg-paper p-5"
             >
-              <div class="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div class="flex items-center gap-3">
-                    <h3 class="font-headline text-3xl font-bold italic text-ink">{{ player.id }}</h3>
-                    <span :class="['rounded-full px-3 py-1 text-xs font-semibold', roleTone(player.roleKey)]">
-                      {{ player.role }}
-                    </span>
-                  </div>
-                  <p class="mt-3 text-[15px] leading-7 text-[#5f5643]">{{ player.summary }}</p>
-                </div>
-                <div class="rounded-[18px] bg-parchment px-4 py-3 text-right">
-                  <p class="text-xs uppercase tracking-[0.22em] text-[#8a7b67]">Risk</p>
-                  <p class="font-headline text-3xl italic text-claret">{{ player.riskLevel }}%</p>
-                </div>
-              </div>
-
-              <div class="mt-6 space-y-4">
-                <div v-for="bar in player.bars" :key="bar.key">
-                  <div class="flex items-center justify-between text-sm text-[#594f3d]">
-                    <span>{{ bar.label }}</span>
-                    <span>{{ Math.round(bar.value * 100) }}%</span>
-                  </div>
-                  <div class="mt-2 h-2.5 rounded-full bg-[#e7dece]">
-                    <div
-                      :class="['h-2.5 rounded-full transition-all', metricTone(bar.key, bar.value)]"
-                      :style="{ width: `${Math.round(bar.value * 100)}%` }"
-                    ></div>
-                  </div>
-                </div>
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f5d0cc] text-sm font-semibold text-claret">
+                {{ index + 1 }}
+              </span>
+              <div>
+                <p class="text-xs uppercase tracking-[0.2em] text-[#8a7b67]">{{ mistake.title }}</p>
+                <p class="mt-2 text-[15px] leading-7 text-[#5f5643]">{{ mistake.detail }}</p>
               </div>
             </article>
+            <p v-if="!mistakes.length" class="rounded-[22px] bg-paper p-5 text-sm text-[#8a7b67]">
+              本次报告未标记关键失误。
+            </p>
           </div>
         </section>
 
-        <section id="network" class="grid gap-8 xl:grid-cols-[0.8fr_1.2fr]">
-          <article class="rounded-[28px] border border-[#eadfce] bg-paper p-7 shadow-vellum md:p-9">
-            <div class="flex items-center gap-3">
-              <span class="material-symbols-outlined text-[28px] text-forest">hub</span>
-              <h2 class="font-headline text-3xl font-bold italic text-forest">Relation Reading</h2>
-            </div>
-            <div class="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-1">
-              <div class="rounded-[22px] bg-parchment p-5">
-                <p class="text-xs uppercase tracking-[0.24em] text-[#8a7b67]">Average Trust</p>
-                <p class="mt-2 font-headline text-4xl italic text-forest">{{ reportData.network.avgTrust }}</p>
-              </div>
-              <div class="rounded-[22px] bg-parchment p-5">
-                <p class="text-xs uppercase tracking-[0.24em] text-[#8a7b67]">Echo Chambers</p>
-                <p class="mt-2 font-headline text-4xl italic text-claret">{{ reportData.network.echoChambers }}</p>
-              </div>
-            </div>
-            <p class="mt-6 text-[15px] leading-7 text-[#5f5643]">{{ reportData.network.interpretation }}</p>
-          </article>
-
-          <article class="rounded-[28px] border border-[#eadfce] bg-wheat p-7 shadow-vellum md:p-9">
-            <div class="flex items-center gap-3">
-              <span class="material-symbols-outlined text-[28px] text-claret">share</span>
-              <h2 class="font-headline text-3xl font-bold italic text-claret">Network Ledger</h2>
-            </div>
-            <div class="mt-8 space-y-4">
-              <div
-                v-for="link in reportData.network.links"
-                :key="`${link.source}-${link.target}-${link.type}`"
-                class="rounded-[22px] bg-paper p-5"
-              >
-                <div class="flex flex-wrap items-center gap-3">
-                  <span class="font-headline text-2xl italic text-ink">{{ link.source }}</span>
-                  <span class="text-[#807660]">-&gt;</span>
-                  <span class="font-headline text-2xl italic text-ink">{{ link.target }}</span>
-                  <span :class="['rounded-full px-3 py-1 text-xs font-semibold', relationTone(link.type)]">
-                    {{ link.type }}
-                  </span>
-                </div>
-                <p class="mt-4 text-[15px] leading-7 text-[#5f5643]">{{ link.note }}</p>
-              </div>
-            </div>
-          </article>
-        </section>
-
-        <section id="actions" class="grid gap-8 xl:grid-cols-[1fr_1fr]">
+        <section id="recommendations">
           <article class="rounded-[28px] border border-[#eadfce] bg-wheat p-7 shadow-vellum md:p-9">
             <div class="flex items-center gap-3">
               <span class="material-symbols-outlined text-[28px] text-[#6d3900]">school</span>
-              <h2 class="font-headline text-3xl font-bold italic text-[#6d3900]">Recommendations</h2>
+              <h2 class="font-headline text-3xl font-bold italic text-[#6d3900]">策略建议</h2>
             </div>
-            <div class="mt-8 space-y-4">
+            <div class="mt-8 grid gap-4 md:grid-cols-2">
               <div
-                v-for="item in reportData.strategyRecommendations"
+                v-for="item in strategyRecommendations"
                 :key="item"
                 class="rounded-[22px] bg-paper p-5"
               >
                 <p class="text-[15px] leading-7 text-[#5f5643]">{{ item }}</p>
               </div>
+              <p v-if="!strategyRecommendations.length" class="rounded-[22px] bg-paper p-5 text-sm text-[#8a7b67] md:col-span-2">
+                本次报告未提供策略建议。
+              </p>
             </div>
           </article>
-
-          <article class="rounded-[28px] border border-[#eadfce] bg-paper p-7 shadow-vellum md:p-9">
-            <div class="flex items-center gap-3">
-              <span class="material-symbols-outlined text-[28px] text-forest">task_alt</span>
-              <h2 class="font-headline text-3xl font-bold italic text-forest">Action Checklist</h2>
-            </div>
-            <div class="mt-8 space-y-4">
-              <label
-                v-for="item in reportData.actionItems"
-                :key="item"
-                class="flex gap-4 rounded-[22px] bg-parchment p-5"
-              >
-                <input type="checkbox" class="mt-1 h-5 w-5 rounded border-[#cbbda9] text-forest focus:ring-forest" />
-                <span class="text-[15px] leading-7 text-[#5f5643]">{{ item }}</span>
-              </label>
-            </div>
-          </article>
+          <!-- 行动项模块已按当前复盘页面展示需求隐藏。 -->
         </section>
       </div>
     </main>

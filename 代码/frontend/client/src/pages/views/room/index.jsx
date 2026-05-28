@@ -4,6 +4,7 @@ import Websocket from 'react-websocket';
 import {inject, observer} from "mobx-react";
 import {withRouter} from "react-router-dom";
 
+import appConfig from '@config'
 import apiGame from '@api/game'
 import apiRoom from '@api/room'
 import apiVoice from '@api/voice'
@@ -25,11 +26,6 @@ import {
   TeamOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import GameHeaderView from "@components/game/gameHeader";
-import GameFooterView from "@components/game/gameFooter";
-import GameReadyView from "@components/game/gameReady";
-import GameContentView from "@components/game/gameContent";
-import GameBtnView from "@components/game/gameButton";
 import RecordView from "@components/game/gameRecord";
 import IdentityReveal from "@components/game/identityReveal";
 
@@ -147,6 +143,9 @@ const Index = (props) => {
   const gameDetailRef = useRef({})
   const socketOnRef = useRef(socketOn)
   const mountedRef = useRef(true)
+  const roomRequestRef = useRef(0)
+  const gameRequestRef = useRef(0)
+  const roleRevealPendingRef = useRef(false)
 
   useEffect(() => {
     roomDetailRef.current = roomDetail
@@ -613,23 +612,46 @@ const Index = (props) => {
     })
   }
 
+  const commitRoomDetail = (detail) => {
+    roomDetailRef.current = detail
+    setRoomDetail(detail)
+  }
+
   const getRoomDetail = (isBegin) => {
+    if(isBegin){
+      roleRevealPendingRef.current = true
+    }
+    const requestId = roomRequestRef.current + 1
+    roomRequestRef.current = requestId
     apiRoom.getRoomInfo({id: roomId}).then(data=>{
-      if(!mountedRef.current){
+      if(!mountedRef.current || requestId !== roomRequestRef.current){
         return
       }
-      roomDetailRef.current = data
-      setRoomDetail(data)
       if(data.status === 0){
+        gameRequestRef.current += 1
+        commitRoomDetail(data)
+        gameDetailRef.current = {}
+        setGameDetail({})
         initSeat(data)
-      } else if (data.status === 1) {
-        initGame(data.gameId, data._id, isBegin)
+        return
       }
+      if(data.status === 1) {
+        if(roomDetailRef.current.status !== 1 && !gameDetailRef.current._id){
+          return initGame(data.gameId, data._id, isBegin).then(gameLoaded => {
+            if(gameLoaded && mountedRef.current && requestId === roomRequestRef.current){
+              commitRoomDetail(data)
+            }
+          })
+        }
+        commitRoomDetail(data)
+        return initGame(data.gameId, data._id, isBegin)
+      }
+      commitRoomDetail(data)
     }).catch(error=>{
       console.log('获取房间信息失败！',error)
       const errorText = String(error || '')
       const isTransientError = errorText.indexOf('timeout') > -1 || errorText.indexOf('Network Error') > -1
-      if(!mountedRef.current || isTransientError || roomDetailRef.current._id){
+      if(!mountedRef.current || requestId !== roomRequestRef.current || isTransientError || roomDetailRef.current._id){
         return
       }
       setErrorPage(true)
@@ -637,12 +659,20 @@ const Index = (props) => {
   }
 
   const initGame = (gameId, roomId, isBegin) => {
+    if(isBegin){
+      roleRevealPendingRef.current = true
+    }
+    const requestId = gameRequestRef.current + 1
+    gameRequestRef.current = requestId
     if(!gameId){
       console.log('initGame失败：gameId不存在')
       message.warn('游戏id不存在！')
-      return
+      return Promise.resolve(false)
     }
     return apiGame.getGameInfo({id: gameId, roomId: roomId}).then(data=>{
+      if(!mountedRef.current || requestId !== gameRequestRef.current){
+        return false
+      }
       const previousStage = gameDetailRef.current && gameDetailRef.current.stage
       if(previousStage !== undefined && Number(previousStage) !== Number(data.stage)){
         setTimerTime(null)
@@ -658,12 +688,18 @@ const Index = (props) => {
       syncDuskRecords(data)
       syncWolfAdvice(data)
       syncSettlementResult(data)
-      if(isBegin){
+      if(roleRevealPendingRef.current){
+        roleRevealPendingRef.current = false
         openRoleCard(data.roleInfo)
       }
+      return true
     }).catch(error=>{
+      if(!mountedRef.current || requestId !== gameRequestRef.current){
+        return false
+      }
       console.log('发生了错误！',error)
       message.error('获取游戏信息失败，请稍后重试')
+      return false
     })
   }
 
@@ -711,7 +747,7 @@ const Index = (props) => {
       rows.push({
         day: item.day !== undefined ? item.day : fallbackDay,
         stage: item.stage,
-        content: normalizeRecordContent(item.content),
+        content: normalizeRecordContent(item.content !== undefined ? item.content : (item.type !== undefined ? item : undefined)),
       })
     }
     if(Array.isArray(recordMap)){
@@ -784,7 +820,41 @@ const Index = (props) => {
       return
     }
     apiGame.gameRecord({roomId: detail.roomId, gameId: detail._id}).then(data=>{
-      setDuskRecordRows(flattenGameRecord(data))
+      if(data && data.parsedVotes !== undefined){
+        setDuskRecordRows((data.parsedVotes || []).map(item => ({
+          day: item.day,
+          stage: item.stage,
+          content: {
+            type: item.type,
+            action: item.action,
+            actionName: item.actionName,
+            to: item.target,
+            from: item.votersText ? {name: item.votersText} : null,
+            text: item.text,
+          },
+        })))
+        return
+      }
+      const enrichVoteRows = (rows) => rows.map(row => {
+        const c = row.content || {}
+        if(c.type !== 'vote' || c.to) return row
+        const text = String(c.text || '')
+        const voteMatch = text.match(/^(.+?)投票给了(\d+)号/)
+        if(voteMatch) {
+          const votersText = voteMatch[1]
+          const position = Number(voteMatch[2])
+          const count = votersText.split('、').filter(Boolean).length
+          return {...row, content: {...c, action: 'vote', to: {position, name: `${position}号（共${count}票）`}, from: {name: votersText}}}
+        }
+        const abstainMatch = text.match(/^(.+?)弃票/)
+        if(abstainMatch) {
+          const votersText = abstainMatch[1]
+          const count = votersText.split('、').filter(Boolean).length
+          return {...row, content: {...c, action: 'abstained', actionName: '弃票', to: {name: `弃票（共${count}票）`}, from: {name: votersText}}}
+        }
+        return row
+      })
+      setDuskRecordRows(enrichVoteRows(flattenGameRecord(data)))
     }).catch(()=>{
       setDuskRecordRows([])
     })
@@ -1144,10 +1214,6 @@ const Index = (props) => {
   const openRoleCard = (roleInfo) => {
     setRoleRevealData(roleInfo || currentRole)
     setRoleRevealVisible(true)
-  }
-
-  const clearGame = () => {
-    setGameDetail({})
   }
 
   const wsMessage = (msg) => {
@@ -1560,6 +1626,18 @@ const Index = (props) => {
         </section>
       </aside>
       {renderReadyModals()}
+    </div>
+  )
+
+  const renderSyncingRoom = () => (
+    <div className="room-sync-shell">
+      {renderRoomSocket()}
+      <div className="room-sync-brand">村落日志</div>
+      <section className="room-sync-card">
+        <span className="room-sync-spinner" />
+        <h2>正在同步村庄状态</h2>
+        <p>正在读取当前阶段，请稍候。</p>
+      </section>
     </div>
   )
 
@@ -2621,46 +2699,12 @@ const Index = (props) => {
   }
 
   const loadReplayReport = () => {
-    if(replayLoading || !gameDetail._id){
-      return
-    }
+    if(!gameDetail._id){ return }
     if(Number(gameDetail.status) !== 2){
       message.info("本局由房主结束，暂无胜负复盘报告")
       return
     }
-    setReplayLoading(true)
-    apiGame.gameReplay({gameId: gameDetail._id}).then(data => {
-      const result = (data && data.result) || data || {}
-      const gameRecordDetail = result.gameRecord || result.game_record || {}
-      const analysisFiles = result.analysisFiles || result.analysis_files || {}
-      const reportText = result.analysisText || result.analysis || result.report || ""
-      const filePath = analysisFiles.text || analysisFiles.path || result.textPath || result.path
-      setReplayReport({
-        gameRecord: gameRecordDetail,
-        analysisFiles,
-        text: typeof reportText === "string" ? reportText : JSON.stringify(reportText, null, 2),
-        raw: result,
-      })
-      setReplayModal(true)
-      message.success((data && data.message) || "复盘分析完成")
-      if(!filePath){
-        return null
-      }
-      const encodedPath = encodeURIComponent(filePath)
-      return fetch(`/api/game/replay/file?file=${encodedPath}&path=${encodedPath}`)
-        .then(response => response.text())
-        .then(text => {
-          setReplayReport(prev => ({
-            ...prev,
-            text,
-          }))
-        })
-        .catch(() => null)
-    }).catch(error => {
-      message.error("复盘分析请求失败：" + (error.message || error))
-    }).finally(() => {
-      setReplayLoading(false)
-    })
+    window.open(`${appConfig.replayUrl}/?gameId=${gameDetail._id}`, '_blank')
   }
 
   const gameAgainFromSettlement = () => {
@@ -2675,8 +2719,6 @@ const Index = (props) => {
           setSettlementResult(null)
           setReplayReport(null)
           setReplayModal(false)
-          setGameDetail({})
-          gameDetailRef.current = {}
           getRoomDetail()
         })
       },
@@ -2802,8 +2844,8 @@ const Index = (props) => {
           <section className="dusk-action-bar settlement-actions">
             <div className="dusk-action-left">
               <button type="button" onClick={() => refreshCurrentGame()}><ReloadOutlined />刷新结算</button>
-              <button type="button" className="active" disabled={replayLoading || isAborted} onClick={loadReplayReport}>
-                <BookOutlined />{isAborted ? "暂无复盘" : (replayLoading ? "分析中..." : "复盘")}
+              <button type="button" className="active" disabled={isAborted} onClick={loadReplayReport}>
+                <BookOutlined />{isAborted ? "暂无复盘" : "复盘"}
               </button>
             </div>
             {isOwner ? (
@@ -2841,49 +2883,17 @@ const Index = (props) => {
     )
   }
 
+  if(roomDetail.status === undefined || (roomDetail.status === 1 && gameDetail.status === undefined)){
+    return renderSyncingRoom()
+  }
+
   if(roomDetail.status === 0){
     return renderReadyRoom()
   }
 
   return (
     <div className="room-container">
-      {isSettlementStage ? renderSettlementRoom() : isNightStage ? renderNightRoom() : isDuskStage ? renderDuskRoom() : isDayStage ? renderDayRoom() : (
-        <div className="room-wrap FBV">
-
-          {/*websocket*/}
-          {renderRoomSocket()}
-
-          {/*header*/}
-          <GameHeaderView roomDetail={roomDetail} gameDetail={gameDetail} />
-
-          {/*游戏准备*/}
-          { roomDetail.status === 0 ? <GameReadyView seat={seatInfo} roomDetail={roomDetail} getRoomDetail={getRoomDetail} /> : null }
-
-          {/*游戏进行*/}
-          { roomDetail.status === 1 ? (
-            <GameContentView
-              gameDetail={gameDetail}
-              currentRole={currentRole}
-              skillInfo={skillInfo}
-              openRoleCard={openRoleCard}
-              timerTime={timerTime}
-              actionInfo={actionInfo}
-              playerInfo={playerInfo}
-              useSkill={useSkill}
-              voiceRecording={voiceRecording}
-              voiceSubmitting={voiceSubmitting}
-              onVoiceStart={startVoiceRecord}
-              onVoiceStop={stopVoiceRecord}
-            />
-          ) : null }
-
-          {/*footer*/}
-          <GameFooterView quitRoom={quitRoom} />
-
-          {/*悬浮游戏按钮*/}
-          <GameBtnView roomDetail={roomDetail} gameDetail={gameDetail} lookRecord={lookRecord} getRoomDetail={getRoomDetail} clearGame={clearGame} />
-        </div>
-      )}
+      {isSettlementStage ? renderSettlementRoom() : isNightStage ? renderNightRoom() : isDuskStage ? renderDuskRoom() : isDayStage ? renderDayRoom() : renderSyncingRoom()}
 
       {renderMockSettlementTools()}
 

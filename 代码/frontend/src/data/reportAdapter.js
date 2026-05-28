@@ -1,70 +1,74 @@
+import { ref } from "vue";
 import { reportData as mockReportData } from "./mockReport";
 import aiReplaySampleText from "./aiReplaySample.txt?raw";
 
-const defaultHeroTags = [
-  "Issue: truth did not become trust",
-  "Risk: false consensus locked too fast",
-  "Focus: rebuild the vote path",
-];
-
-const defaultJudgeNotes = [
-  {
-    label: "Key Finding",
-    text: "Wolves did not win through one explosive move. They won by defining what the table should keep doubting.",
-  },
-  {
-    label: "Village Error",
-    text: "Correct information never became public proof, and the village side failed to build a correction loop in round two.",
-  },
-  {
-    label: "Review Focus",
-    text: "The review is not only about who was right, but about who controlled topic framing and side selection.",
-  },
-];
-
-const sampleSpeechHistory = {
-  Player1: [
-    {
-      label: "Day 1 · Speech",
-      text: "I checked Player2 last night. Player2 should be good.",
-    },
-  ],
-  Player2: [
-    {
-      label: "Day 1 · Speech",
-      text: "Player1 spoke early and gave a clear result, I lean good on Player1.",
-    },
-  ],
-  Player3: [
-    {
-      label: "Day 1 · Speech",
-      text: "Player1's result is too smooth. I want to hear more before trusting it.",
-    },
-  ],
-  Player4: [
-    {
-      label: "Day 1 · Speech",
-      text: "Player3 is pushing too hard against the only check we have.",
-    },
-  ],
-  Player6: [
-    {
-      label: "Day 1 · Speech",
-      text: "If Player1 is true, the wolf may be hiding among quiet players.",
-    },
-  ],
+const sectionAliases = {
+  "总览": "summary",
+  "票型分析": "votes",
+  "发言问题": "speech",
+  "技能评估": "skills",
+  "关键失误": "mistakes",
+  "策略建议": "recommendations",
+  "行动项": "actions",
 };
 
-function parseReplayText(rawText) {
-  const jsonMatch = rawText.match(/```json\s*([\s\S]*?)\s*```/);
-  const jsonData = jsonMatch ? JSON.parse(jsonMatch[1]) : null;
-  const prose = rawText.replace(/```json[\s\S]*?```/, "").trim();
-  const paragraphs = prose
-    .split(/\r?\n\r?\n/)
-    .map((item) => item.trim())
-    .filter((item) => item && !item.startsWith("###"));
+function parseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return null;
+  }
+}
 
-  return { jsonData, paragraphs };
+function extractFencedJson(rawText) {
+  const match = rawText.match(/```json\s*([\s\S]*?)\s*```/i);
+  return match ? parseJson(match[1]) : null;
+}
+
+function extractSections(rawText) {
+  const withoutJson = rawText.replace(/```json[\s\S]*?```/gi, "");
+  const lines = withoutJson.split(/\r?\n/);
+  const sections = {};
+  let activeKey = null;
+
+  lines.forEach((line) => {
+    const title = line.trim().replace(/^#{1,6}\s*/, "").trim();
+    if (sectionAliases[title]) {
+      activeKey = sectionAliases[title];
+      sections[activeKey] = [];
+      return;
+    }
+    if (activeKey && !/^\s*[-=]{2,}\s*$/.test(line)) {
+      sections[activeKey].push(line);
+    }
+  });
+
+  return Object.fromEntries(
+    Object.entries(sections).map(([key, linesInSection]) => [key, linesInSection.join("\n").trim()]),
+  );
+}
+
+function nonEmptyLines(value) {
+  return String(value || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function listLines(value) {
+  return nonEmptyLines(value).map((line) => line.replace(/^[-*]\s*/, "").trim());
+}
+
+function splitParagraphs(value) {
+  return String(value || "")
+    .split(/\r?\n\s*\r?\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+}
+
+function findNarrative(rawText) {
+  const prose = rawText.replace(/```json[\s\S]*?```/gi, "").trim();
+  return prose.replace(/^#{1,6}\s+.*(?:\r?\n)+/, "").trim();
 }
 
 function normalizePlayerId(value) {
@@ -74,186 +78,259 @@ function normalizePlayerId(value) {
   return match ? `Player${match[1]}` : String(value);
 }
 
-function buildVoteRounds(voteAnalysis) {
+function parseVoteChips(summary) {
+  if (!summary || summary.includes("弃票") || summary.includes("无人")) return [];
+  return summary
+    .split(/[，,、]/)
+    .map((item) => item.trim())
+    .filter((item) => /\d+\s*(?:获|获得)?\s*\d+\s*票/.test(item));
+}
+
+function buildMarkdownVoteRounds(section) {
+  return listLines(section)
+    .map((line, index) => {
+      const jsonStart = line.indexOf("{");
+      const item = parseJson(jsonStart >= 0 ? line.slice(jsonStart) : line);
+      const roundMatch = line.slice(0, jsonStart >= 0 ? jsonStart : line.length).match(/round[_\s-]*(\d+)/i);
+      return item
+        ? {
+            round: `第 ${item.round || roundMatch?.[1] || index + 1} 轮投票`,
+            headline: item.vote_summary || "本轮票型待分析",
+            voteSummary: item.vote_summary || "",
+            anomaly: item.anomalies || item.anomaly || "",
+            players: parseVoteChips(item.vote_summary),
+          }
+        : null;
+    })
+    .filter(Boolean);
+}
+
+function buildStructuredVoteRounds(voteAnalysis) {
   if (!voteAnalysis) return [];
 
   return Object.entries(voteAnalysis).map(([roundKey, roundValue], index) => {
-    const voteChips = Object.entries(roundValue.vote_counts || {}).map(([playerId, count]) => {
+    const players = Object.entries(roundValue.vote_counts || {}).map(([playerId, count]) => {
       return `${normalizePlayerId(playerId)} ${count}票`;
     });
+    const voteSummary = roundValue.vote_summary || (players.length ? players.join("，") : "本轮无有效投票");
+    const roundMatch = roundKey.match(/(\d+)/);
 
     return {
-      round: `第 ${index + 1} 轮投票`,
-      headline: roundValue.voted_out ? `${roundValue.voted_out} 被投出局` : "本轮未产生白天出局",
-      summary:
-        roundValue.anomaly && roundValue.anomaly !== "无异常票型"
-          ? `${roundValue.analysis} 异常点：${roundValue.anomaly}`
-          : roundValue.analysis,
-      players: voteChips.length ? voteChips : ["无投票记录"],
-      key: roundKey,
+      round: `第 ${roundMatch?.[1] || index + 1} 轮投票`,
+      headline: roundValue.voted_out ? `${roundValue.voted_out} 被投出局` : voteSummary,
+      voteSummary,
+      anomaly: roundValue.anomaly || roundValue.anomalies || roundValue.analysis || "",
+      players: players.length ? players : parseVoteChips(voteSummary),
     };
   });
 }
 
-function buildSpeechIssues(issues) {
-  if (!Array.isArray(issues) || !issues.length) return [];
-
-  return issues.map((item, index) => ({
-    player: item.player || `Player${index + 1}`,
-    round: "待补充轮次",
-    excerpt: item.issue || "待补充发言摘录",
-    reason: item.reason || "待补充原因分析",
-    history: sampleSpeechHistory[item.player] || [],
-  }));
+function issuePlayerLabel(issue, index) {
+  const match = String(issue).match(/^(多名玩家|全员|狼人阵营|好人阵营|预言家|女巫|\d+号玩家?)/);
+  return match?.[1] || `问题 ${index + 1}`;
 }
 
-function buildOverview(parsed) {
-  if (!parsed) return [];
-
-  const primaryMistake = parsed.mistakes?.[1];
-  const firstVote = parsed.vote_analysis?.round_1;
-  const witchPlay = parsed.skill_evaluation?.find((item) => item.role === "女巫");
-
-  return [
-    {
-      label: "胜利阵营",
-      value: "好人获胜",
-      note: "6人局样例中，好人通过投票与女巫毒药完成收尾",
-      tone: "claret",
-    },
-    {
-      label: "首轮出局",
-      value: firstVote?.voted_out || "待补充",
-      note: firstVote?.analysis || "待补充票型分析",
-      tone: "forest",
-    },
-    {
-      label: "关键技能",
-      value: witchPlay ? witchPlay.actions.join(" / ") : "待补充",
-      note: witchPlay?.evaluation || "待补充技能评估",
-      tone: "moss",
-    },
-    {
-      label: "核心失误",
-      value: primaryMistake?.player || "待补充",
-      note: primaryMistake?.mistake || "待补充失误总结",
-      tone: "ember",
-    },
-  ];
-}
-
-function buildTimeline(paragraphs) {
-  if (!paragraphs.length) return [];
-
-  const stageLabels = ["开局", "中盘", "对抗", "终局"];
-  const titles = [
-    "预言家率先给出明确信息",
-    "狼人通过质疑打乱信任链",
-    "关键技能改变对局走向",
-    "胜负在策略失误中收束",
-  ];
-  const icons = ["wb_twilight", "campaign", "local_fire_department", "nights_stay"];
-
-  return paragraphs.slice(0, 4).map((detail, index) => ({
-    stage: stageLabels[index] || `阶段 ${index + 1}`,
-    title: titles[index] || `关键节点 ${index + 1}`,
-    detail,
-    icon: icons[index] || "timeline",
-  }));
-}
-
-function buildHeroTags(parsed) {
-  if (!parsed) return defaultHeroTags;
-
-  const tags = [];
-  const wolfMistake = parsed.mistakes?.find((item) => String(item.player).includes("狼人"));
-  const witchPlay = parsed.skill_evaluation?.find((item) => item.role === "女巫");
-  const actionFocus = parsed.action_items?.[1];
-
-  if (witchPlay) {
-    tags.push(`Key play: ${witchPlay.actions.join(" / ")}`);
-  }
-  if (wolfMistake) {
-    tags.push(`Risk: ${wolfMistake.mistake}`);
-  }
-  if (actionFocus) {
-    tags.push(`Focus: ${actionFocus}`);
+function buildSpeechIssues(markdownSection, structuredIssues) {
+  if (Array.isArray(structuredIssues) && structuredIssues.length) {
+    return structuredIssues.map((item, index) => ({
+      player: typeof item === "string" ? issuePlayerLabel(item, index) : item.player || `问题 ${index + 1}`,
+      issue: typeof item === "string" ? item : item.issue || "未提供问题描述",
+      reason: typeof item === "string" ? "" : item.reason || "",
+    }));
   }
 
-  return tags.length ? tags : defaultHeroTags;
+  return listLines(markdownSection)
+    .map((line, index) => {
+      const item = parseJson(line);
+      return item
+        ? {
+            player: item.player || `问题 ${index + 1}`,
+            issue: item.issue || "未提供问题描述",
+            reason: item.reason || "",
+          }
+        : {
+            player: issuePlayerLabel(line, index),
+            issue: line,
+            reason: "",
+          };
+    });
 }
 
-function buildJudgeNotes(parsed, paragraphs) {
-  if (!parsed) return defaultJudgeNotes;
-
-  return [
-    {
-      label: "Key Finding",
-      text: paragraphs[0] || "待补充总结",
-    },
-    {
-      label: "Major Mistake",
-      text: parsed.mistakes?.[0]
-        ? `${parsed.mistakes[0].player}：${parsed.mistakes[0].mistake}`
-        : defaultJudgeNotes[1].text,
-    },
-    {
-      label: "Review Focus",
-      text: parsed.action_items?.[0] || defaultJudgeNotes[2].text,
-    },
-  ];
+function parseLabeledItems(section) {
+  return listLines(section).map((line) => {
+    const match = line.match(/^([^:：]+)[:：]\s*(.+)$/);
+    return match ? { title: match[1].trim(), detail: match[2].trim() } : { title: "", detail: line };
+  });
 }
 
-function buildMeta(baseMeta, paragraphs) {
-  const intro = paragraphs[0] || "";
-  const closing = paragraphs[paragraphs.length - 1] || baseMeta.narrator;
-  const modeMatch = intro.match(/(\d+)人/);
-  const winningCamp = intro.includes("好人阵营最终获胜")
-    ? "好人阵营获胜"
-    : intro.includes("狼人阵营最终获胜")
-      ? "狼人阵营获胜"
-      : baseMeta.winningCamp;
+function buildSkills(markdownSection, structuredSkills) {
+  if (Array.isArray(structuredSkills) && structuredSkills.length) {
+    return structuredSkills.map((item) => {
+      if (typeof item === "string") {
+        const roleMatch = item.match(/^(预言家|女巫|狼人)/);
+        return { title: roleMatch?.[1] || "技能表现", detail: item };
+      }
+      return {
+        title: item.player ? `${item.role}（${item.player}）` : item.role,
+        detail: `${(item.actions || []).join("；")}。${item.evaluation || ""}`.replace(/^。|。$/g, ""),
+      };
+    });
+  }
+  return parseLabeledItems(markdownSection).map((item) => {
+    if (item.title) return item;
+    const roleMatch = item.detail.match(/^(预言家|女巫|狼人)/);
+    return { title: roleMatch?.[1] || "技能表现", detail: item.detail };
+  });
+}
 
+function buildMistakes(markdownSection, structuredMistakes) {
+  if (Array.isArray(structuredMistakes) && structuredMistakes.length) {
+    return structuredMistakes.map((item) =>
+      typeof item === "string"
+        ? { title: "风险点", detail: item }
+        : {
+            title: item.player || "关键失误",
+            detail: item.impact ? `${item.mistake}。影响：${item.impact}` : item.mistake,
+          },
+    );
+  }
+  return listLines(markdownSection).map((detail) => ({ title: "风险点", detail }));
+}
+
+function getWinningCamp(summary, baseMeta) {
+  const match = summary.match(/(好人|狼人)阵营(?:最终)?获胜/);
+  return match ? `${match[1]}阵营获胜` : baseMeta.winningCamp;
+}
+
+function buildMeta(baseMeta, summary, gameId) {
+  const modeMatch = summary.match(/(\d+)人/);
   return {
     ...baseMeta,
-    gameId: "20260511_214012",
+    gameId: gameId || baseMeta.gameId || "——",
     mode: modeMatch ? `${modeMatch[1]} 人局` : baseMeta.mode,
-    winningCamp,
-    narrator: closing,
+    winningCamp: getWinningCamp(summary, baseMeta),
+    narrator: summary || baseMeta.narrator,
   };
 }
 
-function buildReportData(baseReport, replayText) {
-  try {
-    const { jsonData, paragraphs } = parseReplayText(replayText);
-
-    return {
-      ...baseReport,
-      meta: buildMeta(baseReport.meta, paragraphs),
-      overview: buildOverview(jsonData).length ? buildOverview(jsonData) : baseReport.overview,
-      timeline: buildTimeline(paragraphs).length ? buildTimeline(paragraphs) : baseReport.timeline,
-      voteRounds: buildVoteRounds(jsonData?.vote_analysis).length
-        ? buildVoteRounds(jsonData.vote_analysis)
-        : baseReport.voteRounds,
-      speechIssues: buildSpeechIssues(jsonData?.speech_issues).length
-        ? buildSpeechIssues(jsonData.speech_issues)
-        : baseReport.speechIssues,
-      strategyRecommendations:
-        jsonData?.strategy_recommendations?.length
-          ? jsonData.strategy_recommendations
-          : baseReport.strategyRecommendations,
-      actionItems: jsonData?.action_items?.length ? jsonData.action_items : baseReport.actionItems,
-      heroTags: buildHeroTags(jsonData),
-      judgeNotes: buildJudgeNotes(jsonData, paragraphs),
-    };
-  } catch (error) {
-    console.error("Failed to parse AI replay sample, fallback to mock report.", error);
-    return {
-      ...baseReport,
-      heroTags: defaultHeroTags,
-      judgeNotes: defaultJudgeNotes,
-    };
-  }
+function buildOverview(meta, voteRounds, speechIssues, skills, mistakes) {
+  const featuredSkill = skills.find((item) => item.title.includes("女巫")) || skills[0];
+  return [
+    {
+      label: "胜利阵营",
+      value: meta.winningCamp,
+      note: "由 AI 复盘报告提取的对局结论",
+    },
+    {
+      label: "票型分析",
+      value: `${voteRounds.length} 轮`,
+      note: voteRounds.length ? "投票结果与异常观察已整理" : "报告未提供票型记录",
+    },
+    {
+      label: "发言问题",
+      value: `${speechIssues.length} 项`,
+      note: speechIssues.length ? "需要重点回看的发言风险" : "报告未标记明显问题",
+    },
+    {
+      label: "关键技能",
+      value: featuredSkill ? featuredSkill.title : "待分析",
+      note: featuredSkill ? featuredSkill.detail : `${mistakes.length} 项关键失误待复核`,
+    },
+  ];
 }
 
-export const reportData = buildReportData(mockReportData, aiReplaySampleText);
+function buildReportData(baseReport, replayText, gameId, structuredReport = null) {
+  const sections = extractSections(replayText);
+  const structured = structuredReport || extractFencedJson(replayText);
+  const summaryText = structured?.summary_report || sections.summary || findNarrative(replayText) || baseReport.meta.narrator;
+  const summaryParagraphs = splitParagraphs(summaryText);
+  const markdownVoteRounds = buildMarkdownVoteRounds(sections.votes);
+  const voteRounds = structured?.vote_analysis
+    ? buildStructuredVoteRounds(structured.vote_analysis)
+    : markdownVoteRounds;
+  const speechIssues = buildSpeechIssues(sections.speech, structured?.speech_issues);
+  const skillEvaluations = buildSkills(sections.skills, structured?.skill_evaluation);
+  const mistakes = buildMistakes(sections.mistakes, structured?.mistakes);
+  const strategyRecommendations = structured?.strategy_recommendations?.length
+    ? structured.strategy_recommendations
+    : listLines(sections.recommendations);
+  const actionItems = structured?.action_items?.length
+    ? structured.action_items
+    : listLines(sections.actions);
+  const meta = buildMeta(baseReport.meta, summaryText, gameId);
+
+  return {
+    meta,
+    summaryParagraphs,
+    overview: buildOverview(meta, voteRounds, speechIssues, skillEvaluations, mistakes),
+    voteRounds,
+    speechIssues,
+    skillEvaluations,
+    mistakes,
+    strategyRecommendations,
+    actionItems,
+    heroTags: [
+      `${voteRounds.length} 轮票型分析`,
+      `${speechIssues.length} 项发言问题`,
+      `${mistakes.length} 项关键失误`,
+    ],
+  };
+}
+
+export const reportData = ref(buildReportData(mockReportData, aiReplaySampleText));
+export const isLoading = ref(false);
+export const loadError = ref(null);
+
+function getCookie(name) {
+  const match = document.cookie.split(";").find((cookie) => cookie.trim().startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.trim().slice(name.length + 1)) : "";
+}
+
+function resolveFilePath(data, format) {
+  const files = data.analysisFiles || {};
+  const filePath = format === "json"
+    ? files.json || files.jsonPath || files.json_path
+    : files.text || files.txt || files.path || files.report;
+  return typeof filePath === "string" ? filePath : null;
+}
+
+async function fetchReplayFile(filePath) {
+  if (!filePath) return "";
+  const response = await fetch(`/api/game/replay/file?file=${encodeURIComponent(filePath)}`);
+  return response.text();
+}
+
+export async function loadReport(gameId) {
+  isLoading.value = true;
+  loadError.value = null;
+  try {
+    const token = getCookie("accessToken");
+    const res = await fetch("/api/game/replay/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", authorization: token },
+      body: JSON.stringify({ gameId }),
+    });
+    const json = await res.json();
+    if (!json.success) {
+      loadError.value = json.errorMessage || "复盘分析失败";
+      return;
+    }
+    const data = json.data || {};
+    const textPath = resolveFilePath(data, "text");
+    const jsonPath = resolveFilePath(data, "json");
+    if (!textPath && !jsonPath) {
+      loadError.value = "未找到复盘文件";
+      return;
+    }
+    const [text, jsonText] = await Promise.all([
+      fetchReplayFile(textPath),
+      fetchReplayFile(jsonPath),
+    ]);
+    const structuredReport = parseJson(jsonText);
+    reportData.value = buildReportData(mockReportData, text, gameId, structuredReport);
+  } catch (err) {
+    loadError.value = err.message || "加载失败";
+  } finally {
+    isLoading.value = false;
+  }
+}
