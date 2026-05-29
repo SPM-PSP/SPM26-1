@@ -81,6 +81,18 @@ module.exports = app => ({
       waitPlayer = []
     }
 
+    let obList = roomInstance.ob
+    if(typeof obList === 'string'){
+      try {
+        obList = JSON.parse(obList)
+      } catch(e) {
+        obList = []
+      }
+    }
+    if(!Array.isArray(obList)){
+      obList = []
+    }
+
     // 判断当前用户是否已经入座
     let isSeat = await $service.roomService.findInSeatPlayer(id, username)
     if(!isOb && !isSeat.result){
@@ -107,6 +119,18 @@ module.exports = app => ({
       }
     }
 
+    let obPlayerArray = []
+    for(let i = 0; i < obList.length; i++){
+      let item = obList[i]
+      let player = await $service.baseService.queryOne(user, {username: item})
+      if(player){
+        obPlayerArray.push({
+          username: player.username,
+          name: player.name
+        })
+      }
+    }
+
     let r = await $service.roomService.getRoomSeatPlayer(id)
     if(!r.result){
       ctx.body = $helper.Result.fail(r.errorCode, r.errorMessage)
@@ -123,6 +147,8 @@ module.exports = app => ({
     let model = {
       waitPlayer: waitPlayerArray,
       wait: roomInstance.wait,
+      obCount: obPlayerArray.length,
+      obPlayer: obPlayerArray,
       _id: roomInstance._id,
       name: roomInstance.name,
       owner: roomInstance.owner,

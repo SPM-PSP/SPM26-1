@@ -432,6 +432,19 @@
           total: speechTurnResult.data.order.length,
           order: speechTurnResult.data.order
         }
+        if(
+          speechTurnResult.data.currentSpeaker &&
+          $service.aiService.isAiId(speechTurnResult.data.currentSpeaker.username)
+        ){
+          setImmediate(async () => {
+            try {
+              const latestGame = await $service.baseService.queryById(game, gameInstance._id)
+              await $service.aiService.runAiForStage(latestGame)
+            } catch (e) {
+              app.$log4.errorLogger.error('[gameController] trigger ai speech failed: ' + e.toString())
+            }
+          })
+        }
       }
     }
 
@@ -636,8 +649,78 @@
     }
 
     let recordList = await $service.baseService.query(record, query, {} , {sort: {_id: -1}})
-    recordList = recordList || []
+    recordList = (recordList || []).map(item => {
+      if(item && typeof item.get === 'function'){
+        return item.get({ plain: true })
+      }
+      if(item && typeof item.toJSON === 'function'){
+        return item.toJSON()
+      }
+      return item
+    })
     let tagMap = {}
+    const iconvLite = require('iconv-lite')
+    const mojibakeReplacements = [
+      ['鎶曠エ', '投票'],
+      ['寮冪エ', '弃票'],
+      ['缁欎簡', '给了'],
+      ['鍙风帺瀹讹紙', '号玩家（'],
+      ['讹紙', '（'],
+      ['锛屼', '，'],
+      ['锛岀', '，'],
+      ['锛屾', '，'],
+      ['锛?', '，'],
+      ['鐙间汉', '狼人'],
+      ['绌哄垁', '空刀'],
+      ['绌洪獙', '空验'],
+      ['绌鸿繃', '空过'],
+      ['鑽凡鐢ㄥ畬', '药已用完'],
+      ['姣掕嵂', '毒药'],
+      ['澶╀寒浜嗭紒', '天亮了！'],
+      ['鏄ㄥぉ鏅氫笂鏄钩瀹夊!', '昨天晚上是平安夜！'],
+      ['鏀鹃€愬嚭灞€', '放逐出局'],
+      ['鎵€鏈変汉寮冪エ锛屾病鏈夌帺瀹跺嚭灞€', '所有人弃票，没有玩家出局'],
+      ['骞崇エ', '平票'],
+      ['鍔犺禌pk', '加赛pk'],
+      ['杩涘叆', '进入'],
+      ['杩涜pk', '进行pk'],
+      ['姝ｅ悜', '正向'],
+      ['閫嗗悜', '逆向'],
+      ['鍑哄眬', '出局'],
+      ['姝讳骸', '死亡'],
+      ['琚嚮', '袭击']
+    ]
+    const mojibakePattern = /[杩涘叆鎶曠寮冩姝ｅ悜閫嗗悜鍙风帺瀹讹紙锛绁姣掕嵂鐙绌澶鏄鏀骞鍔琚]/
+    const fixMojibake = (value) => {
+      if(typeof value !== 'string'){
+        return value
+      }
+      let replaced = value
+      mojibakeReplacements.forEach(([from, to]) => {
+        replaced = replaced.split(from).join(to)
+      })
+      if(replaced !== value){
+        return replaced
+      }
+      if(!mojibakePattern.test(value)){
+        return value
+      }
+      const fixed = iconvLite.encode(value, 'gbk').toString('utf8')
+      return fixed && !fixed.includes('�') ? fixed : value
+    }
+    const normalizeRecordText = (value) => {
+      if(Array.isArray(value)){
+        return value.map(normalizeRecordText)
+      }
+      if(value && typeof value === 'object'){
+        const next = {}
+        Object.keys(value).forEach(key => {
+          next[key] = normalizeRecordText(value[key])
+        })
+        return next
+      }
+      return fixMojibake(value)
+    }
 
     // 游戏中只给部分信息，不影响游戏继续下去，隐藏掉关键的视野和角色信息
     // 游戏结束，给出完整游戏流程信息（属于复盘）
@@ -654,21 +737,37 @@
         }
       }
 
-      if(record.content.type === 'action'){
+      record = normalizeRecordText(record)
+      const content = record && record.content && typeof record.content === 'object' ? record.content : null
+      if(!content || !content.type){
+        return record
+      }
+
+      if(content.type === 'action'){
+        const from = content.from || {}
+        const to = content.to || {}
         return Object.assign({},record,{
           content: {
-            type: record.content.type,
-            text: record.content.text,
-            level: record.content.level,
-            action: record.content.action,
-            actionName: record.content.actionName,
+            type: content.type,
+            text: content.text,
+            level: content.level,
+            action: content.action,
+            actionName: content.actionName,
             from: {
-              username: record.content.from.username,
-              name: record.content.from.name,
-              position: record.content.from.position,
-              status: record.content.from.status,
-              role: condition(record.content.from, record.content.action) ? null : record.content.from.role,
-              camp: condition(record.content.from, record.content.action) ? null : record.content.from.camp
+              username: from.username,
+              name: from.name,
+              position: from.position,
+              status: from.status,
+              role: condition(from, content.action) ? null : from.role,
+              camp: condition(from, content.action) ? null : from.camp
+            },
+            to: {
+              username: to.username,
+              name: to.name,
+              position: to.position,
+              status: to.status,
+              role: condition(to, content.action) ? null : to.role,
+              camp: condition(to, content.action) ? null : to.camp
             }
           }
         })
@@ -676,8 +775,30 @@
       return record
     }
 
-    recordList = recordList.map(filterRecord)
-    ctx.body = $helper.Result.success(recordList)
+    recordList = recordList.map(filterRecord).reverse()
+    tagMap = {}
+    recordList.forEach(item => {
+      const day = item.day || 1
+      const key = 'day' + day
+      if(!tagMap[key]){
+        tagMap[key] = {
+          key,
+          content: []
+        }
+      }
+      tagMap[key].content.push(item)
+    })
+    const voteCount = recordList.filter(item => item.content && item.content.type === 'vote').length
+    console.log('[gameRecord] response', {
+      roomId,
+      gameId,
+      day: gameInstance.day,
+      stage: gameInstance.stage,
+      recordCount: recordList.length,
+      voteCount,
+      keys: Object.keys(tagMap)
+    })
+    ctx.body = $helper.Result.success(tagMap)
   },
 
   /**
@@ -1776,10 +1897,23 @@
     }
 
     let obList = roomInstance.ob
+    if(typeof obList === 'string'){
+      try {
+        obList = JSON.parse(obList)
+      } catch (e) {
+        obList = []
+      }
+    }
+    if(!Array.isArray(obList)){
+      obList = []
+    }
     if(obList.includes(currentUser.username)){
       ctx.body = $helper.Result.success(roomInstance._id)
       return
     }
+    await $service.baseService.updateById(room, roomInstance._id, {
+      ob: [...obList, currentUser.username]
+    })
 
     $ws.connections.forEach(function (conn) {
       let url = '/lrs/' + roomInstance._id
@@ -1821,8 +1955,8 @@
 
       // 调用复盘服务
       const options = {
-        enableAI: enableAI === true,
-        aiModel: aiModel || 'gpt-4',
+        enableAI: enableAI !== false,
+        aiModel: aiModel,
         outputDir: outputDir || 'replay_analysis',
         desensitize: desensitize !== false
       }
@@ -1855,6 +1989,7 @@
    * @apiGroup 游戏模块
    */
   async getReplayFile (ctx) {
+    const { $helper } = app
     const { query } = ctx
     const { file } = query
 
@@ -2159,10 +2294,6 @@
         ctx.body = $helper.Result.fail(-1, '当前不是遗言阶段，不能发表遗言')
         return
       }
-      if(Number(gameInstance.day) > 1){
-        ctx.body = $helper.Result.fail(-1, '第2天及以后死亡玩家没有遗言')
-        return
-      }
 
       const currentUser = await $service.baseService.userInfo(ctx)
       const currentPlayer = await $service.baseService.queryOne(player, {
@@ -2178,6 +2309,19 @@
         ctx.body = $helper.Result.fail(-1, '只有出局玩家可以发表遗言')
         return
       }
+      const voteDeathTag = await $service.baseService.queryOne($model.gameTag, {
+        roomId: gameInstance.roomId,
+        gameId: gameInstance._id,
+        day: gameInstance.day,
+        desc: 'vote',
+        mode: 1,
+        target: currentPlayer.username
+      })
+      if(!voteDeathTag){
+        ctx.body = $helper.Result.fail(-1, '只有被投票出局的玩家可以发表遗言')
+        return
+      }
+
 
       const turnResult = await $service.gameService.getSpeechTurnState(gameInstance)
       if(!turnResult.result){
@@ -2235,13 +2379,9 @@
       ctx.body = $helper.Result.success({ 
         message: '遗言保存成功',
         data: lastWordsRecord,
-        nextSpeaker: advanceResult.result && advanceResult.data ? advanceResult.data.currentSpeaker : null
+        nextSpeaker: advanceResult.result && advanceResult.data ? advanceResult.data.currentSpeaker : null,
+        finished: advanceResult.result && advanceResult.data ? !!advanceResult.data.finished : false
       })
-      if(advanceResult.result && advanceResult.data && advanceResult.data.finished){
-        setImmediate(async () => {
-          await $service.gameService.moveToNextStage(gameInstance._id)
-        })
-      }
     } catch (error) {
       console.error('保存遗言失败:', error)
       ctx.body = $helper.Result.fail(-1, '保存遗言失败: ' + error.message)

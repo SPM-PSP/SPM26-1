@@ -11,6 +11,21 @@ module.exports = app => {
     return (app.$config.aiReplayService && app.$config.aiReplayService.timeout) || 60000
   }
 
+  const getAiConfig = (options = {}) => {
+    const replayModel = app.$config.aiReplayModel || {}
+    const apiKey = replayModel.apiKey || process.env.OPENAI_API_KEY
+
+    if (!apiKey) {
+      return null
+    }
+
+    return {
+      api_key: apiKey,
+      model: options.aiModel || replayModel.model || process.env.OPENAI_MODEL || 'gpt-4',
+      baseurl: options.aiBaseUrl || replayModel.baseUrl || process.env.OPENAI_BASE_URL || null
+    }
+  }
+
   const post = async (path, data) => {
     const { $helper, $log4 } = app
     try {
@@ -60,6 +75,7 @@ module.exports = app => {
 
     try {
       // 获取游戏基本信息
+      const winnerLabel = gameInstance.winner === 1 ? '好人阵营' : gameInstance.winner === 0 ? '狼人阵营' : '未知'
       const gameRecord = {
         game_id: gameInstance._id,
         room_id: gameInstance.roomId,
@@ -68,9 +84,10 @@ module.exports = app => {
         player_count: gameInstance.playerCount,
         mode: gameInstance.mode,
         winner: gameInstance.winner,
+        winner_label: winnerLabel,
         days: gameInstance.day,
         final_result: {
-          winner: gameInstance.winner === 1 ? '好人阵营' : gameInstance.winner === 2 ? '狼人阵营' : '未知',
+          winner: winnerLabel,
           final_state: {}
         }
       }
@@ -185,14 +202,7 @@ module.exports = app => {
       const gameRecord = await generateGameRecord(gameInstance)
 
       // 准备AI配置
-      let aiConfig = null
-      if (options.enableAI && process.env.OPENAI_API_KEY) {
-        aiConfig = {
-          api_key: process.env.OPENAI_API_KEY,
-          model: options.aiModel || 'gpt-4',
-          baseurl: options.aiBaseUrl || null
-        }
-      }
+      const aiConfig = options.enableAI ? getAiConfig(options) : null
 
       // 调用AI复盘服务
       const requestData = {
@@ -205,10 +215,11 @@ module.exports = app => {
       const result = await post('/analyze', requestData)
       
       if (result.result) {
+        const analysisData = result.data || {}
         return $helper.wrapResult(true, {
           game_record: gameRecord,
-          analysis_files: result.result,
-          timestamp: result.result.timestamp
+          analysis_files: analysisData.result,
+          timestamp: analysisData.timestamp
         })
       } else {
         return result

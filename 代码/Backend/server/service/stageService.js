@@ -1,20 +1,19 @@
-module.exports = app => ({
+﻿module.exports = app => ({
 
   /**
-   * 预言家阶段结算
-   * @param id
+   * 棰勮█瀹堕樁娈电粨绠?   * @param id
    * @returns {Promise<{result}>}
    */
   async predictorStage(id) {
     const { $service, $helper, $model, $support } = app
     const { game, player, action, record, gameTag } = $model
     if(!id){
-      return $helper.wrapResult(false, 'gameId为空！', -1)
+      return $helper.wrapResult(false, 'gameId为空', -1)
     }
     let gameInstance = await $service.baseService.queryById(game, id)
+    /*
 
-    // 只有第1天的死亡玩家拥有遗言；第2天及以后进入遗言阶段时不安排发言者。
-    if(Number(gameInstance.day) > 1){
+    // 鍙湁绗?澶╃殑姝讳骸鐜╁鎷ユ湁閬楄█锛涚2澶╁強浠ュ悗杩涘叆閬楄█闃舵鏃朵笉瀹夋帓鍙戣█鑰呫€?    if(Number(gameInstance.day) > 1){
       let tagObject = {
         roomId: gameInstance.roomId,
         gameId: gameInstance._id,
@@ -44,7 +43,7 @@ module.exports = app => ({
         isTitle: 0,
         content: {
           type: 'system',
-          text: '第2天及以后死亡玩家没有遗言'
+          text: '绗?澶╁強浠ュ悗姝讳骸鐜╁娌℃湁閬楄█'
         }
       })
 
@@ -54,9 +53,10 @@ module.exports = app => ({
         noLastWordsAfterDayOne: true
       })
     }
+    */
     let checkAction = await $service.baseService.queryOne(action,{gameId: gameInstance._id, roomId: gameInstance.roomId, day: gameInstance.day, stage: 1, action: 'check'})
     if(!checkAction) {
-      // 空过
+      // 绌鸿繃
       let predictorPlayer = await $service.baseService.queryOne(player,{roomId: gameInstance.roomId, gameId: gameInstance._id, role: 'predictor'})
       let recordObject = {
         roomId: gameInstance.roomId,
@@ -77,7 +77,6 @@ module.exports = app => ({
             name: predictorPlayer.name,
             position: predictorPlayer.position,
             status: predictorPlayer.status
-            // 移除 role 和 camp 信息，防止身份泄露
           },
           to: {
             username: null,
@@ -91,7 +90,7 @@ module.exports = app => ({
   },
 
   /**
-   * 狼人行动结束后的结算 —— 计算被刀次数最多的玩家作为狼人夜晚击杀的目标（如果平票则随机抽取一位玩家死亡）
+   * 鐙间汉琛屽姩缁撴潫鍚庣殑缁撶畻 鈥斺€?璁＄畻琚垁娆℃暟鏈€澶氱殑鐜╁浣滀负鐙间汉澶滄櫄鍑绘潃鐨勭洰鏍囷紙濡傛灉骞崇エ鍒欓殢鏈烘娊鍙栦竴浣嶇帺瀹舵浜★級
    * @param id
    * @returns {Promise<{result}>}
    */
@@ -99,7 +98,7 @@ module.exports = app => ({
     const { $service, $helper, $model, $support } = app
     const { game, player, action, record } = $model
     if(!id){
-      return $helper.wrapResult(false, 'gameId为空！', -1)
+      return $helper.wrapResult(false, 'gameId为空', -1)
     }
     let gameInstance = await $service.baseService.queryById(game, id)
     let assaultActionList = await $service.baseService.query(action, {roomId: gameInstance.roomId, gameId: gameInstance._id, day: gameInstance.day, stage: 2, action: 'assault'})
@@ -135,12 +134,11 @@ module.exports = app => ({
       return $helper.wrapResult(true, '')
     }
 
-    // 计算袭击真正需要死亡的玩家，票数多的玩家死亡，平票则随机抽选一个死亡
     let usernameList = []
     assaultActionList.forEach(item=>{
       usernameList.push(item.to)
     })
-    // 找到他们中被杀次数最多的
+    // 鎵惧埌浠栦滑涓鏉€娆℃暟鏈€澶氱殑
     let target = $helper.findMaxInArray(usernameList)
     let actionObject = {
       roomId: gameInstance.roomId,
@@ -178,7 +176,6 @@ module.exports = app => ({
           username: diePlayer.username,
           name: diePlayer.name,
           position: diePlayer.position
-          // 移除 role 和 camp 信息，防止身份泄露
         }
       }
     }
@@ -187,25 +184,23 @@ module.exports = app => ({
   },
 
   /**
-   * 女巫行动后的结算 - 结算狼人击杀、解药、毒药三者综合后的结果
-   * @param id
+   * 濂冲帆琛屽姩鍚庣殑缁撶畻 - 缁撶畻鐙间汉鍑绘潃銆佽В鑽€佹瘨鑽笁鑰呯患鍚堝悗鐨勭粨鏋?   * @param id
    * @returns {Promise<{result}>}
    */
   async witchStage (id) {
     const { $service, $helper, $model, $support } = app
     const { game, player, action, record, gameTag } = $model
     if(!id){
-      return $helper.wrapResult(false, 'gameId为空！', -1)
+      return $helper.wrapResult(false, 'gameId为空', -1)
     }
     let gameInstance = await $service.baseService.queryById(game, id)
-    // 女巫回合 => 天亮了, 需要结算死亡玩家和游戏是否结束
+    // 濂冲帆鍥炲悎 => 澶╀寒浜? 闇€瑕佺粨绠楁浜＄帺瀹跺拰娓告垙鏄惁缁撴潫
     let killAction = await $service.baseService.queryOne(action,{gameId: gameInstance._id, roomId: gameInstance.roomId, day: gameInstance.day, stage: 2, action: 'kill'})
     let saveAction = await $service.baseService.queryOne(action,{gameId: gameInstance._id, roomId: gameInstance.roomId, day: gameInstance.day, stage: 3, action: 'antidote'})
     if(killAction && killAction.to){
       let killTarget = killAction.to
       let killPlayer = await $service.baseService.queryOne(player,{roomId: gameInstance.roomId, gameId: gameInstance._id, username: killTarget})
       if(!saveAction){
-        // 女巫没有救人，不管他是没有使用技能，还是没有解药, 注定死亡一个
         let tagObject = {
           roomId: gameInstance.roomId,
           gameId: gameInstance._id,
@@ -219,10 +214,9 @@ module.exports = app => ({
           position: killPlayer.position
         }
         await $service.baseService.save(gameTag, tagObject)
-        // 注册该玩家的死亡
+        // 娉ㄥ唽璇ョ帺瀹剁殑姝讳骸
         await $service.baseService.updateOne(player,{ roomId: gameInstance.roomId, gameId: gameInstance._id, username: killPlayer.username}, { status: 0 , outReason: 'assault'})
         if(killPlayer.role === 'hunter'){
-          // 修改它的技能状态
           let skills = killPlayer.skill
           let newSkillStatus = []
           skills.forEach(item=>{
@@ -240,11 +234,10 @@ module.exports = app => ({
             skill: newSkillStatus
           })
           
-          // 如果是AI猎人，主动调用invoke接口让AI决定是否开枪
           if(app.$service.aiService.isAiId(killPlayer.username)){
-            console.log('\n🔫 猎人AI被狼人杀死，调用技能决策接口...')
+            console.log('\n馃敨 鐚庝汉AI琚嫾浜烘潃姝伙紝璋冪敤鎶€鑳藉喅绛栨帴鍙?..')
             
-            // 获取存活玩家列表作为目标选择
+            // 鑾峰彇瀛樻椿鐜╁鍒楄〃浣滀负鐩爣閫夋嫨
             let alivePlayers = await $service.baseService.query(player, {
               roomId: gameInstance.roomId,
               gameId: gameInstance._id,
@@ -253,7 +246,7 @@ module.exports = app => ({
             
             let candidateTargets = alivePlayers.map(p => p.username)
             
-            // 调用AI决策接口
+            // 璋冪敤AI鍐崇瓥鎺ュ彛
             let invokeResult = await app.$service.aiService.invokeAgent(gameInstance, killPlayer.username, {
               stage: 'death_shot',
               candidateTargets: candidateTargets,
@@ -264,38 +257,36 @@ module.exports = app => ({
               }
             })
             
-            console.log('🔫 猎人AI技能决策结果:', invokeResult)
+            console.log('馃敨 鐚庝汉AI鎶€鑳藉喅绛栫粨鏋?', invokeResult)
             
-            // 如果AI决定开枪，执行开枪逻辑
-            // 修复：AI返回的skillType可能是'pass'，但实际意图是开枪，需要综合判断
+            // 濡傛灉AI鍐冲畾寮€鏋紝鎵ц寮€鏋€昏緫
             let shouldShoot = false
             let shootTarget = null
             
             if(invokeResult.result && invokeResult.data && invokeResult.data.decision){
               const decision = invokeResult.data.decision
               
-              // 方法1：检查skillType是否为'shoot'
+              // 鏂规硶1锛氭鏌killType鏄惁涓?shoot'
               if(decision.skillType === 'shoot'){
                 shouldShoot = true
                 shootTarget = decision.skillTarget
               }
-              // 方法2：如果skillType不是'shoot'，检查speechText和suspicionScores
+              // 鏂规硶2锛氬鏋渟killType涓嶆槸'shoot'锛屾鏌peechText鍜宻uspicionScores
               else if(decision.speechText && decision.speechText.includes('开枪') && 
                       invokeResult.data.suspicionScores && invokeResult.data.suspicionScores.length > 0){
-                // 从suspicionScores获取最高分的目标
                 const topSuspicion = invokeResult.data.suspicionScores[0]
                 if(topSuspicion && topSuspicion.target && candidateTargets.includes(topSuspicion.target)){
                   shouldShoot = true
                   shootTarget = topSuspicion.target
-                  console.log(`🎯 根据speechText和suspicionScores判断，猎人AI决定开枪，目标: ${shootTarget}`)
+                  console.log(`馃幆 鏍规嵁speechText鍜宻uspicionScores鍒ゆ柇锛岀寧浜篈I鍐冲畾寮€鏋紝鐩爣: ${shootTarget}`)
                 }
               }
             }
             
             if(shouldShoot && shootTarget && candidateTargets.includes(shootTarget)){
-              console.log(`🎯 猎人AI决定开枪，目标: ${shootTarget}`)
+              console.log(`馃幆 鐚庝汉AI鍐冲畾寮€鏋紝鐩爣: ${shootTarget}`)
               
-              // 执行开枪逻辑
+              // 鎵ц寮€鏋€昏緫
               let targetPlayer = await $service.baseService.queryOne(player, {
                 roomId: gameInstance.roomId,
                 gameId: gameInstance._id,
@@ -305,7 +296,6 @@ module.exports = app => ({
               if(targetPlayer){
                 await $service.baseService.updateById(player, targetPlayer._id, {status: 0, outReason: 'shoot'})
                 
-                // 记录开枪行动
                 let action = app.$model.action
                 let actionObject = {
                   roomId: gameInstance.roomId,
@@ -318,24 +308,21 @@ module.exports = app => ({
                 }
                 await $service.baseService.save(action, actionObject)
                   
-                  console.log(`✅ 猎人AI开枪成功，${shootTarget}被击杀`)
+                  console.log(`鉁?鐚庝汉AI寮€鏋垚鍔燂紝${shootTarget}琚嚮鏉€`)
                 }
               }
             } else {
-              console.log('⚠️ 猎人AI决定不开枪')
+              console.log('猎人AI决定不开枪')
             }
           }
         }
       }
       
-      // 结算女巫毒
-      // 注意：不能在女巫用毒后就注册玩家的死亡，会造成还在女巫回合，就能看到谁已经死亡了(这样就知道死亡的玩家是被毒死)，需要滞后
       let poisonAction = await $service.baseService.queryOne(action, {gameId: gameInstance._id, roomId: gameInstance.roomId, day: gameInstance.day, stage: 3, action: 'poison'});
       if(poisonAction && poisonAction.to){
         let poisonPlayer = await $service.baseService.queryOne(player, {roomId: gameInstance.roomId, gameId: gameInstance._id, username: poisonAction.to});
         let witchPlayer = await $service.baseService.queryOne(player, {roomId: gameInstance.roomId, gameId: gameInstance._id, username: poisonAction.from});
         
-        // 先保存死亡标签到gameTag，确保状态同步
         let tagObject = {
           roomId: gameInstance.roomId,
           gameId: gameInstance._id,
@@ -350,7 +337,7 @@ module.exports = app => ({
         }
         await $service.baseService.save(gameTag, tagObject)
         
-        // 注册玩家死亡
+        // 娉ㄥ唽鐜╁姝讳骸
         await $service.baseService.updateById(player, poisonPlayer._id, {status: 0, outReason: 'poison'});
         
         let recordObject = {
@@ -371,24 +358,20 @@ module.exports = app => ({
               username: witchPlayer.username,
               name: witchPlayer.name,
               position: witchPlayer.position
-              // 移除 role 和 camp 信息，防止身份泄露
             },
-          to: {
-            username: poisonPlayer.username,
-            name: poisonPlayer.name,
-            position: poisonPlayer.position
-            // 移除 role 和 camp 信息，防止身份泄露
+            to: {
+              username: poisonPlayer.username,
+              name: poisonPlayer.name,
+              position: poisonPlayer.position
+            }
           }
-        }
       }
       await $service.baseService.save(record, recordObject)
     }
 
     if(!saveAction && !poisonAction){
-      // 空过,找女巫
       let witchPlayer = await $service.baseService.queryOne(player,{roomId: gameInstance.roomId, gameId: gameInstance._id, role: 'witch'})
 
-      // 查女巫的技能
       let skill = witchPlayer.skill
       let has = false
       skill.forEach(item=>{
@@ -442,7 +425,7 @@ module.exports = app => ({
     }
     await $service.baseService.save(record, gameRecord)
 
-    // 结算所有的死亡玩家
+    // 缁撶畻鎵€鏈夌殑姝讳骸鐜╁
     let diePlayerList = await $service.baseService.query(gameTag,{roomId: gameInstance.roomId, gameId: gameInstance._id, day: gameInstance.day, stage:{ $in: [2, 3]}, mode: 1})
     if(!diePlayerList || diePlayerList.length < 1){
       let peaceRecord = {
@@ -455,13 +438,13 @@ module.exports = app => ({
         isTitle: 0,
         content: {
           type: 'text',
-          text: '昨天晚上是平安夜!',
+          text: '昨天晚上是平安夜！',
           level: 3,
         }
       }
       await $service.baseService.save(record, peaceRecord)
     } else {
-      let dieMap = {} // 去重，狼人和女巫杀同一个人则只显示一次即可
+      let dieMap = {}
       for(let i = 0; i < diePlayerList.length; i++){
         if(dieMap[diePlayerList[i].target]){
           continue
@@ -501,7 +484,7 @@ module.exports = app => ({
   },
 
   /**
-   * 进入发言环境
+   * 杩涘叆鍙戣█鐜
    * @param id
    * @returns {Promise<{result}>}
    */
@@ -509,13 +492,13 @@ module.exports = app => ({
     const { $service, $helper, $model, $support } = app
     const { game, player, record, gameTag } = $model
     if(!id){
-      return $helper.wrapResult(false, 'gameId为空！', -1)
+      return $helper.wrapResult(false, 'gameId为空', -1)
     }
     let gameInstance = await $service.baseService.queryById(game, id)
     let alivePlayer = await $service.baseService.query(player, {gameId: gameInstance._id, roomId: gameInstance.roomId, status: 1})
     alivePlayer = (alivePlayer || []).sort((a, b) => a.position - b.position)
     let randomPosition = Math.floor(Math.random() * alivePlayer.length )
-    let randomOrder = Math.floor(Math.random() * 2 ) + 1 // 随机发言顺序
+    let randomOrder = Math.floor(Math.random() * 2 ) + 1 // 闅忔満鍙戣█椤哄簭
     let targetPlayer = alivePlayer[randomPosition]
     const speakOrder = []
     for(let i = 0; i < alivePlayer.length; i++){
@@ -536,7 +519,7 @@ module.exports = app => ({
       dayStatus: gameInstance.stage < 4 ? 1 : 2,
       desc: 'speakOrder',
       mode: 2,
-      value: randomOrder === 1 ? 'asc' : 'desc', // asc 上升（正序） ; desc 下降（逆序）
+      value: randomOrder === 1 ? 'asc' : 'desc',
       target: targetPlayer.username,
       name: targetPlayer.name,
       position: targetPlayer.position,
@@ -558,7 +541,7 @@ module.exports = app => ({
         type: 'rich-text',
         content: [
           {
-            text: '进入投票环节，由',
+            text: '进入发言环节，由',
             level: 1,
           },
           {
@@ -581,14 +564,14 @@ module.exports = app => ({
   },
 
   /**
-   * 投票阶段
+   * 鎶曠エ闃舵
    * @returns {Promise<void>}
    */
   async voteStage (id, stageNumber = 6) {
     const { $service, $helper, $model, $support } = app
     const { game, player, record, action, gameTag } = $model
     if(!id){
-      return $helper.wrapResult(false, 'gameId为空！', -1)
+      return $helper.wrapResult(false, 'gameId为空', -1)
     }
     let gameInstance = await $service.baseService.queryById(game, id)
 
@@ -628,8 +611,7 @@ module.exports = app => ({
       }
     }
 
-    // 找弃票玩家
-    let abstainedPlayer = [] // 弃票玩家
+    let abstainedPlayer = []
     alivePlayers.forEach(item=>{
       let exist = voteActions.find(function (vote) {
         return vote.from === item.username
@@ -641,7 +623,7 @@ module.exports = app => ({
 
     for(let key in voteResultMap){
       let content = voteResultMap[key]
-      // 排序
+      // 鎺掑簭
       content = content.sort(function (a,b){
         return a.position - b.position
       })
@@ -688,7 +670,7 @@ module.exports = app => ({
       await $service.baseService.save(record, recordObject)
     }
 
-    // 处理弃票record
+    // 澶勭悊寮冪エrecord
     if(abstainedPlayer && abstainedPlayer.length > 0){
       let abstainedString = ''
       for(let i =0; i < abstainedPlayer.length; i++){
@@ -775,7 +757,7 @@ module.exports = app => ({
             type: 'action',
             actionName: '放逐',
             action: 'out',
-            text: $support.getPlayerFullName(votePlayer) + '获得最高票数，出局！',
+            text: $support.getPlayerFullName(votePlayer) + '获得最高票数，出局',
             level: 2,
             from: {
               name: votePlayer.name,
@@ -792,7 +774,7 @@ module.exports = app => ({
         }
         await $service.baseService.save(record, recordObject)
 
-        // 注册死亡
+        // 娉ㄥ唽姝讳骸
         let tagObject = {
           roomId: gameInstance.roomId,
           gameId: gameInstance._id,
@@ -808,7 +790,6 @@ module.exports = app => ({
         await $service.baseService.save(gameTag, tagObject)
         await $service.baseService.updateById(player, votePlayer._id,{status: 0, outReason: 'vote'})
         if(votePlayer.role === 'hunter'){
-          // 修改猎人的技能状态
           let skills = votePlayer.skill
           let newSkillStatus = []
           skills.forEach(item=>{
@@ -826,11 +807,10 @@ module.exports = app => ({
             skill: newSkillStatus
           })
           
-          // 如果是AI猎人，主动调用invoke接口让AI决定是否开枪
           if(app.$service.aiService.isAiId(votePlayer.username)){
-            console.log('\n🔫 猎人AI被投票出局，调用技能决策接口...')
+            console.log('\n馃敨 鐚庝汉AI琚姇绁ㄥ嚭灞€锛岃皟鐢ㄦ妧鑳藉喅绛栨帴鍙?..')
             
-            // 获取存活玩家列表作为目标选择
+            // 鑾峰彇瀛樻椿鐜╁鍒楄〃浣滀负鐩爣閫夋嫨
             let alivePlayers = await $service.baseService.query(player, {
               roomId: gameInstance.roomId,
               gameId: gameInstance._id,
@@ -839,7 +819,7 @@ module.exports = app => ({
             
             let candidateTargets = alivePlayers.map(p => p.username)
             
-            // 调用AI决策接口
+            // 璋冪敤AI鍐崇瓥鎺ュ彛
             let invokeResult = await app.$service.aiService.invokeAgent(gameInstance, votePlayer.username, {
               stage: 'vote',
               candidateTargets: candidateTargets,
@@ -850,15 +830,15 @@ module.exports = app => ({
               }
             })
             
-            console.log('🔫 猎人AI技能决策结果:', invokeResult)
+            console.log('馃敨 鐚庝汉AI鎶€鑳藉喅绛栫粨鏋?', invokeResult)
             
-            // 如果AI决定开枪，执行开枪逻辑
+            // 濡傛灉AI鍐冲畾寮€鏋紝鎵ц寮€鏋€昏緫
             if(invokeResult.result && invokeResult.data && invokeResult.data.decision && invokeResult.data.decision.skillType === 'shoot'){
               let shootTarget = invokeResult.data.decision.skillTarget
               if(shootTarget && candidateTargets.includes(shootTarget)){
-                console.log(`🎯 猎人AI决定开枪，目标: ${shootTarget}`)
+                console.log(`馃幆 鐚庝汉AI鍐冲畾寮€鏋紝鐩爣: ${shootTarget}`)
                 
-                // 执行开枪逻辑
+                // 鎵ц寮€鏋€昏緫
                 let targetPlayer = await $service.baseService.queryOne(player, {
                   roomId: gameInstance.roomId,
                   gameId: gameInstance._id,
@@ -868,7 +848,6 @@ module.exports = app => ({
                 if(targetPlayer){
                   await $service.baseService.updateById(player, targetPlayer._id, {status: 0, outReason: 'shoot'})
                   
-                  // 记录开枪行动
                   let action = app.$model.action
                   let actionObject = {
                     roomId: gameInstance.roomId,
@@ -881,11 +860,11 @@ module.exports = app => ({
                   }
                   await $service.baseService.save(action, actionObject)
                   
-                  console.log(`✅ 猎人AI开枪成功，${shootTarget}被击杀`)
+                  console.log(`鉁?鐚庝汉AI寮€鏋垚鍔燂紝${shootTarget}琚嚮鏉€`)
                 }
               }
             } else {
-              console.log('⚠️ 猎人AI决定不开枪')
+              console.log('猎人AI决定不开枪')
             }
           }
         }
@@ -914,11 +893,10 @@ module.exports = app => ({
         }
         await $service.baseService.save(record, recordObject)
 
-        // 需要pk的逻辑
+        // 闇€瑕乸k鐨勯€昏緫
         if(gameInstance.flatTicket === 2 && stageNumber === 6){
-          // 平票加赛的处理
           let num = Math.floor(Math.random() * maxCount.length)
-          let randomOrder = Math.floor(Math.random() * 2 ) + 1 // 1到2的随机数
+          let randomOrder = Math.floor(Math.random() * 2 ) + 1 // 1鍒?鐨勯殢鏈烘暟
           let targetPlayer = await $service.baseService.queryOne(player, {roomId: gameInstance.roomId, gameId: gameInstance._id, username: maxCount[num]})
           let tagObject = {
             roomId: gameInstance.roomId,
@@ -928,8 +906,7 @@ module.exports = app => ({
             dayStatus: gameInstance.stage < 4 ? 1 : 2,
             desc: 'pkOrder',
             mode: 2,
-            value: randomOrder === 1 ? 'asc' : ' desc', // asc 上升（正序） ; desc 下降（逆序）
-            target: targetPlayer.username,
+            value: randomOrder === 1 ? 'asc' : ' desc', // asc 涓婂崌锛堟搴忥級 ; desc 涓嬮檷锛堥€嗗簭锛?            target: targetPlayer.username,
             name: targetPlayer.name,
             position: targetPlayer.position
           }
@@ -1007,8 +984,7 @@ module.exports = app => ({
             target: 'pkPlayer',
           }
           await $service.baseService.save(gameTag, pkTagObject)
-          // 进入到6.5阶段（pk阶段）
-          needPk = 'Y'
+          // 杩涘叆鍒?.5闃舵锛坧k闃舵锛?          needPk = 'Y'
         }
       }
     }
@@ -1018,7 +994,7 @@ module.exports = app => ({
   },
 
   /**
-   * 初始化遗言阶段发言轮次
+   * 鍒濆鍖栭仐瑷€闃舵鍙戣█杞
    * @param id
    * @returns {Promise<{result}>}
    */
@@ -1026,61 +1002,62 @@ module.exports = app => ({
     const { $service, $helper, $model, $support } = app
     const { game, player, record, gameTag } = $model
     if(!id){
-      return $helper.wrapResult(false, 'gameId为空！', -1)
+      return $helper.wrapResult(false, 'gameId为空', -1)
     }
     
     let gameInstance = await $service.baseService.queryById(game, id)
-    
-    // 查找今天死亡的玩家
-    let deadPlayers = await $service.baseService.query(player, {
-      gameId: gameInstance._id, 
-      roomId: gameInstance.roomId, 
-      status: 0
+
+    await $service.baseService.delete(gameTag, {
+      gameId: gameInstance._id,
+      roomId: gameInstance.roomId,
+      day: gameInstance.day,
+      desc: 'lastWordsOrder',
+      mode: 2
     })
-    
-    // 过滤出今天死亡的玩家（通过检查gameTag记录）
+
+    const voteDeathTags = await $service.baseService.query(gameTag, {
+      gameId: gameInstance._id,
+      roomId: gameInstance.roomId,
+      day: gameInstance.day,
+      desc: 'vote',
+      mode: 1
+    }, {}, { sort: { position: -1 } })
+
     const todayDeadPlayers = []
-    for(const deadPlayer of deadPlayers){
-      // 检查投票出局的死亡记录
-      const voteDeathTag = await $service.baseService.queryOne(gameTag, {
+    const added = new Set()
+    for(const tag of (voteDeathTags || [])){
+      if(!tag.target || added.has(tag.target)){
+        continue
+      }
+      const deadPlayer = await $service.baseService.queryOne(player, {
         gameId: gameInstance._id,
         roomId: gameInstance.roomId,
-        day: gameInstance.day,
-        desc: 'vote', // 投票出局的死亡记录
-        target: deadPlayer.username
+        username: tag.target,
+        status: 0
       })
-      // 检查夜晚被狼人击杀的死亡记录
-      const assaultDeathTag = await $service.baseService.queryOne(gameTag, {
-        gameId: gameInstance._id,
-        roomId: gameInstance.roomId,
-        day: gameInstance.day,
-        desc: 'assault', // 狼人击杀的死亡记录
-        target: deadPlayer.username
-      })
-      
-      if(voteDeathTag || assaultDeathTag){
+      if(deadPlayer){
         todayDeadPlayers.push(deadPlayer)
+        added.add(tag.target)
       }
     }
     
-    // 无论有没有死亡玩家都进入遗言阶段，让房主自己控制
+    // 鏃犺鏈夋病鏈夋浜＄帺瀹堕兘杩涘叆閬楄█闃舵锛岃鎴夸富鑷繁鎺у埗
     if(todayDeadPlayers.length === 0){
-      console.log('🔇 今天没有死亡玩家，但仍进入遗言阶段让房主控制')
+      console.log('今天没有投票出局玩家，遗言阶段为空')
       
-      // 创建空的遗言发言轮次（没有发言者）
+      // 鍒涘缓绌虹殑閬楄█鍙戣█杞锛堟病鏈夊彂瑷€鑰咃級
       let tagObject = {
         roomId: gameInstance.roomId,
         gameId: gameInstance._id,
         day: gameInstance.day,
-        stage: 7, // 遗言阶段
+        stage: 7, // 閬楄█闃舵
         dayStatus: 2,
         desc: 'lastWordsOrder',
         mode: 2,
-        value: 'desc', // 按座位号从大到小
-        target: '', // 没有发言者
-        name: null,
+        value: 'desc', // 鎸夊骇浣嶅彿浠庡ぇ鍒板皬
+        target: '', // 娌℃湁鍙戣█鑰?        name: null,
         position: null,
-        value2: [], // 空的发言顺序
+        value2: [], // 绌虹殑鍙戣█椤哄簭
         value3: {
           currentIndex: 0
         }
@@ -1088,7 +1065,7 @@ module.exports = app => ({
       
       await $service.baseService.save(gameTag, tagObject)
       
-      // 创建遗言阶段记录
+      // 鍒涘缓閬楄█闃舵璁板綍
       let recordObject = {
         roomId: gameInstance.roomId,
         gameId: gameInstance._id,
@@ -1099,7 +1076,7 @@ module.exports = app => ({
         isTitle: 0,
         content: {
           type: 'system',
-          text: '遗言阶段开始，今天没有死亡玩家，房主可以手动控制游戏流程'
+          text: '遗言阶段开始，今天没有投票出局玩家'
         }
       }
       await $service.baseService.save(record, recordObject)
@@ -1111,9 +1088,9 @@ module.exports = app => ({
       })
     }
     
-    console.log('💀 今天死亡的玩家:', todayDeadPlayers.map(p => `${p.position}号(${p.name})`))
+    console.log('今天投票出局的玩家', todayDeadPlayers.map(p => `${p.position}号${p.name}`))
     
-    // 按座位号从大到小排序发言顺序
+    // 鎸夊骇浣嶅彿浠庡ぇ鍒板皬鎺掑簭鍙戣█椤哄簭
     const sortedDeadPlayers = todayDeadPlayers.sort((a, b) => b.position - a.position)
     
     const speakOrder = sortedDeadPlayers.map(player => ({
@@ -1122,18 +1099,17 @@ module.exports = app => ({
       position: player.position
     }))
     
-    // 创建遗言发言轮次tag
+    // 鍒涘缓閬楄█鍙戣█杞tag
     let tagObject = {
       roomId: gameInstance.roomId,
       gameId: gameInstance._id,
       day: gameInstance.day,
-      stage: 7, // 遗言阶段
+      stage: 7, // 閬楄█闃舵
       dayStatus: 2,
       desc: 'lastWordsOrder',
       mode: 2,
-      value: 'desc', // 按座位号从大到小
-      target: speakOrder[0].username, // 第一个发言者
-      name: speakOrder[0].name,
+      value: 'desc', // 鎸夊骇浣嶅彿浠庡ぇ鍒板皬
+      target: speakOrder[0].username, // 绗竴涓彂瑷€鑰?      name: speakOrder[0].name,
       position: speakOrder[0].position,
       value2: speakOrder,
       value3: {
@@ -1143,7 +1119,7 @@ module.exports = app => ({
     
     await $service.baseService.save(gameTag, tagObject)
     
-    // 创建遗言阶段记录
+    // 鍒涘缓閬楄█闃舵璁板綍
     let recordObject = {
       roomId: gameInstance.roomId,
       gameId: gameInstance._id,
@@ -1154,12 +1130,12 @@ module.exports = app => ({
       isTitle: 0,
       content: {
         type: 'system',
-        text: `遗言阶段开始，今天死亡的${speakOrder.length}位玩家将按座位号从大到小顺序发表遗言`
+        text: '遗言阶段开始，今天投票出局的' + speakOrder.length + '位玩家将按座位号从大到小顺序发表遗言'
       }
     }
     await $service.baseService.save(record, recordObject)
     
-    console.log('🎤 遗言发言顺序初始化完成:', speakOrder)
+    console.log('遗言发言顺序初始化完成', speakOrder)
     
     return $helper.wrapResult(true, { 
       speakOrder,

@@ -1,8 +1,4 @@
 module.exports = app => ({
-  /**
-   * @api {post} /api/voice/stt/auth 语音转文字
-   * @apiGroup 语音模块
-   */
   async stt (ctx) {
     const { $service, $helper } = app
     try {
@@ -10,14 +6,10 @@ module.exports = app => ({
       const result = await $service.voiceService.sttFromBuffer(audioBuffer)
       ctx.body = $helper.Result.success(result)
     } catch (e) {
-      ctx.body = $helper.Result.fail(-1, e.message || '语音识别失败')
+      ctx.body = $helper.Result.fail(-1, e.message || 'speech recognition failed')
     }
   },
 
-  /**
-   * @api {post} /api/voice/tts/auth 文字转语音
-   * @apiGroup 语音模块
-   */
   async tts (ctx) {
     const { $service, $helper } = app
     const body = ctx.request.body || {}
@@ -32,14 +24,10 @@ module.exports = app => ({
       ctx.body = audio
     } catch (e) {
       ctx.status = 200
-      ctx.body = $helper.Result.fail(-1, e.message || '语音合成失败')
+      ctx.body = $helper.Result.fail(-1, e.message || 'speech synthesis failed')
     }
   },
 
-  /**
-   * @api {post} /api/voice/speech/auth 提交玩家语音发言
-   * @apiGroup 语音模块
-   */
   async speech (ctx) {
     const { $service, $helper, $model, $ws } = app
     const { game, player, record } = $model
@@ -47,22 +35,22 @@ module.exports = app => ({
     const { roomId, gameId } = body
 
     if(!roomId){
-      ctx.body = $helper.Result.fail(-1, 'roomId不能为空！')
+      ctx.body = $helper.Result.fail(-1, 'roomId is required')
       return
     }
     if(!gameId){
-      ctx.body = $helper.Result.fail(-1, 'gameId不能为空！')
+      ctx.body = $helper.Result.fail(-1, 'gameId is required')
       return
     }
 
     try {
       const gameInstance = await $service.baseService.queryById(game, gameId)
       if(!gameInstance){
-        ctx.body = $helper.Result.fail(-1, '游戏不存在！')
+        ctx.body = $helper.Result.fail(-1, 'game not found')
         return
       }
       if(gameInstance.stage !== 5){
-        ctx.body = $helper.Result.fail(-1, '当前不是发言阶段，不能提交语音发言')
+        ctx.body = $helper.Result.fail(-1, 'current stage does not allow speech')
         return
       }
 
@@ -73,13 +61,14 @@ module.exports = app => ({
         username: currentUser.username
       })
       if(!currentPlayer){
-        ctx.body = $helper.Result.fail(-1, '未查询到你在该游戏中')
+        ctx.body = $helper.Result.fail(-1, 'player not found in this game')
         return
       }
       if(currentPlayer.status !== 1){
-        ctx.body = $helper.Result.fail(-1, '出局玩家不能发言')
+        ctx.body = $helper.Result.fail(-1, 'eliminated players cannot speak')
         return
       }
+
       const turnResult = await $service.gameService.getSpeechTurnState(gameInstance)
       if(!turnResult.result){
         ctx.body = $helper.Result.fail(turnResult.errorCode, turnResult.errorMessage)
@@ -87,8 +76,8 @@ module.exports = app => ({
       }
       const currentSpeaker = turnResult.data && turnResult.data.currentSpeaker
       if(!currentSpeaker || currentSpeaker.username !== currentPlayer.username){
-        const speakerText = currentSpeaker ? (currentSpeaker.position + '号玩家发言中') : '当前没有可发言玩家'
-        ctx.body = $helper.Result.fail(-1, '还没有轮到你发言，当前是' + speakerText)
+        const speakerText = currentSpeaker ? (currentSpeaker.position + ' seat player is speaking') : 'no current speaker'
+        ctx.body = $helper.Result.fail(-1, 'not your speech turn, current speaker is ' + speakerText)
         return
       }
 
@@ -96,6 +85,7 @@ module.exports = app => ({
       const sttResult = speechText
         ? { text: speechText }
         : await $service.voiceService.sttFromBuffer($service.voiceService.getAudioBuffer(ctx))
+
       const recordObject = {
         roomId: gameInstance.roomId,
         gameId: gameInstance._id,
@@ -113,68 +103,63 @@ module.exports = app => ({
             username: currentPlayer.username,
             name: currentPlayer.name,
             position: currentPlayer.position
-            // 移除 role 和 camp 信息，防止身份泄露
           }
         }
       }
       const savedRecord = await $service.baseService.save(record, recordObject)
-      
-      // 向AI服务发送发言事件（使用广播接口）
+
       try {
         const speechEvent = {
           day: gameInstance.day,
           stage: gameInstance.stage,
           eventType: 'speech',
           speaker: currentPlayer.username,
+          speakerSeat: currentPlayer.position,
+          speakerDisplayName: currentPlayer.position + '号(' + (currentPlayer.name || currentPlayer.username) + ')',
           content: sttResult.text,
           weight: 1.0,
-          targets: [] // 发言通常没有特定目标，AI会自己分析内容
+          targets: []
         }
-        
-        // 获取所有存活玩家作为候选目标
+
         const alivePlayers = await $service.baseService.query(player, {
           roomId: gameInstance.roomId,
           gameId: gameInstance._id,
           status: 1
         })
         const candidateTargets = alivePlayers.map(p => p.username)
-        
-        // 获取所有AI玩家
         const aiPlayers = alivePlayers.filter(p => p.username.startsWith('ai_'))
         const aiIds = aiPlayers.map(p => p.username)
-        
-        // 使用广播接口发送事件给所有AI
+
         if(aiIds.length > 0){
-        const axios = require('axios')
-        const getBaseUrl = () => {
-          return process.env.AI_SERVICE_BASE_URL ||
-            (app.$config.aiService && app.$config.aiService.baseUrl) ||
-            'http://127.0.0.1:8001'
-        }
-        
-        await axios({
-          method: 'post',
-          url: getBaseUrl() + '/internal/ai/game/events/broadcast',
-          data: {
-            gameId: String(gameInstance._id),
-            event: speechEvent,
-            aiIds: aiIds, // 指定要发送的AI列表
-            candidateTargets: candidateTargets,
-            asyncMode: true
-          },
-          timeout: 12000,
-          headers: {
-            'Content-Type': 'application/json'
+          const axios = require('axios')
+          const getBaseUrl = () => {
+            return process.env.AI_SERVICE_BASE_URL ||
+              (app.$config.aiService && app.$config.aiService.baseUrl) ||
+              'http://127.0.0.1:8001'
           }
-        })
+
+          await axios({
+            method: 'post',
+            url: getBaseUrl() + '/internal/ai/game/events/broadcast',
+            data: {
+              gameId: String(gameInstance._id),
+              event: speechEvent,
+              aiIds,
+              candidateTargets,
+              asyncMode: true
+            },
+            timeout: 12000,
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
         }
       } catch (error) {
-        // AI服务调用失败不影响发言功能，只记录日志
         if(app.$log4 && app.$log4.errorLogger){
-          app.$log4.errorLogger.error('[AI Service] 发送发言事件失败: ' + error.toString())
+          app.$log4.errorLogger.error('[AI Service] send speech event failed: ' + error.toString())
         }
       }
-      
+
       const advanceResult = await $service.gameService.advanceSpeechTurn(gameInstance)
 
       $ws.connections.forEach(function (conn) {
@@ -190,6 +175,7 @@ module.exports = app => ({
         from: recordObject.content.from,
         nextSpeaker: advanceResult.result && advanceResult.data ? advanceResult.data.currentSpeaker : null
       })
+
       if(advanceResult.result && advanceResult.data){
         if(advanceResult.data.finished){
           setImmediate(async () => {
@@ -203,7 +189,7 @@ module.exports = app => ({
         }
       }
     } catch (e) {
-      ctx.body = $helper.Result.fail(-1, e.message || '提交语音发言失败')
+      ctx.body = $helper.Result.fail(-1, e.message || 'submit speech failed')
     }
   },
 })

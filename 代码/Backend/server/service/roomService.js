@@ -68,7 +68,17 @@ module.exports = app => ({
     if (!roomInstance) {
       return $helper.wrapResult(true, 'N');
     }
-    const obList = roomInstance ? roomInstance.ob : [];
+    let obList = roomInstance ? roomInstance.ob : [];
+    if (typeof obList === 'string') {
+      try {
+        obList = JSON.parse(obList);
+      } catch (e) {
+        obList = [];
+      }
+    }
+    if (!Array.isArray(obList)) {
+      obList = [];
+    }
     if (obList.includes(username)) {
       return $helper.wrapResult(true, 'Y');
     }

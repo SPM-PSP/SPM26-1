@@ -374,10 +374,13 @@ module.exports = app => ({
         info.push({text:'环节，由', level: 1})
         info.push({text: '' + pkOrder.position + '号玩家（' + pkOrder.name + '）', level:2})
         info.push({text:'先开始发言，顺序为：', level: 1})
-        info.push({text:order.value === 'asc' ? '正向' : '逆向', level: 2})
+        info.push({text:pkOrder.value === 'asc' ? '正向' : '逆向', level: 2})
         return $helper.wrapResult(true, info)
       }
       let order = await $service.baseService.queryOne(gameTag,{roomId: gameInstance.roomId, gameId: gameInstance._id, day: gameInstance.day, desc: 'speakOrder', mode: 2})
+      if(!order){
+        return $helper.wrapResult(true, [{text:'进入发言环节', level: 1}])
+      }
       let info = []
       info.push({text:'进入发言环节，从', level: 1})
       info.push({text: '' + order.position + '号玩家（' + order.name + '）', level:2})
@@ -819,53 +822,58 @@ module.exports = app => ({
     else nextStage = stage + 1;
 
     if( stage === 1){
+      const predictorSettleResult = await $service.stageService.predictorStage(gameInstance._id)
       // 结算预言家是否空过
       let settleResult = await $service.stageService.predictorStage(gameInstance._id)
-      if(!settleResult.result){
-        return settleResult
+      if(!predictorSettleResult.result){
+        return predictorSettleResult
       }
     } else if(stage === 2){
       // 结算狼人的实际击杀目标
-      let settleResult = await $service.stageService.wolfStage(gameInstance._id)
-      if(!settleResult.result){
-        return settleResult
+      const wolfSettleResult = await $service.stageService.wolfStage(gameInstance._id)
+      if(!wolfSettleResult.result){
+        return wolfSettleResult
       }
     } else if(stage === 3){
+      const witchSettleResult = await $service.stageService.witchStage(gameInstance._id)
       // 结算女巫的操作结果
       let settleResult = await $service.stageService.witchStage(gameInstance._id)
-      if(!settleResult.result){
-        return settleResult
+      if(!witchSettleResult.result){
+        return witchSettleResult
       }
       await $service.gameService.settleGameOver(gameInstance._id)
     } else if (stage === 4) {
+      const preSpeakSettleResult = await $service.stageService.preSpeakStage(gameInstance._id)
       // 天亮 => 发言环节 , 生成发言顺序等信息
       let settleResult = await $service.stageService.preSpeakStage(gameInstance._id)
-      if(!settleResult.result){
-        return settleResult
+      if(!preSpeakSettleResult.result){
+        return preSpeakSettleResult
       }
     } else if (stage === 6) {
       // 投票 => 遗言/pk加赛 ,需要整理票型， 结算死亡玩家
-      let settleResult = await $service.stageService.voteStage(gameInstance._id, 6)
-      if(!settleResult.result){
-        return settleResult
+      const voteSettleResult = await $service.stageService.voteStage(gameInstance._id, 6)
+      if(!voteSettleResult.result){
+        return voteSettleResult
       }
-      if(settleResult.result && settleResult.data === 'Y'){
+      if(voteSettleResult.result && voteSettleResult.data === 'Y'){
         // 需要pk
         nextStage = 6.5
       }
     } else if (stage === 6.5){
       // 投票pk加赛 => 遗言 ,需要整理票型， 结算死亡玩家
-      let settleResult = await $service.stageService.voteStage(gameInstance._id, 6.5)
-      if(!settleResult.result){
-        return settleResult
+      const pkVoteSettleResult = await $service.stageService.voteStage(gameInstance._id, 6.5)
+      if(!pkVoteSettleResult.result){
+        return pkVoteSettleResult
       }
       nextStage = 7
     }
 
     // 修改游戏状态
-    let update = {stage: nextStage}
+    var nextStageUpdate = {stage: nextStage}
     
     // 如果进入遗言阶段，初始化遗言发言轮次
+    var nextStageUpdate = {stage: nextStage}
+
     if(nextStage === 7){
       let lastWordsResult = await $service.stageService.initLastWordsStage(gameInstance._id)
       if(!lastWordsResult.result){
@@ -875,7 +883,7 @@ module.exports = app => ({
       console.log('🎤 进入遗言阶段，房主可以手动控制游戏流程')
     }
     if(nextStage === 0){
-      update.day = gameInstance.day + 1
+      nextStageUpdate.day = gameInstance.day + 1
       let recordObject = {
         roomId: gameInstance.roomId,
         gameId: gameInstance._id,
@@ -892,7 +900,7 @@ module.exports = app => ({
       }
       await $service.baseService.save(record, recordObject)
     }
-    await $service.baseService.updateById(game, gameInstance._id, update)
+    await $service.baseService.updateById(game, gameInstance._id, nextStageUpdate)
     $ws.connections.forEach(function (conn) {
       let url = '/lrs/' + gameInstance.roomId
       if(conn.path === url){
@@ -932,19 +940,21 @@ module.exports = app => ({
     if(updateGame.stage === 1 || updateGame.stage === 2 || updateGame.stage === 3){
     //if(updateGame.stage === 1 || updateGame.stage === 2 || updateGame.stage === 3){
       // 预言家
-      let t = updateGame.stage === 1 ? gameInstance.p1 : 30
+      var legacyTimerSeconds = updateGame.stage === 1 ? gameInstance.p1 : 30
+      let stageTimerSeconds = updateGame.stage === 1 ? gameInstance.p1 : 30
       if(updateGame.stage === 2){
-        t = gameInstance.p2 || 30
+        stageTimerSeconds = gameInstance.p2 || 30
       }
       if(updateGame.stage === 3){
-        t = gameInstance.p3 || 30
+        stageTimerSeconds = gameInstance.p3 || 30
       }
 
-      $nodeCache.set('game-time-' + gameInstance._id, t)
+      $nodeCache.set('game-time-' + gameInstance._id, stageTimerSeconds)
       app.$timer[gameInstance._id] = setInterval(function (){
         let time =  $nodeCache.get('game-time-' + gameInstance._id)
         if(time < 0){
           // 清掉定时器
+          clearInterval(app.$timer[gameInstance._id])
           clearInterval(app.$timer[gameInstance._id])
           $service.gameService.moveToNextStage(gameInstance._id)
         } else {
