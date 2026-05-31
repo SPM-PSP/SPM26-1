@@ -42,7 +42,7 @@ const strategyRecommendations = computed(() => reportData.value.strategyRecommen
       v-if="isLoading"
       class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-parchment/90 backdrop-blur-sm"
     >
-      <p class="font-headline text-2xl font-bold italic text-forest mb-3">月夜审判</p>
+      <p class="font-headline text-2xl font-bold italic text-forest mb-3">雾中窥影</p>
       <p class="text-sm text-[#7f765f]">正在生成复盘报告，请稍候...</p>
     </div>
     <div v-if="loadError" class="fixed top-20 left-1/2 -translate-x-1/2 z-[100] rounded-2xl bg-[#f5d0cc] px-6 py-3 text-[#8a1b1e] text-sm shadow">
@@ -54,7 +54,7 @@ const strategyRecommendations = computed(() => reportData.value.strategyRecommen
       <div class="mx-auto flex max-w-[1500px] items-center justify-between px-6 py-4">
         <div class="flex items-center gap-8">
           <div>
-            <p class="font-headline text-3xl font-extrabold italic text-forest">月夜审判</p>
+            <p class="font-headline text-3xl font-extrabold italic text-forest">雾中窥影</p>
             <p class="text-xs tracking-[0.28em] text-[#7f765f]">对局复盘与分析</p>
           </div>
         </div>

@@ -1,18 +1,30 @@
-import React, { useState } from "react";
+import React from "react";
 import "./index.styl";
 import { withRouter } from "react-router-dom";
 import { inject, observer } from "mobx-react";
 import apiGame from "@api/game";
+import appConfig from "@config";
+import helper from "@helper";
 
-import { message, Modal, Button } from "antd";
+import { message, Modal } from "antd";
 
 const { confirm } = Modal;
+
+const buildReplayPageUrl = (gameId) => {
+  const replayUrl = appConfig.replayUrl || `http://${window.location.hostname}:5173`;
+  const url = new URL(replayUrl, window.location.href);
+  url.searchParams.set("gameId", gameId);
+  const token = helper.getToken();
+  if (token) {
+    url.searchParams.set("token", token);
+  }
+  return url.toString();
+};
 
 const Btn = (props) => {
   const { appStore, roomDetail, gameDetail, lookRecord, getRoomDetail, clearGame } = props;
   const isOwner = roomDetail && roomDetail.owner === appStore.user.username;
   const currentRole = gameDetail.roleInfo ? gameDetail.roleInfo.role : null;
-  const [replayLoading, setReplayLoading] = useState(false);
   const canRoleNextStage =
     gameDetail.status === 1 &&
     ((gameDetail.stage === 1 && currentRole === "predictor") ||
@@ -21,8 +33,7 @@ const Btn = (props) => {
   const canOwnerNextStage = isOwner && gameDetail.status === 1;
   const canNextStage = canOwnerNextStage || canRoleNextStage;
 
-  // 复盘分析功能
-  const analyzeReplay = () => {
+  const openReplayPage = () => {
     if (gameDetail.status !== 2) {
       message.error('游戏尚未结束，无法进行复盘分析！');
       return;
@@ -32,60 +43,8 @@ const Btn = (props) => {
       message.error('游戏ID不存在，无法进行复盘分析！');
       return;
     }
-    
-    setReplayLoading(true);
-    
-    const params = {
-      gameId: gameDetail._id,
-    };
-    
-    apiGame.gameReplay(params).then((data) => {
-      setReplayLoading(false);
-      message.success((data && data.message) || '复盘分析完成！');
-      
-      const result = (data && data.result) || data || {};
-      const gameRecord = result.gameRecord || result.game_record || {};
-      const analysisFiles = result.analysisFiles || result.analysis_files || {};
-      const filePath = analysisFiles.text || analysisFiles.path || result.textPath || result.path;
 
-      const openReplayModal = (analysisText) => {
-        Modal.info({
-          title: '游戏复盘报告',
-          width: 800,
-          content: (
-            <div style={{maxHeight: '500px', overflowY: 'auto'}}>
-              <h3>游戏记录</h3>
-              <p>游戏ID: {gameRecord.game_id || gameDetail._id}</p>
-              {gameRecord.room_id || gameDetail.roomId ? <p>房间ID: {gameRecord.room_id || gameDetail.roomId}</p> : null}
-              {gameRecord.days ? <p>游戏天数: {gameRecord.days}</p> : null}
-              {gameRecord.winner !== undefined ? <p>胜利阵营: {gameRecord.winner === 1 ? '好人阵营' : gameRecord.winner === 0 ? '狼人阵营' : '未知'}</p> : null}
-              
-              <h3>复盘分析</h3>
-              <pre style={{whiteSpace: 'pre-wrap', fontSize: '12px'}}>
-                {analysisText || JSON.stringify(result, null, 2)}
-              </pre>
-              
-              {analysisFiles.json ? <p><strong>分析文件:</strong> {analysisFiles.json}</p> : null}
-            </div>
-          ),
-          okText: '确定'
-        });
-      };
-
-      if (filePath) {
-        fetch(`/api/game/replay/file?path=${encodeURIComponent(filePath)}`)
-          .then(res => res.text())
-          .then(openReplayModal)
-          .catch(() => {
-          openReplayModal('')
-        });
-        return;
-      }
-      openReplayModal('');
-    }).catch((error) => {
-      setReplayLoading(false);
-      message.error('复盘分析请求失败：' + (error.message || error));
-    });
+    window.location.href = buildReplayPageUrl(gameDetail._id);
   };
 
   const nextStage = () => {
@@ -128,15 +87,14 @@ const Btn = (props) => {
         <div
           onClick={() => {
             if (gameDetail.status === 2) {
-              analyzeReplay();
+              openReplayPage();
             } else {
               lookRecord();
             }
           }}
           className="btn-primary btn-record"
-          loading={replayLoading}
         >
-          {replayLoading ? "分析中..." : (gameDetail.status === 2 ? "复盘" : "查看记录")}
+          {gameDetail.status === 2 ? "复盘" : "查看记录"}
         </div>
       ) : null}
       <div

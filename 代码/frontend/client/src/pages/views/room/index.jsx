@@ -4,7 +4,6 @@ import Websocket from 'react-websocket';
 import {inject, observer} from "mobx-react";
 import {withRouter} from "react-router-dom";
 
-import appConfig from '@config'
 import apiGame from '@api/game'
 import apiRoom from '@api/room'
 import apiVoice from '@api/voice'
@@ -15,7 +14,6 @@ import {
   BookOutlined,
   BulbOutlined,
   CrownOutlined,
-  EyeOutlined,
   HomeOutlined,
   LogoutOutlined,
   MinusCircleOutlined,
@@ -38,8 +36,11 @@ import wolfIdentity from "@assets/images/identity/wolf.png"
 
 import constants from "@common/constants";
 import utils from '@utils'
+import appConfig from '@config'
+import helper from '@helper'
 import cls from "classnames";
 import {isMockEnabled} from "@common/mock";
+import rulesMarkdownText from "@common/rulesMarkdown";
 
 const { confirm } = Modal;
 const {
@@ -49,6 +50,8 @@ const {
   winConditionOptions,
   flatTicketOptions,
   playerCountOptions,
+  defaultPlayerCount,
+  defaultSeatCount,
 } = constants
 
 const villageSquareImage =
@@ -71,6 +74,122 @@ const rolePortraitMap = {
   hunter: hunterIdentity,
   villager: villagerIdentity,
   wolf: wolfIdentity,
+}
+
+const getDefaultGameSetting = () => ({
+  playerCount: defaultPlayerCount,
+  p1: 30,
+  p2: 45,
+  p3: 30,
+  witchSaveSelf: 2,
+  winCondition: 1,
+  flatTicket: 1,
+})
+
+const getRoomGameSettingKey = (roomId) => `werewolf-room-game-setting:${roomId || 'default'}`
+
+const buildReplayPageUrl = (gameId) => {
+  const replayUrl = appConfig.replayUrl || `http://${window.location.hostname}:5173`
+  const url = new URL(replayUrl, window.location.href)
+  url.searchParams.set('gameId', gameId)
+  const token = helper.getToken()
+  if(token){
+    url.searchParams.set('token', token)
+  }
+  return url.toString()
+}
+
+const normalizeGameSetting = (setting) => {
+  const next = {
+    ...getDefaultGameSetting(),
+    ...(setting || {}),
+  }
+  const playerCount = Number(next.playerCount)
+  const hasPlayerCount = playerCountOptions.some(item => Number(item.value) === playerCount)
+  return {
+    ...next,
+    playerCount: hasPlayerCount ? playerCount : defaultPlayerCount,
+    p1: Number(next.p1 || 30),
+    p2: Number(next.p2 || 45),
+    p3: Number(next.p3 || 30),
+    witchSaveSelf: Number(next.witchSaveSelf || 2),
+    winCondition: Number(next.winCondition || 1),
+    flatTicket: Number(next.flatTicket || 1),
+  }
+}
+
+const readRoomGameSetting = (roomId) => {
+  if(typeof window === 'undefined' || !window.localStorage){
+    return getDefaultGameSetting()
+  }
+  try {
+    const value = window.localStorage.getItem(getRoomGameSettingKey(roomId))
+    return normalizeGameSetting(value ? JSON.parse(value) : null)
+  } catch (e) {
+    return getDefaultGameSetting()
+  }
+}
+
+const saveRoomGameSetting = (roomId, setting) => {
+  if(typeof window === 'undefined' || !window.localStorage){
+    return
+  }
+  try {
+    window.localStorage.setItem(getRoomGameSettingKey(roomId), JSON.stringify(normalizeGameSetting(setting)))
+  } catch (e) {
+  }
+}
+
+const renderRulesMarkdown = (markdown) => {
+  const rawSections = []
+  let cur = { title: null, lines: [] }
+  String(markdown || '').split(/\r?\n/).forEach(line => {
+    const m = line.match(/^##\s+(.+)/)
+    if (m) { rawSections.push(cur); cur = { title: m[1], lines: [] } }
+    else cur.lines.push(line)
+  })
+  rawSections.push(cur)
+
+  const renderLines = (lines, pfx) => {
+    const elems = []
+    let listBuf = []
+    let k = 0
+    const id = () => `${pfx}-${k++}`
+    const flush = () => {
+      if (!listBuf.length) return
+      elems.push(<ul key={id()}>{listBuf.splice(0)}</ul>)
+    }
+    lines.forEach(line => {
+      const t = line.trim()
+      if (!t) { flush(); return }
+      if (/^-{3,}$/.test(t)) { flush(); elems.push(<div className="ready-rules-divider" key={id()} />); return }
+      const hm = t.match(/^(#{1,6})\s+(.+)/)
+      if (hm) { flush(); const lv = Math.min(hm[1].length, 4); elems.push(React.createElement(`h${lv}`, { key: id() }, hm[2])); return }
+      const bm = t.match(/^\*\s+(.+)/)
+      if (bm) { listBuf.push(<li key={id()}>{bm[1]}</li>); return }
+      const nm = t.match(/^(\d+)\.\s+(.+)/)
+      if (nm) { flush(); elems.push(<div className="rr-step" key={id()}><b className="rr-step-num">{nm[1]}</b><span>{nm[2]}</span></div>); return }
+      flush(); elems.push(<p key={id()}>{t}</p>)
+    })
+    flush()
+    return elems
+  }
+
+  return rawSections
+    .filter(s => s.title || s.lines.some(l => l.trim()))
+    .map((s, i) => {
+      if (!s.title) {
+        const body = renderLines(s.lines, `pre${i}`)
+        return body.length ? <div key={`pre${i}`} className="rr-preamble">{body}</div> : null
+      }
+      return (
+        <section key={`sec${i}`} className="rr-section">
+          <h2 className="rr-section-title">{s.title}</h2>
+          <div className="rr-section-body">{renderLines(s.lines, `sec${i}`)}</div>
+        </section>
+      )
+    })
+    .filter(Boolean)
 }
 
 const Index = (props) => {
@@ -113,16 +232,9 @@ const Index = (props) => {
   const [modifyModal, setModifyModal] = useState(false)
   const [newName, setNewName] = useState(null)
   const [settingModal, setSettingModal] = useState(false)
+  const [rulesModal, setRulesModal] = useState(false)
   const [kickMode, setKickMode] = useState(false)
-  const [gameSetting, setGameSetting] = useState({
-    playerCount: 9,
-    p1: 30,
-    p2: 45,
-    p3: 30,
-    witchSaveSelf: 2,
-    winCondition: 1,
-    flatTicket: 1,
-  })
+  const [gameSetting, setGameSetting] = useState(() => readRoomGameSetting(roomId))
   const [voiceRecording, setVoiceRecording] = useState(false)
   const [voiceSubmitting, setVoiceSubmitting] = useState(false)
   const [realtimeVoiceSpeaker, setRealtimeVoiceSpeaker] = useState(null)
@@ -141,6 +253,7 @@ const Index = (props) => {
   const realtimeVoiceTimerRef = useRef(null)
   const roomDetailRef = useRef({})
   const gameDetailRef = useRef({})
+  const rulesContent = useMemo(() => renderRulesMarkdown(rulesMarkdownText), [rulesMarkdownText])
   const socketOnRef = useRef(socketOn)
   const mountedRef = useRef(true)
   const roomRequestRef = useRef(0)
@@ -158,6 +271,10 @@ const Index = (props) => {
   useEffect(() => {
     socketOnRef.current = socketOn
   }, [socketOn])
+
+  useEffect(() => {
+    saveRoomGameSetting(roomId, gameSetting)
+  }, [roomId, gameSetting])
 
   const isOwner = roomDetail && (
     roomDetail.owner === user.username ||
@@ -212,7 +329,7 @@ const Index = (props) => {
   const isNightStage = gameDetail.status === 1 && [0, 1, 2, 3].includes(Number(gameDetail.stage))
   const isDuskStage = gameDetail.status === 1 && (Number(gameDetail.stage) === 7 || gameDetail.dayTag === "黄昏")
   const isSettlementStage = [2, 3].includes(Number(gameDetail.status))
-  const selectedPlayerCount = Number(gameSetting.playerCount || 9)
+  const selectedPlayerCount = Number(gameSetting.playerCount || defaultPlayerCount)
   const waitingPlayers = roomDetail.waitPlayer || []
   const occupiedSeatCount = seatInfo.filter(item => item.player).length
   const dayPlayerSlots = useMemo(() => {
@@ -220,7 +337,7 @@ const Index = (props) => {
     ;(playerInfo || []).forEach(item => {
       playerMap[Number(item.position)] = item
     })
-    return Array.from({ length: 12 }, (_, index) => {
+    return Array.from({ length: defaultSeatCount }, (_, index) => {
       const position = index + 1
       return playerMap[position] || {
         position,
@@ -308,7 +425,8 @@ const Index = (props) => {
     if(Number(gameDetail.stage) === 2 && currentRole.role === "wolf"){
       return "wolf"
     }
-    if(Number(gameDetail.stage) === 7){
+    const currentSpeaker = gameDetail.speechTurn && gameDetail.speechTurn.currentSpeaker
+    if(Number(gameDetail.stage) === 7 || (currentSpeaker && currentSpeaker.isFirstNightLastWords)){
       return "lastWords"
     }
     return "day"
@@ -575,7 +693,8 @@ const Index = (props) => {
       return
     }
     setVoiceSubmitting(true)
-    const isLastWords = Number(gameDetail.stage) === 7
+    const currentSpeaker = gameDetail.speechTurn && gameDetail.speechTurn.currentSpeaker
+    const isLastWords = Number(gameDetail.stage) === 7 || !!(currentSpeaker && currentSpeaker.isFirstNightLastWords)
     const speechParams = {
       roomId: gameDetail.roomId,
       gameId: gameDetail._id,
@@ -585,22 +704,10 @@ const Index = (props) => {
       if(!text){
         return Promise.reject(new Error('未识别到发言内容'))
       }
-      if(isLastWords){
-        return apiGame.saveLastWords({
-          ...speechParams,
-          content: text,
-          audioUrl: '',
-          userInfo: {
-            username: currentRole.username,
-            name: currentRole.name,
-            position: currentRole.position,
-          },
-        })
-      }
       return apiVoice.speechText({
         ...speechParams,
         text,
-      }).catch(() => apiVoice.speech(audioBlob, speechParams))
+      })
     }).then(data=>{
       const text = data && data.text ? data.text : '已保存'
       message.success((isLastWords ? '遗言已提交：' : '发言已提交：') + text)
@@ -824,12 +931,14 @@ const Index = (props) => {
         setDuskRecordRows((data.parsedVotes || []).map(item => ({
           day: item.day,
           stage: item.stage,
+          count: item.count || item.voteCount || item.total,
           content: {
             type: item.type,
             action: item.action,
             actionName: item.actionName,
             to: item.target,
             from: item.votersText ? {name: item.votersText} : null,
+            count: item.count || item.voteCount || item.total,
             text: item.text,
           },
         })))
@@ -875,12 +984,14 @@ const Index = (props) => {
   const syncSettlementResult = (detail) => {
     if(!detail || ![2, 3].includes(Number(detail.status))){
       setSettlementResult(null)
+      setReplayLoading(false)
       setReplayReport(null)
       setReplayModal(false)
       return
     }
     if(Number(detail.status) === 3){
       setSettlementResult({aborted: true})
+      setReplayLoading(false)
       setReplayReport(null)
       setReplayModal(false)
       return
@@ -893,34 +1004,29 @@ const Index = (props) => {
   }
 
   const initSeat = (detail) => {
-    if(!detail.seat){
-      let p = []
-      for(let i =0; i< 12; i++){
-        p.push({
-          index: i,
-          key: i + 1,
-          name: (i + 1) + '号',
-          player: null
-        })
+    const seatMap = {}
+    ;(detail.seat || []).forEach((item, index) => {
+      const position = Number(item.position || item.key || index + 1)
+      if (!position || position < 1 || position > defaultSeatCount) {
+        return
       }
-      setSeatInfo(p)
-    } else {
-      let p = []
-      for(let i = 0; i < detail.seat.length; i++){
-        let item = detail.seat[i]
-        p.push({
-          index: i,
-          key: item.position,
-          name: item.name,
-          player: item.player ? item.player : null
-        })
+      seatMap[position] = {
+        index: position - 1,
+        key: position,
+        name: item.name || position + '号',
+        player: item.player ? item.player : null,
       }
-      // 排序
-      p.sort(function (a,b){
-        return a.key - b.key
-      })
-      setSeatInfo(p)
-    }
+    })
+    const normalizedSeats = Array.from({ length: defaultSeatCount }, (_, index) => {
+      const position = index + 1
+      return seatMap[position] || {
+        index,
+        key: position,
+        name: position + '号',
+        player: null,
+      }
+    })
+    setSeatInfo(normalizedSeats)
   }
 
   const initRecordList = (data) => {
@@ -1479,7 +1585,39 @@ const Index = (props) => {
           </div>
         </div>
       </Modal>
+
+      <Modal
+        title={<div className="ready-rules-title"><BookOutlined /><span>村庄规则</span></div>}
+        centered
+        className="modal-view-wrap ready-rules-modal"
+        maskClosable={false}
+        width={860}
+        maskStyle={{
+          backgroundColor: "rgba(0,0,0,0.18)",
+        }}
+        visible={rulesModal}
+        onCancel={() => setRulesModal(false)}
+        footer={[
+          <Button key="close" className="btn-primary" onClick={() => setRulesModal(false)}>
+            我知道了
+          </Button>,
+        ]}
+      >
+        <div className="ready-rules-shell">
+          <div className="ready-rules-brief">
+            <strong>开局前请先确认规则</strong>
+            <span>房间采用系统自动法官流程，身份、发言、投票与胜负条件均以当前规则为准。</span>
+          </div>
+          <div className="ready-rules-content">
+            {rulesContent}
+          </div>
+        </div>
+      </Modal>
     </>
+  )
+
+  const renderRulesNavButton = (activeClass = "") => (
+    <button className={activeClass} type="button" onClick={() => setRulesModal(true)}><BookOutlined />游戏规则</button>
   )
 
   const renderReadySeat = (item, index) => {
@@ -1534,18 +1672,10 @@ const Index = (props) => {
         <img src={villageSquareImage} alt="" />
       </div>
       <header className="ready-topbar">
-        <div className="ready-brand">村落日志</div>
-        <nav>
-          <button type="button">游戏规则</button>
-          <button type="button">世界观</button>
-        </nav>
+        <div className="ready-brand">雾中窥影</div>
         <div className="ready-room-plaque">
           <span>房间</span>
           <strong>{roomDetail.password || roomDetail.key || roomDetail._id || "----"}</strong>
-        </div>
-        <div className="ready-top-actions">
-          <button type="button" aria-label="音量"><AudioOutlined /></button>
-          <button type="button" aria-label="设置"><SettingOutlined /></button>
         </div>
       </header>
 
@@ -1558,13 +1688,11 @@ const Index = (props) => {
           </div>
         </div>
         <nav>
-          <button className="active" type="button"><HomeOutlined />广场</button>
-          <button type="button"><TeamOutlined />玩家</button>
-          <button type="button"><BookOutlined />规则</button>
-          <button type="button"><EyeOutlined />观战</button>
+          <button className={rulesModal ? "" : "active"} type="button"><HomeOutlined />广场</button>
+          {renderRulesNavButton(rulesModal ? "active" : "")}
         </nav>
         <div className="ready-summary">
-          <div><span>已入座</span><strong>{occupiedSeatCount}/12</strong></div>
+          <div><span>已入座</span><strong>{occupiedSeatCount}/{defaultSeatCount}</strong></div>
           <div><span>开局人数</span><strong>{selectedPlayerCount}人</strong></div>
           <div><span>AI补位</span><strong>{startSeatStats.autoAiCount}人</strong></div>
         </div>
@@ -1583,7 +1711,7 @@ const Index = (props) => {
             <p>玩家正在进入村庄，房主可以安排座位并设置开局规则。</p>
           </div>
           <div className="ready-orbit">
-            {seatInfo.slice(0, 12).map(item => (
+            {seatInfo.slice(0, defaultSeatCount).map(item => (
               <div className={`ready-seat-slot ready-seat-slot-${item.key}`} key={item.key}>
                 {renderReadySeat(item, item.key - 1)}
               </div>
@@ -1632,7 +1760,7 @@ const Index = (props) => {
   const renderSyncingRoom = () => (
     <div className="room-sync-shell">
       {renderRoomSocket()}
-      <div className="room-sync-brand">村落日志</div>
+      <div className="room-sync-brand">雾中窥影</div>
       <section className="room-sync-card">
         <span className="room-sync-spinner" />
         <h2>正在同步村庄状态</h2>
@@ -1709,9 +1837,6 @@ const Index = (props) => {
 
     items.push("夜幕已经落下，所有玩家保持闭眼。")
 
-    if(stage === 0){
-      items.push("当前仍在幕布阶段，尚未产生夜间行动。")
-    }
     if(stage >= 1){
       if(currentRole.role === "predictor" && (actionLineMap.check || privateLine)){
         items.push(actionLineMap.check || privateLine)
@@ -1734,11 +1859,13 @@ const Index = (props) => {
       }
     }
 
-    getPublicNightRecordLines(gameDetail.day).forEach(text => {
-      if(!items.includes(text)){
-        items.push(text)
-      }
-    })
+    if(stage > 0){
+      getPublicNightRecordLines(gameDetail.day).forEach(text => {
+        if(!items.includes(text)){
+          items.push(text)
+        }
+      })
+    }
 
     return items
   }
@@ -1909,18 +2036,10 @@ const Index = (props) => {
         {renderRoomSocket()}
         <div className="night-bg" aria-hidden="true" />
         <header className="ready-topbar night-topbar">
-          <div className="ready-brand">村落日志</div>
-          <nav>
-            <button type="button">游戏规则</button>
-            <button type="button">世界观</button>
-          </nav>
+          <div className="ready-brand">雾中窥影</div>
           <div className="ready-room-plaque night-room-plaque">
             <span>房间</span>
             <strong>{roomDetail.password || roomDetail.key || roomDetail._id || "----"}</strong>
-          </div>
-          <div className="ready-top-actions">
-            <button type="button" aria-label="音量"><AudioOutlined /></button>
-            <button type="button" aria-label="设置"><SettingOutlined /></button>
           </div>
         </header>
 
@@ -1935,10 +2054,7 @@ const Index = (props) => {
             </div>
           </div>
           <nav>
-            <button type="button"><HomeOutlined />广场</button>
-            <button type="button"><TeamOutlined />玩家</button>
-            <button className="active" type="button"><BookOutlined />行动</button>
-            <button type="button" onClick={lookRecord}><EyeOutlined />日志</button>
+            {renderRulesNavButton(rulesModal ? "active" : "")}
           </nav>
           <div className="ready-summary">
             <div><span>当前天数</span><strong>{`第${gameDetail.day || 0}天`}</strong></div>
@@ -2144,16 +2260,55 @@ const Index = (props) => {
 
   const renderDayDiscussion = () => {
     const records = gameDetail.speechRecords || []
+    const currentSpeaker = gameDetail.speechTurn && gameDetail.speechTurn.currentSpeaker
+    const isSameDiscussionSpeaker = (item, speaker) => {
+      const from = item && item.from ? item.from : {}
+      return !!(
+        item &&
+        speaker &&
+        (
+          (speaker.username && from.username === speaker.username) ||
+          (speaker.position && Number(from.position) === Number(speaker.position))
+        )
+      )
+    }
+    const duskLastWordsSpeaker = Number(gameDetail.stage) === 7 ? ((buildDuskVoteSummary() || {}).exiledPlayer || null) : null
+    const lastWordsSpeaker = currentSpeaker && currentSpeaker.isFirstNightLastWords ? currentSpeaker : duskLastWordsSpeaker
+    let lastWordsRecordIndex = -1
+    if(lastWordsSpeaker){
+      records.forEach((item, index) => {
+        if(isSameDiscussionSpeaker(item, lastWordsSpeaker)){
+          const itemStage = Number(item.stage)
+          const currentStage = Number(gameDetail.stage)
+          if(Number.isNaN(itemStage) || itemStage === currentStage || item.isFirstNightLastWords || item.type === "lastWords" || item.scope === "lastWords"){
+            lastWordsRecordIndex = index
+          }
+        }
+      })
+    }
+    const isFirstNightLastWordsRecord = (item, index) => {
+      if(!item){
+        return false
+      }
+      if(item.isFirstNightLastWords || item.type === "lastWords" || item.scope === "lastWords"){
+        return true
+      }
+      return index === lastWordsRecordIndex
+    }
     return (
       <div className="day-discussion-list">
-        {records.length > 0 ? records.map((item, index) => (
-          <div className="day-discussion-item" key={item._id || index}>
-            <div className="day-discussion-speaker">
-              {item.from ? `${item.from.position || ""}号 ${item.from.name || item.from.username || "玩家"}` : "玩家"}
+        {records.length > 0 ? records.map((item, index) => {
+          const isLastWords = isFirstNightLastWordsRecord(item, index)
+          return (
+            <div className={isLastWords ? "day-discussion-item day-discussion-lastwords" : "day-discussion-item"} key={item._id || index}>
+              <div className="day-discussion-speaker">
+                <span>{item.from ? `${item.from.position || ""}号 ${item.from.name || item.from.username || "玩家"}` : "玩家"}</span>
+                {isLastWords ? <em>遗言</em> : null}
+              </div>
+              <div className="day-discussion-text">{item.text}</div>
             </div>
-            <div className="day-discussion-text">{item.text}</div>
-          </div>
-        )) : (
+          )
+        }) : (
           <div className="ready-empty-text">暂无讨论记录</div>
         )}
       </div>
@@ -2163,12 +2318,14 @@ const Index = (props) => {
   const renderDayRoom = () => {
     const isSpeechStage = Number(gameDetail.stage) === 5
     const currentSpeaker = gameDetail.speechTurn && gameDetail.speechTurn.currentSpeaker
+    const isFirstNightLastWords = !!(currentSpeaker && currentSpeaker.isFirstNightLastWords)
+    const currentUsername = currentRole.username || user.username
     const canSpeak =
       isSpeechStage &&
       !gameDetail.isOb &&
-      isAlivePlayer(currentRole) &&
       currentSpeaker &&
-      currentSpeaker.username === currentRole.username
+      currentSpeaker.username === currentUsername &&
+      (isAlivePlayer(currentRole) || isFirstNightLastWords)
     const voteAction = (actionInfo || []).find(item => item.key === "vote")
     const broadcastText = (gameDetail.broadcast || []).map(item => item.text).join("")
     const speechTurnText = currentSpeaker ?
@@ -2182,18 +2339,10 @@ const Index = (props) => {
           <img src={villageSquareImage} alt="" />
         </div>
         <header className="ready-topbar">
-          <div className="ready-brand">村落日志</div>
-          <nav>
-            <button type="button">游戏规则</button>
-            <button type="button">世界观</button>
-          </nav>
+          <div className="ready-brand">雾中窥影</div>
           <div className="ready-room-plaque">
             <span>房间</span>
             <strong>{roomDetail.password || roomDetail.key || roomDetail._id || "----"}</strong>
-          </div>
-          <div className="ready-top-actions">
-            <button type="button" aria-label="音量"><AudioOutlined /></button>
-            <button type="button" aria-label="设置"><SettingOutlined /></button>
           </div>
         </header>
 
@@ -2208,10 +2357,7 @@ const Index = (props) => {
             </div>
           </div>
           <nav>
-            <button className="active" type="button"><HomeOutlined />广场</button>
-            <button type="button"><TeamOutlined />玩家</button>
-            <button type="button"><BookOutlined />行动</button>
-            <button type="button" onClick={lookRecord}><EyeOutlined />日志</button>
+            {renderRulesNavButton(rulesModal ? "active" : "")}
           </nav>
           <div className="ready-summary">
             <div><span>当前阶段</span><strong>{gameDetail.dayTag || "白天"}</strong></div>
@@ -2224,14 +2370,9 @@ const Index = (props) => {
               <span>{speechTurnText}</span>
             </div>
           ) : null}
-          {voteAction && voteAction.show ? (
-            <button
-              className="ready-start-btn"
-              type="button"
-              disabled={!voteAction.canUse}
-              onClick={() => useSkill("vote")}
-            >
-              投出此票
+          {canNextStage ? (
+            <button className="ready-start-btn" type="button" onClick={nextStage}>
+              下一阶段
             </button>
           ) : null}
           {renderOwnerEndGameButton()}
@@ -2277,7 +2418,6 @@ const Index = (props) => {
                 <img className="day-action-icon" src={vote} alt="" />投票
               </button>
               <button type="button" onClick={lookRecord}><BookOutlined />日志</button>
-              {canNextStage ? <button type="button" onClick={nextStage}><BulbOutlined />下一阶段</button> : null}
             </div>
           </section>
         </main>
@@ -2344,7 +2484,28 @@ const Index = (props) => {
     if(!value){
       return 0
     }
-    return value.split("、").filter(Boolean).length
+    return value
+      .split(/[、,，\s]+/)
+      .map(item => item.trim())
+      .filter(Boolean)
+      .length
+  }
+
+  const getVoteContentCount = (content, row) => {
+    const explicitCount = Number(
+      content.count ||
+      content.voteCount ||
+      content.total ||
+      content.votes ||
+      (row && (row.count || row.voteCount || row.total))
+    )
+    if(!Number.isNaN(explicitCount) && explicitCount > 0){
+      return explicitCount
+    }
+    return parseVoteNameCount(content.to && content.to.name) ||
+      parseVoteNameCount(content.from && content.from.name) ||
+      parseVoteNameCount(content.text) ||
+      1
   }
 
   const getPlayerByPositionOrName = (position, name) => {
@@ -2390,7 +2551,13 @@ const Index = (props) => {
       const content = normalizeRecordContent(item.content)
       return content.type === "vote" || (
         content.type === "action" &&
-        (content.action === "vote" || content.key === "vote" || content.actionName === "投票")
+        (
+          content.action === "vote" ||
+          content.action === "abstained" ||
+          content.key === "vote" ||
+          content.actionName === "投票" ||
+          content.actionName === "弃票"
+        )
       )
     })
     const latestVoteStage = voteRows.reduce((stage, item) => {
@@ -2412,11 +2579,10 @@ const Index = (props) => {
     latestVoteRows.forEach((item, index) => {
       const content = normalizeRecordContent(item.content)
       const target = content.to || {}
-      const isAbstain = content.action === "abstained" || content.actionName === "弃票" || target.name === "弃票"
+      const targetName = String(target.name || "")
+      const isAbstain = content.action === "abstained" || content.actionName === "弃票" || targetName.indexOf("弃票") > -1
       const player = isAbstain ? null : getPlayerByRecordTarget(target)
-      const count = content.type === "vote" ?
-        (parseVoteNameCount(target.name) || parseVoteNameCount(content.from && content.from.name)) :
-        1
+      const count = getVoteContentCount(content, item)
       const key = isAbstain ? "abstained" : (target.username || target.position || target.name || `vote-${index}`)
       const voter = content.from && (content.from.name || content.from.position || content.from.username)
       if(voteSummaryMap[key]){
@@ -2547,18 +2713,10 @@ const Index = (props) => {
           <img src={twilightVillageImage} alt="" />
         </div>
         <header className="ready-topbar dusk-topbar">
-          <div className="ready-brand">村落日志</div>
-          <nav>
-            <button type="button">游戏规则</button>
-            <button type="button">世界观</button>
-          </nav>
+          <div className="ready-brand">雾中窥影</div>
           <div className="ready-room-plaque dusk-room-plaque">
             <span>房间</span>
             <strong>{roomDetail.password || roomDetail.key || roomDetail._id || "----"}</strong>
-          </div>
-          <div className="ready-top-actions">
-            <button type="button" aria-label="音量"><AudioOutlined /></button>
-            <button type="button" aria-label="设置"><SettingOutlined /></button>
           </div>
         </header>
 
@@ -2573,11 +2731,7 @@ const Index = (props) => {
             </div>
           </div>
           <nav>
-            <button type="button"><HomeOutlined />白天阶段</button>
-            <button type="button"><BulbOutlined />夜晚阶段</button>
-            <button className="active" type="button"><CrownOutlined />黄昏审判</button>
-            <button type="button" onClick={lookRecord}><BookOutlined />村庄记录</button>
-            <button type="button"><TeamOutlined />玩家名单</button>
+            {renderRulesNavButton(rulesModal ? "active" : "")}
           </nav>
           <div className="ready-summary dusk-summary">
             <div><span>当前天数</span><strong>{`第${gameDetail.day || 1}天`}</strong></div>
@@ -2704,7 +2858,7 @@ const Index = (props) => {
       message.info("本局由房主结束，暂无胜负复盘报告")
       return
     }
-    window.open(`${appConfig.replayUrl}/?gameId=${gameDetail._id}`, '_blank')
+    window.location.href = buildReplayPageUrl(gameDetail._id)
   }
 
   const gameAgainFromSettlement = () => {
@@ -2753,18 +2907,10 @@ const Index = (props) => {
           <img src={twilightVillageImage} alt="" />
         </div>
         <header className="ready-topbar dusk-topbar">
-          <div className="ready-brand">村落日志</div>
-          <nav>
-            <button type="button">游戏规则</button>
-            <button type="button">世界观</button>
-          </nav>
+          <div className="ready-brand">雾中窥影</div>
           <div className="ready-room-plaque dusk-room-plaque">
             <span>房间</span>
             <strong>{roomDetail.password || roomDetail.key || roomDetail._id || "----"}</strong>
-          </div>
-          <div className="ready-top-actions">
-            <button type="button" aria-label="音量"><AudioOutlined /></button>
-            <button type="button" aria-label="设置"><SettingOutlined /></button>
           </div>
         </header>
 
@@ -2779,11 +2925,7 @@ const Index = (props) => {
             </div>
           </div>
           <nav>
-            <button type="button"><HomeOutlined />白天阶段</button>
-            <button type="button"><BulbOutlined />夜晚阶段</button>
-            <button type="button"><CrownOutlined />黄昏审判</button>
-            <button className="active" type="button"><CrownOutlined />游戏结算</button>
-            <button type="button" onClick={loadReplayReport}><BookOutlined />复盘报告</button>
+            {renderRulesNavButton(rulesModal ? "active" : "")}
           </nav>
           <div className="ready-summary dusk-summary">
             <div><span>游戏状态</span><strong>已结束</strong></div>
@@ -2896,6 +3038,7 @@ const Index = (props) => {
       {isSettlementStage ? renderSettlementRoom() : isNightStage ? renderNightRoom() : isDuskStage ? renderDuskRoom() : isDayStage ? renderDayRoom() : renderSyncingRoom()}
 
       {renderMockSettlementTools()}
+      {renderReadyModals()}
 
       <Modal
         title="游戏事件记录"
@@ -2933,17 +3076,25 @@ const Index = (props) => {
           </Button>
         ]}
       >
-        {replayReport ? (
+        {replayLoading ? (
+          <div className="replay-loading">正在读取复盘报告...</div>
+        ) : replayReport ? (
           <>
             <div className="settlement-report-meta">
               <span>{`游戏天数：${(replayReport.gameRecord && replayReport.gameRecord.days) || gameDetail.day || "-"}`}</span>
-              <span>{`胜利阵营：${settlementResult && settlementResult.winnerString ? settlementResult.winnerString : "未知"}`}</span>
+              <span>{`胜利阵营：${replayReport.winnerLabel || (settlementResult && settlementResult.winnerString) || "未知"}`}</span>
+              {replayReport.analysisFiles ? <span>{`复盘文件：${replayReport.analysisFiles.text || replayReport.analysisFiles.json || "已生成"}`}</span> : null}
             </div>
             <pre className="settlement-report-text">
-              {replayReport.text || JSON.stringify(replayReport.raw || {}, null, 2) || "复盘结果已生成，暂无文字报告。"}
+              {(replayReport.analysis && replayReport.analysis.text) ||
+                (replayReport.analysis && replayReport.analysis.json ? JSON.stringify(replayReport.analysis.json, null, 2) : "") ||
+                (replayReport.gameRecord ? JSON.stringify(replayReport.gameRecord, null, 2) : "") ||
+                "复盘结果已生成，暂无文字报告。"}
             </pre>
           </>
-        ) : null}
+        ) : (
+          <div className="replay-loading">暂无复盘报告</div>
+        )}
       </Modal>
 
       <Modal

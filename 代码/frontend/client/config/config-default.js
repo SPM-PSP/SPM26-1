@@ -1,12 +1,12 @@
 module.exports = {
   // 复盘前端地址，联调时改成运行复盘前端的机器IP
-  replayFrontendUrl: 'http://192.168.22.152:5173',
+  replayFrontendUrl: 'http://172.20.10.4:5173',
 
   proxy: [
     {
       // api的接口全部转到6001的服务端去
       context: ['/api'],
-      target: 'http://192.168.22.60:6001',
+      target: 'http://172.20.10.2:6001',
       changeOrigin: true,
     },
   ],

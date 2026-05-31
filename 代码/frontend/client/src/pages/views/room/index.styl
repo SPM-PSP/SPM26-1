@@ -366,14 +366,6 @@
   font-size 22px
   line-height 1.1
 
-.ready-top-actions
-  display flex
-  gap 12px
-
-.ready-top-actions button
-  color var(--primary)
-  font-size 22px
-
 .ready-sidebar
   grid-column 1
   grid-row 2
@@ -514,6 +506,165 @@
 
 .ready-side-link
   margin-top auto
+
+.ready-rules-modal
+  font-family Georgia, 'Noto Serif SC', 'Noto Serif', serif
+
+.ready-rules-modal .ant-modal-content
+  overflow hidden
+  border-radius 22px
+  background #fef9eb
+  box-shadow 0 28px 70px rgba(42, 26, 17, .28)
+
+.ready-rules-modal .ant-modal-header
+  padding 24px 30px 10px
+  border-bottom 0
+  background linear-gradient(180deg, #fff8ea, #fef9eb)
+
+.ready-rules-modal .ant-modal-body
+  padding 0 30px 24px
+  background #fef9eb
+
+.ready-rules-modal .ant-modal-footer
+  padding 14px 30px 24px
+  border-top 0
+  background #fef9eb
+
+.ready-rules-title
+  display flex
+  align-items center
+  gap 10px
+  color var(--primary)
+  font-size 24px
+  font-weight 900
+  font-style italic
+
+.ready-rules-shell
+  max-height min(68vh, 640px)
+  overflow-y auto
+  padding-right 8px
+  scrollbar-width thin
+  scrollbar-color rgba(99, 0, 10, .2) transparent
+
+.ready-rules-brief
+  margin 0 0 18px
+  padding 13px 18px
+  border-left 4px solid #63000a
+  border-radius 0 10px 10px 0
+  background rgba(231, 226, 212, .55)
+
+.ready-rules-brief strong
+  display block
+  color #63000a
+  font-size 15px
+  line-height 1.5
+
+.ready-rules-brief span
+  display block
+  margin-top 4px
+  color #5e583d
+  font-size 13px
+  line-height 1.65
+
+/* section card layout */
+.rr-preamble
+  margin 0 0 14px
+  color #342c20
+  font-size 14px
+  line-height 1.8
+
+.rr-preamble h1
+  display none
+
+.rr-section
+  margin 0 0 16px
+  border 1px solid rgba(99, 0, 10, .15)
+  border-radius 12px
+  overflow hidden
+  background rgba(254, 249, 235, .65)
+  box-shadow 0 4px 16px rgba(29, 28, 19, .07)
+
+.rr-section-title
+  margin 0
+  padding 13px 20px 12px
+  color #4d2811
+  background linear-gradient(120deg, rgba(231, 226, 212, .92), rgba(243, 238, 224, .82))
+  border-bottom 1px solid rgba(99, 0, 10, .1)
+  font-size 17px
+  font-weight 900
+  line-height 1.3
+
+.rr-section-body
+  padding 14px 20px 16px
+  color #342c20
+  font-size 13.5px
+  line-height 1.82
+
+.rr-section-body h3
+  margin 16px 0 7px
+  padding-bottom 7px
+  border-bottom 1px solid rgba(99, 0, 10, .12)
+  color #63000a
+  font-size 15px
+  font-weight 900
+
+.rr-section-body h3:first-child
+  margin-top 4px
+
+.rr-section-body h4
+  margin 13px 0 5px
+  padding-left 10px
+  border-left 3px solid #546432
+  color #3d4c1d
+  font-size 13.5px
+  font-weight 900
+
+.rr-section-body p
+  margin 0 0 8px
+
+.rr-section-body ul
+  margin 4px 0 10px
+  padding 10px 14px 10px 30px
+  border-radius 8px
+  background rgba(255, 255, 255, .5)
+  border 1px solid rgba(231, 226, 212, .8)
+
+.rr-section-body li
+  margin 4px 0
+  color #342c20
+
+.ready-rules-divider
+  height 1px
+  margin 12px 0
+  background linear-gradient(90deg, transparent, rgba(99, 0, 10, .22), transparent)
+
+.rr-step
+  display grid
+  grid-template-columns 24px 1fr
+  align-items flex-start
+  gap 11px
+  margin 5px 0
+  padding 9px 14px
+  border-radius 8px
+  background rgba(248, 243, 229, .72)
+  border 1px solid rgba(231, 226, 212, .72)
+  font-size 13.5px
+  line-height 1.7
+  color #342c20
+
+.rr-step-num
+  display inline-flex
+  align-items center
+  justify-content center
+  width 24px
+  height 24px
+  flex none
+  border-radius 50%
+  color #fff
+  background #63000a
+  font-size 12px
+  font-weight 900
+  margin-top 2px
 
 .ready-main
   grid-column 2
@@ -741,6 +892,13 @@
 
 .ready-day-player
   cursor default
+  z-index 3
+
+.ready-day-player .ready-seat-name,
+.ready-day-player .ready-seat-note,
+.ready-day-player .day-player-tags
+  position relative
+  z-index 6
 
 .ready-day-player.day-player-self .ready-seat-frame
   background #85171b
@@ -819,8 +977,9 @@
 
 .ready-center-piece
   position absolute
+  z-index 1
   left 50%
-  top 52%
+  top calc(50% - 18px)
   transform translate(-50%, -50%)
   pointer-events none
   width 190px
@@ -1013,10 +1172,28 @@
   border-bottom 1px solid rgba(231,226,212,.76)
 
 .day-discussion-speaker
+  display flex
+  align-items center
+  gap 10px
   color var(--secondary)
   font-size 13px
   font-weight 900
   line-height 1.4
+
+.day-discussion-speaker em
+  min-width 64px
+  padding 2px 16px
+  border 2px solid var(--primary)
+  color var(--primary)
+  background rgba(255, 218, 215, .28)
+  font-size 13px
+  font-style normal
+  font-weight 900
+  line-height 1.3
+  text-align center
+
+.day-discussion-lastwords .day-discussion-text
+  color #4a1f13
 
 .day-discussion-text
   margin-top 6px
@@ -1562,9 +1739,6 @@
 
 .dusk-topbar button
   color #5e503e
-
-.dusk-topbar .ready-top-actions button
-  color var(--primary)
 
 .dusk-room-plaque
   background linear-gradient(180deg, #5d2c10, #351807)

@@ -219,72 +219,12 @@
   inset 0
   background radial-gradient(circle at 50% 0, transparent 18%, rgba(254, 249, 235, .88) 86%)
 
-.welcome-rail
-  position fixed
-  top 0
-  left 0
-  z-index 8
-  width 80px
-  height 100vh
-  padding 16px 14px
-  display flex
-  flex-direction column
-  align-items center
-  gap 22px
-  background rgba(248, 243, 229, .92)
-  border-right 1px solid rgba(195, 200, 188, .35)
-  box-shadow 14px 0 38px rgba(29, 28, 19, .08)
-  backdrop-filter blur(18px)
-
-.welcome-avatar
-  width 48px
-  height 48px
-  border-radius 50%
-  display flex
-  align-items center
-  justify-content center
-  color var(--tertiary-soft)
-  background #111
-  border 2px solid var(--primary)
-  font-weight 900
-
-.rail-item,
-.rail-help
-  width 52px
-  height 52px
-  border 0
-  border-radius 14px
-  display inline-flex
-  align-items center
-  justify-content center
-  color rgba(90, 106, 55, .68)
-  background transparent
-  cursor pointer
-  transition background .2s ease, color .2s ease, transform .2s ease
-
-.rail-item:hover,
-.rail-help:hover,
-.rail-active
-  color var(--primary)
-  background rgba(231, 226, 212, .75)
-  transform translateY(-1px)
-
-.rail-help
-  margin-top auto
-  width 22px
-  height 22px
-  border-radius 50%
-  color #fff
-  background rgba(84, 100, 50, .72)
-  font-size 13px
-  font-weight 700
-
 .welcome-topbar
   position sticky
   top 0
   z-index 7
   height 64px
-  margin-left 80px
+  margin-left 0
   padding 0 28px
   display flex
   align-items center
@@ -352,7 +292,7 @@
 .welcome-main
   position relative
   z-index 2
-  margin-left 80px
+  margin-left 0
   padding 44px 24px 88px
 
 .welcome-hero-board
@@ -408,7 +348,7 @@
 
 .welcome-content-grid,
 .history-section
-  width calc(100vw - 128px)
+  width calc(100vw - 48px)
   max-width 1280px
   margin 0 auto
 
@@ -416,24 +356,24 @@
   display grid
   grid-template-columns minmax(0, 7fr) minmax(390px, 5fr)
   gap 48px
-  align-items start
+  align-items stretch
 
 .storybook-card
-  min-height 480px
-  padding 48px
-  display grid
-  grid-template-columns minmax(0, 1fr) minmax(250px, .9fr)
-  gap 40px
+  min-height 100%
+  padding 42px 46px 20px
+  display flex
+  flex-direction column
   border-radius 12px
-  background linear-gradient(90deg, rgba(253, 246, 227, .96) 0%, rgba(253, 246, 227, .96) 49.6%, rgba(245, 239, 221, .98) 49.8%, rgba(253, 246, 227, .96) 50.2%)
+  background rgba(253, 246, 227, .96)
   box-shadow 0 22px 44px rgba(29, 28, 19, .13), inset 0 0 0 6px rgba(255, 255, 255, .42)
   transform rotate(1deg)
   overflow hidden
 
 .storybook-copy
+  flex 1
   display flex
   flex-direction column
-  justify-content center
+  justify-content flex-start
 
 .story-chip
   width max-content
@@ -445,20 +385,45 @@
   font-weight 800
 
 .storybook-copy h2
-  margin 22px 0 28px
+  margin 22px 0 16px
   color var(--primary)
   font-size 44px
   line-height 1.14
   font-weight 900
 
-.storybook-copy p
+.storybook-art
+  position relative
+  height 238px
+  margin 0 0 17px
+  border-radius 0
+  overflow hidden
+  background transparent
+  box-shadow none
+
+.storybook-art:before
+  content ''
+  position absolute
+  inset 0
+  z-index 2
+  pointer-events none
+  background linear-gradient(90deg, rgba(253, 246, 227, .98) 0%, rgba(253, 246, 227, .58) 4%, rgba(253, 246, 227, 0) 12%, rgba(253, 246, 227, 0) 88%, rgba(253, 246, 227, .58) 96%, rgba(253, 246, 227, .98) 100%), linear-gradient(180deg, rgba(253, 246, 227, .98) 0%, rgba(253, 246, 227, .5) 5%, rgba(253, 246, 227, 0) 13%, rgba(253, 246, 227, 0) 76%, rgba(253, 246, 227, .62) 91%, rgba(253, 246, 227, .98) 100%)
+
+.story-body
+  flex 1
+  display flex
+  flex-direction column
+  justify-content space-between
+  gap 12px
+
+.story-body p
   margin 0
   color rgba(29, 28, 19, .82)
-  font-size 17px
-  line-height 1.9
+  font-size 15px
+  line-height 1.62
 
 .wisdom-note
-  margin-top 42px
+  margin-top 18px
+  padding-top 0
   display flex
   align-items center
   gap 14px
@@ -486,19 +451,12 @@
   color #43483f
   font-size 12px
 
-.storybook-art
-  height 388px
-  align-self center
-  border 5px solid var(--surface-high)
-  border-radius 12px
-  overflow hidden
-  box-shadow 0 12px 26px rgba(29, 28, 19, .22)
-  transform rotate(1deg)
-
 .storybook-art img
   width 100%
   height 100%
   object-fit cover
+  object-position center 38%
+  transform scale(1.012)
 
 .lobby-card-stack
   display flex
@@ -676,15 +634,11 @@
   flex 1
   background linear-gradient(90deg, rgba(99, 0, 10, .2), transparent)
 
-.history-heading button
-  border 0
+.history-heading em
   color var(--secondary)
-  background transparent
-  font-family inherit
   font-size 13px
   font-weight 900
-  letter-spacing .08em
-  cursor pointer
+  font-style normal
 
 .history-scroll
   display flex
@@ -700,13 +654,19 @@
   min-width 320px
   min-height 206px
   padding 24px
+  border 0
   display flex
   flex-direction column
   gap 16px
   border-top 4px solid var(--surface-high)
   border-radius 8px
+  color inherit
   background var(--surface-low)
   box-shadow 0 10px 22px rgba(29, 28, 19, .11)
+  cursor pointer
+  font-family inherit
+  text-align left
+  transition opacity .18s ease, transform .18s ease
 
 .history-card.rotate-0
   transform rotate(1deg)
@@ -720,6 +680,13 @@
 .history-card.rotate-3
   transform rotate(-2deg)
 
+.history-card:hover
+  opacity .92
+
+.history-card:disabled
+  cursor not-allowed
+  opacity .62
+
 .history-meta
   display flex
   justify-content space-between
@@ -729,9 +696,16 @@
 .history-card p
   margin 0
   flex 1
-  font-size 18px
-  line-height 1.45
-  font-style italic
+  font-size 16px
+  line-height 1.55
+
+.history-role-line
+  display flex
+  justify-content space-between
+  gap 14px
+  color rgba(29, 28, 19, .66)
+  font-size 12px
+  font-weight 800
 
 .history-result
   display flex
@@ -768,10 +742,68 @@
   color #6e3900
   background var(--tertiary-soft)
 
+.history-empty
+  min-width 320px
+  min-height 206px
+  padding 24px
+  border-radius 8px
+  display flex
+  align-items center
+  justify-content center
+  color rgba(29, 28, 19, .58)
+  background rgba(248, 243, 229, .72)
+  font-size 14px
+  font-weight 900
+
+.welcome-replay-modal
+  .replay-loading
+    padding 30px 0
+    color #43483f
+    text-align center
+    font-weight 900
+  .replay-detail
+    display flex
+    flex-direction column
+    gap 14px
+  .replay-detail-meta
+    display flex
+    flex-wrap wrap
+    gap 8px
+  .replay-detail-meta span,
+  .replay-player-list span
+    padding 5px 10px
+    border-radius 999px
+    color var(--primary)
+    background rgba(255, 218, 215, .58)
+    font-size 12px
+    font-weight 900
+  .replay-player-list
+    display flex
+    flex-wrap wrap
+    gap 8px
+  .replay-player-list span
+    color var(--secondary-deep)
+    background rgba(215, 234, 171, .66)
+  .replay-text
+    max-height 440px
+    margin 0
+    padding 16px
+    overflow auto
+    border-radius 8px
+    color #2f2416
+    background #f8f3e5
+    white-space pre-wrap
+    font-size 13px
+    line-height 1.7
+    font-family inherit
+  .replay-close-button
+    min-height 34px
+    padding 0 18px
+
 .welcome-footer
   position relative
   z-index 2
-  margin-left 80px
+  margin-left 0
   padding 34px 28px
   display flex
   align-items center
@@ -806,12 +838,12 @@
     grid-template-columns repeat(3, minmax(0, 1fr))
 
   .storybook-card
-    grid-template-columns minmax(0, 1fr) 260px
+    padding 34px
+
+  .storybook-art
+    height 220px
 
 @media (max-width 920px)
-  .welcome-rail
-    display none
-
   .welcome-topbar,
   .welcome-main,
   .welcome-footer
@@ -828,11 +860,10 @@
     width calc(100vw - 32px)
 
   .storybook-card
-    grid-template-columns 1fr
     padding 28px
 
   .storybook-art
-    height 280px
+    height 190px
 
   .lobby-card-stack
     grid-template-columns 1fr

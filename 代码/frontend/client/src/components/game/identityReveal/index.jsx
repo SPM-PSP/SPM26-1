@@ -115,8 +115,8 @@ const IdentityReveal = (props) => {
       <div className="identity-mote identity-mote-c" />
 
       <header className="identity-topbar">
-        <div className="identity-brand-mark">月</div>
-        <div className="identity-brand-name">月夜审判</div>
+        <div className="identity-brand-mark">雾</div>
+        <div className="identity-brand-name">雾中窥影</div>
       </header>
 
       <main className="identity-main">

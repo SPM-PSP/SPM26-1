@@ -129,11 +129,11 @@ const createSeat = () => {
 
 const createRoom = (status = 0) => ({
   _id: MOCK_ROOM_ID,
-  name: '月夜审判体验房',
+  name: '雾中窥影体验房',
   password: 'MOCK',
   owner: mockUser.username,
   status,
-  count: 9,
+  count: 12,
   wait: ['guest-01'],
   gameId: status === 1 ? MOCK_GAME_ID : null,
   seat: createSeat(),
@@ -940,6 +940,100 @@ export const mockFetch = (config = {}) => {
 
       if (url === '/api/game/replay/health/auth') {
         resolve({ ok: true })
+        return
+      }
+
+      if (url === '/api/game/replay/player/history/auth') {
+        resolve({
+          username: mockUser.username,
+          total: 2,
+          page: 1,
+          limit: 20,
+          list: [
+            {
+              gameId: MOCK_GAME_ID,
+              roomId: MOCK_ROOM_ID,
+              playerCount: 12,
+              mode: 'standard_12',
+              days: 3,
+              winner: 1,
+              winnerLabel: '好人阵营',
+              isWin: true,
+              player: {
+                username: mockUser.username,
+                name: mockUser.name,
+                position: 2,
+                role: 'witch',
+                roleName: '女巫',
+                camp: 1,
+                status: 1,
+                outReason: null,
+              },
+              hasReplay: true,
+              replayFiles: {
+                json: 'mock-replay.json',
+                text: 'mock-replay.txt',
+              },
+              replayTimestamp: new Date().toISOString(),
+              startTime: new Date(Date.now() - 7200000).toISOString(),
+              endTime: new Date().toISOString(),
+            },
+            {
+              gameId: MOCK_GAME_ID + '-2',
+              roomId: MOCK_ROOM_ID + '-2',
+              playerCount: 9,
+              mode: 'standard_9',
+              days: 2,
+              winner: 0,
+              winnerLabel: '狼人阵营',
+              isWin: false,
+              player: {
+                username: mockUser.username,
+                name: mockUser.name,
+                position: 5,
+                role: 'villager',
+                roleName: '村民',
+                camp: 1,
+                status: 0,
+                outReason: 'vote',
+              },
+              hasReplay: true,
+              replayFiles: {
+                json: 'mock-replay-2.json',
+                text: 'mock-replay-2.txt',
+              },
+              replayTimestamp: new Date(Date.now() - 86400000).toISOString(),
+              startTime: new Date(Date.now() - 93600000).toISOString(),
+              endTime: new Date(Date.now() - 86400000).toISOString(),
+            },
+          ],
+        })
+        return
+      }
+
+      if (url === '/api/game/replay/detail/auth') {
+        resolve({
+          gameId: (config.params && config.params.gameId) || MOCK_GAME_ID,
+          roomId: MOCK_ROOM_ID,
+          winnerLabel: '好人阵营',
+          analysisFiles: {
+            json: 'mock-replay.json',
+            text: 'mock-replay.txt',
+          },
+          gameRecord: {
+            days: 3,
+            winner: 1,
+            winnerLabel: '好人阵营',
+            playerCount: mockPlayers.length,
+          },
+          players: clone(mockPlayers),
+          analysis: {
+            json: {
+              summary: '好人阵营通过发言交叉验证赢下对局。',
+            },
+            text: '本局复盘：好人阵营通过连续发言交叉验证，成功缩小狼人范围。女巫保留关键药剂，猎人在白天投票阶段提供了重要压力，最终村庄找到了最后一名狼人。',
+          },
+        })
         return
       }
 

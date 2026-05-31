@@ -18,6 +18,8 @@ const {
   winConditionOptions,
   flatTicketOptions,
   playerCountOptions,
+  defaultPlayerCount,
+  defaultSeatCount,
 } = constants;
 
 const Ready = (props) => {
@@ -31,7 +33,7 @@ const Ready = (props) => {
   const [settingModal, setSettingModal] = useState(false);
 
   const [gameSetting, setGameSetting] = useState({
-    playerCount: 9,
+    playerCount: defaultPlayerCount,
     p1: 30,
     p2: 45,
     p3: 30,
@@ -42,10 +44,35 @@ const Ready = (props) => {
 
   const [kick, setKick] = useState(false);
 
-  const selectedPlayerCount = Number(gameSetting.playerCount || 9);
+  const normalizedSeat = useMemo(() => {
+    const seatMap = {};
+    (Array.isArray(seat) ? seat : []).forEach((item, index) => {
+      const position = Number(item.position || item.key || index + 1);
+      if (!position || position < 1 || position > defaultSeatCount) {
+        return;
+      }
+      seatMap[position] = {
+        index: position - 1,
+        key: position,
+        name: item.name || `${position}号`,
+        player: item.player ? item.player : null,
+      };
+    });
+    return Array.from({ length: defaultSeatCount }, (_, index) => {
+      const position = index + 1;
+      return seatMap[position] || {
+        index,
+        key: position,
+        name: `${position}号`,
+        player: null,
+      };
+    });
+  }, [seat]);
+
+  const selectedPlayerCount = Number(gameSetting.playerCount || defaultPlayerCount);
 
   const startSeatStats = useMemo(() => {
-    if (!Array.isArray(seat) || seat.length < selectedPlayerCount) {
+    if (!Array.isArray(normalizedSeat) || normalizedSeat.length < selectedPlayerCount) {
       return {
         canStart: false,
         humanCount: 0,
@@ -53,7 +80,7 @@ const Ready = (props) => {
       };
     }
     const seatMap = {};
-    seat.forEach((item) => {
+    normalizedSeat.forEach((item) => {
       seatMap[item.key] = item;
     });
     let humanCount = 0;
@@ -70,7 +97,7 @@ const Ready = (props) => {
       humanCount,
       autoAiCount,
     };
-  }, [seat, selectedPlayerCount]);
+  }, [normalizedSeat, selectedPlayerCount]);
   const canStart = startSeatStats.canStart;
 
   const modifyName = () => {
@@ -137,7 +164,7 @@ const Ready = (props) => {
     <div className="room-content-wrap">
       <div className="normal-title">桌面座位（点击空座位即可入座）：</div>
       <div className="desk-view-wrap mar-t5">
-        {seat.map((item) => {
+        {normalizedSeat.map((item) => {
           return (
             <div key={item.key} className="seat-cell mar-5 FBH FBAC FBJC">
               {kick ? (

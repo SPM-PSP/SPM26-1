@@ -84,6 +84,9 @@ const flatTicketOptions = [
   { label: "加赛 pk 一轮", value: 2 },
 ];
 
+const defaultPlayerCount = 12;
+const defaultSeatCount = 12;
+
 const playerCountOptions = [
   { label: "6人", value: 6 },
   { label: "7人", value: 7 },
@@ -102,4 +105,6 @@ export default {
   winConditionOptions,
   flatTicketOptions,
   playerCountOptions,
+  defaultPlayerCount,
+  defaultSeatCount,
 };

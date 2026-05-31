@@ -281,16 +281,34 @@ export const reportData = ref(buildReportData(mockReportData, aiReplaySampleText
 export const isLoading = ref(false);
 export const loadError = ref(null);
 
+function takeTokenFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("token") || params.get("accessToken");
+  if (!token) return "";
+
+  params.delete("token");
+  params.delete("accessToken");
+  sessionStorage.setItem("accessToken", token);
+  const nextQuery = params.toString();
+  const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`;
+  window.history.replaceState(null, "", nextUrl);
+  return token;
+}
+
 function getCookie(name) {
   const match = document.cookie.split(";").find((cookie) => cookie.trim().startsWith(`${name}=`));
   return match ? decodeURIComponent(match.trim().slice(name.length + 1)) : "";
 }
 
+function getAuthToken() {
+  return takeTokenFromUrl() || getCookie("accessToken") || sessionStorage.getItem("accessToken") || "";
+}
+
 function resolveFilePath(data, format) {
-  const files = data.analysisFiles || {};
+  const files = data.analysisFiles || data.analysis_files || data.replayFiles || data.replay_files || {};
   const filePath = format === "json"
-    ? files.json || files.jsonPath || files.json_path
-    : files.text || files.txt || files.path || files.report;
+    ? files.json || files.jsonPath || files.json_path || data.jsonPath || data.json_path
+    : files.text || files.txt || files.path || files.report || data.textPath || data.text_path || data.path;
   return typeof filePath === "string" ? filePath : null;
 }
 
@@ -300,34 +318,54 @@ async function fetchReplayFile(filePath) {
   return response.text();
 }
 
+function getStructuredReport(value) {
+  if (!value) return null;
+  if (typeof value === "string") return parseJson(value);
+  if (typeof value === "object") return Object.keys(value).length ? value : null;
+  return null;
+}
+
+function resolveDetailData(json) {
+  if (json && Object.prototype.hasOwnProperty.call(json, "success")) {
+    return json.data || {};
+  }
+  return json || {};
+}
+
 export async function loadReport(gameId) {
   isLoading.value = true;
   loadError.value = null;
   try {
-    const token = getCookie("accessToken");
-    const res = await fetch("/api/game/replay/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", authorization: token },
-      body: JSON.stringify({ gameId }),
+    const token = getAuthToken();
+    const res = await fetch(`/api/game/replay/detail/auth?gameId=${encodeURIComponent(gameId)}`, {
+      method: "GET",
+      headers: { authorization: token },
     });
     const json = await res.json();
-    if (!json.success) {
+    if (json.success === false) {
       loadError.value = json.errorMessage || "复盘分析失败";
       return;
     }
-    const data = json.data || {};
+    const data = resolveDetailData(json);
+    const analysis = data.analysis || {};
+    let text = typeof analysis.text === "string" ? analysis.text : "";
+    let structuredReport = getStructuredReport(analysis.json || data.analysisJson || data.analysis_json);
     const textPath = resolveFilePath(data, "text");
     const jsonPath = resolveFilePath(data, "json");
-    if (!textPath && !jsonPath) {
-      loadError.value = "未找到复盘文件";
+
+    const [fileText, jsonText] = await Promise.all([
+      !text && textPath ? fetchReplayFile(textPath) : Promise.resolve(""),
+      !structuredReport && jsonPath ? fetchReplayFile(jsonPath) : Promise.resolve(""),
+    ]);
+    text = text || fileText;
+    structuredReport = structuredReport || parseJson(jsonText);
+
+    if (!text && !structuredReport) {
+      loadError.value = "未找到复盘内容";
       return;
     }
-    const [text, jsonText] = await Promise.all([
-      fetchReplayFile(textPath),
-      fetchReplayFile(jsonPath),
-    ]);
-    const structuredReport = parseJson(jsonText);
-    reportData.value = buildReportData(mockReportData, text, gameId, structuredReport);
+
+    reportData.value = buildReportData(mockReportData, text, data.gameId || gameId, structuredReport);
   } catch (err) {
     loadError.value = err.message || "加载失败";
   } finally {

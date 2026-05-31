@@ -152,6 +152,22 @@ export default {
     })
   },
 
+  playerReplayHistory (params) {
+    return fetch({
+      url: urlPrefix + 'game/replay/player/history/auth',
+      method: 'get',
+      params,
+    })
+  },
+
+  replayDetail (params) {
+    return fetch({
+      url: urlPrefix + 'game/replay/detail/auth',
+      method: 'get',
+      params,
+    })
+  },
+
   saveLastWords (params) {
     return fetch({
       url: urlPrefix + 'game/saveLastWords/auth',

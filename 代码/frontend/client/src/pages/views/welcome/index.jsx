@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import "./index.styl";
 import {inject, observer} from "mobx-react";
 import {withRouter} from "react-router-dom";
@@ -7,59 +7,67 @@ import apiRoom from '@api/room'
 import apiGame from '@api/game'
 import {Modal, Input, Radio, message} from "antd";
 import {
-  AudioOutlined,
   BookOutlined,
-  CompassOutlined,
   EyeOutlined,
   LoginOutlined,
   LogoutOutlined,
   PlusCircleFilled,
-  SettingOutlined,
   StarFilled,
-  TeamOutlined,
 } from '@ant-design/icons'
 import helper from '@helper'
 import {isMockEnabled} from '@common/mock'
+import loginImage from '@assets/images/login.jpg'
 
 const ambientImage =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuDTprKn8FUcolWLiiCjptxHgZ_mEeN6w98ajveTjSwhHkCavgVAKIeG0i_Sin4W7fSP59-4Ux8MVwY5f485UBfNN42bif9FZhkEr9C3I8ox2bw7gNnIr5LExnyHkjMcBw5I0EQWY_y7ycg2sIftmauVb__nFRaH2KGC8bF8_us5gmrNzkY8miFdLL5H-iQnzGWkIZuxAt7lWkzwrFOG1HprCGQekjWD49xDhCNqUVKrSI7aJykTa8A00WAukSo_rRs3NTCrZ2hUL3o'
-const storyImage =
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuAYOI1VfnpoH1Am3vC02dVZ8Kg8cgVdPHEqXtH2zisqyO-lnD41pAYJjtvpSMR_uTwb7IjRr4oxFTUYDJw4MBuNqIkTVQn25BmEQXZcTnmnYNRKKV8JJ8_p1Lr89_AWnk_2MMy_SEfTuO0zvkDp8ndtwtaQfkH757wKWdy8IBR4dkLv2UPIcGmfA8Vo5sRyvoWQg5bIzgXnI1WoL_8atUwm2-1SelHapzwtjH87irKXol4RiTXHLHuY9ONZXXOOFEAKJpOeRNt8BjI'
 
-const historyCards = [
-  {
-    time: 'May 14, Morning',
-    code: '#2819',
-    quote: '"The wolf was found near the mill, yet the Spirit of Vengeance demanded more..."',
-    result: 'WOLVES WON',
-    tone: 'danger',
-    colors: ['#cbd5e1', '#fde68a', '#34d399'],
-  },
-  {
-    time: 'May 12, Nightfall',
-    code: '#2812',
-    quote: '"Silence fell upon the square. The Ledger was closed with no more souls to count."',
-    result: 'VILLAGE WON',
-    tone: 'success',
-    colors: ['#f87171', '#bfdbfe'],
-  },
-  {
-    time: 'May 10, Mist',
-    code: '#2798',
-    quote: '"A strange alliance formed under the shadow of the great spruce."',
-    result: 'DRAW',
-    tone: 'neutral',
-    colors: ['#c084fc', '#fed7aa', '#e5e7eb'],
-  },
-  {
-    time: 'May 08, Hearth',
-    code: '#2755',
-    quote: '"The blacksmith\'s daughter spoke truth, but the Spirits were deaf that night."',
-    result: 'WOLVES WON',
-    tone: 'danger',
-    colors: ['#facc15', '#fbcfe8'],
-  },
-]
+const roleColorMap = {
+  predictor: '#93c5fd',
+  witch: '#c084fc',
+  hunter: '#facc15',
+  wolf: '#f87171',
+  villager: '#d1d5db',
+}
+
+const formatReplayDate = (value) => {
+  if(!value){
+    return '日期未知'
+  }
+  const date = new Date(value)
+  if(Number.isNaN(date.getTime())){
+    return '日期未知'
+  }
+  const pad = (num) => String(num).padStart(2, '0')
+  return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+const getReplayTone = (item) => {
+  if(item && item.isWin === true){
+    return 'success'
+  }
+  if(item && item.isWin === false){
+    return 'danger'
+  }
+  return 'neutral'
+}
+
+const getReplayColors = (item) => {
+  const player = item.player || {}
+  return [
+    Number(player.camp) === 0 ? '#f87171' : '#34d399',
+    roleColorMap[player.role] || '#fde68a',
+    item.isWin ? '#d7eaab' : '#ffdad7',
+  ]
+}
+
+const getReplaySummary = (item) => {
+  const player = item.player || {}
+  const roleName = player.roleName || '未知身份'
+  const playerCount = item.playerCount ? `${item.playerCount}人局` : '一局游戏'
+  const days = item.days ? `持续 ${item.days} 天` : '天数未知'
+  const result = item.winnerLabel ? `${item.winnerLabel}获胜` : '胜负未记录'
+  return `你以${roleName}身份参与了${playerCount}，${days}，${result}。`
+}
 
 const Index = (props) => {
   const {appStore, history} = props;
@@ -69,10 +77,16 @@ const Index = (props) => {
   const [createUserModal, setCreateUserModal] = useState(false)
   const [newPlayer, setNewPlayer] = useState({})
 
-  const [newRoom, setNewRoom] = useState(mockOn ? '月夜审判体验房' : '')
+  const [newRoom, setNewRoom] = useState(mockOn ? '雾中窥影体验房' : '')
   const [roomKey, setRoomKey] = useState(mockOn ? 'MOCK' : '')
   const [observeKey, setObserveKey] = useState(mockOn ? 'MOCK' : '')
   const [actionLoading, setActionLoading] = useState('')
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyList, setHistoryList] = useState([])
+  const [historyTotal, setHistoryTotal] = useState(0)
+  const [replayModal, setReplayModal] = useState(false)
+  const [replayLoading, setReplayLoading] = useState(false)
+  const [replayDetail, setReplayDetail] = useState(null)
 
   const playerType = [
     {
@@ -164,30 +178,47 @@ const Index = (props) => {
     logout()
   }
 
+  const loadReplayHistory = () => {
+    setHistoryLoading(true)
+    apiGame.playerReplayHistory({ page: 1, limit: 20 }).then(data => {
+      setHistoryList(Array.isArray(data.list) ? data.list : [])
+      setHistoryTotal(Number(data.total || 0))
+    }).catch(() => {
+      setHistoryList([])
+      setHistoryTotal(0)
+    }).finally(() => {
+      setHistoryLoading(false)
+    })
+  }
+
+  const openReplayDetail = (item) => {
+    if(!item.hasReplay){
+      message.info('这一局暂无复盘详情')
+      return
+    }
+    setReplayModal(true)
+    setReplayLoading(true)
+    setReplayDetail(null)
+    apiGame.replayDetail({ gameId: item.gameId }).then(data => {
+      setReplayDetail(data || null)
+    }).finally(() => {
+      setReplayLoading(false)
+    })
+  }
+
+  useEffect(() => {
+    loadReplayHistory()
+  }, [])
+
   return (
     <div className="welcome-container">
       <div className="welcome-bg" aria-hidden="true">
         <img src={ambientImage} alt="" />
       </div>
 
-      <aside className="welcome-rail">
-        <div className="welcome-avatar">月</div>
-        <button className="rail-item rail-active" type="button" title="广场"><CompassOutlined /></button>
-        <button className="rail-item" type="button" title="玩家"><TeamOutlined /></button>
-        <button className="rail-item" type="button" title="行动"><BookOutlined /></button>
-        <button className="rail-item" type="button" title="观战"><EyeOutlined /></button>
-        <button className="rail-help" type="button" title="帮助">?</button>
-      </aside>
-
       <header className="welcome-topbar">
-        <div className="welcome-brand">村落日志</div>
-        <nav>
-          <button className="active" type="button">游戏规则</button>
-          <button type="button">世界观</button>
-        </nav>
+        <div className="welcome-brand">雾中窥影</div>
         <div className="welcome-top-actions">
-          <button type="button" aria-label="音量"><AudioOutlined /></button>
-          <button type="button" aria-label="设置"><SettingOutlined /></button>
           {
             helper.hasCPermission('system.admin', appStore) ? (
               <button
@@ -219,7 +250,7 @@ const Index = (props) => {
           <div className="wooden-sign">
             <span className="sign-rope sign-rope-left" />
             <span className="sign-rope sign-rope-right" />
-            <h1>村落日志</h1>
+            <h1>雾中窥影</h1>
             <p>这里的每一句低语都会留下痕迹。</p>
           </div>
         </section>
@@ -229,17 +260,23 @@ const Index = (props) => {
             <div className="storybook-copy">
               <span className="story-chip">简介</span>
               <h2>迷雾森林的守望者</h2>
-              <p>在迷雾笼罩的森林中，古老的灵体正在注视着村庄。这些AI多智能体是你的向导、你的陪审员，有时也是你的噩运。</p>
+              <div className="storybook-art">
+                <img src={loginImage} alt="misty werewolf village" />
+              </div>
+              <div className="story-body">
+                <p>在古老而神秘的迷雾森林深处，一座宁静的村庄正面临前所未有的危机。</p>
+                <p>每当夜幕降临，潜伏于黑暗中的狼人便会悄然行动。他们伪装成人类的模样，混入村民之间，等待时机逐个猎杀无辜者。而村庄中的预言家、女巫、猎人等特殊角色，也在用自己的能力守护光明。</p>
+                <p>在这里，谎言与真相交织，推理与伪装并存。</p>
+                <p>你需要倾听每一句发言，分析每一个细节，在有限的信息中寻找隐藏的狼人；也可能化身狼人，在众人的怀疑中隐藏身份，引导局势走向自己希望的方向。</p>
+                <p>而这一次，你并非独自面对挑战。村庄中活跃着拥有独立思考能力的 AI 玩家，他们会观察、推理、质疑、辩护，与你共同演绎一场真实而充满悬念的狼人杀对局。</p>
+              </div>
               <div className="wisdom-note">
                 <div className="wisdom-icon"><StarFilled /></div>
                 <div>
-                  <strong>集体智慧</strong>
-                  <span>神灵会权衡在日志中说出的每一句话。</span>
+                  <strong>白天寻找真相，黑夜决定命运。</strong>
+                  <span>每一句发言，都会改变村庄的走向。</span>
                 </div>
               </div>
-            </div>
-            <div className="storybook-art">
-              <img src={storyImage} alt="magical wisps in forest" />
             </div>
           </div>
 
@@ -317,30 +354,46 @@ const Index = (props) => {
           <div className="history-heading">
             <h2>日志回顾</h2>
             <span />
-            <button type="button">查看档案 →</button>
+            <em>{historyTotal ? `共 ${historyTotal} 局` : ''}</em>
           </div>
           <div className="history-scroll">
-            {historyCards.map((item, index) => (
-              <article className={`history-card rotate-${index}`} key={item.code}>
-                <div className="history-meta">
-                  <span>{item.time}</span>
-                  <b>{item.code}</b>
-                </div>
-                <p>{item.quote}</p>
-                <div className="history-result">
-                  <div className="history-dots">
-                    {item.colors.map(color => <span key={`${item.code}-${color}`} style={{backgroundColor: color}} />)}
+            {historyLoading ? <div className="history-empty">正在翻阅日志...</div> : null}
+            {!historyLoading && historyList.length < 1 ? <div className="history-empty">暂无历史复盘记录</div> : null}
+            {!historyLoading && historyList.map((item, index) => {
+              const tone = getReplayTone(item)
+              const code = `#${item.roomId || item.gameId || '-'}`
+              return (
+                <button
+                  className={`history-card rotate-${index % 4}`}
+                  disabled={!item.hasReplay}
+                  key={`${item.gameId}-${item.roomId || index}`}
+                  type="button"
+                  onClick={() => openReplayDetail(item)}
+                >
+                  <div className="history-meta">
+                    <span>{formatReplayDate(item.endTime || item.replayTimestamp || item.startTime)}</span>
+                    <b>{code}</b>
                   </div>
-                  <strong className={`result-${item.tone}`}>{item.result}</strong>
-                </div>
-              </article>
-            ))}
+                  <p>{getReplaySummary(item)}</p>
+                  <div className="history-role-line">
+                    <span>{(item.player && item.player.name) || item.username || user.name || user.username}</span>
+                    <b>{item.player && item.player.roleName ? item.player.roleName : '身份未知'}</b>
+                  </div>
+                  <div className="history-result">
+                    <div className="history-dots">
+                      {getReplayColors(item).map((color, colorIndex) => <span key={`${item.gameId}-${color}-${colorIndex}`} style={{backgroundColor: color}} />)}
+                    </div>
+                    <strong className={`result-${tone}`}>{item.isWin === true ? '胜利' : item.isWin === false ? '失败' : (item.winnerLabel || '未知')}</strong>
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </section>
       </main>
 
       <footer className="welcome-footer">
-        <strong>村落日志</strong>
+        <strong>雾中窥影</strong>
         <div>
           <button type="button">隐私政策</button>
           <button type="button">服务条款</button>
@@ -411,6 +464,55 @@ const Index = (props) => {
             />
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        title="复盘详情"
+        centered
+        width={760}
+        className="modal-view-wrap welcome-replay-modal"
+        maskClosable={false}
+        visible={replayModal}
+        footer={[
+          <button
+            className="primary-button red-button replay-close-button"
+            key="close"
+            type="button"
+            onClick={() => setReplayModal(false)}
+          >
+            关闭
+          </button>
+        ]}
+        onCancel={() => setReplayModal(false)}
+      >
+        {replayLoading ? (
+          <div className="replay-loading">正在读取复盘详情...</div>
+        ) : replayDetail ? (
+          <div className="replay-detail">
+            <div className="replay-detail-meta">
+              <span>{`房间 #${replayDetail.roomId || '-'}`}</span>
+              <span>{`游戏 #${replayDetail.gameId || '-'}`}</span>
+              <span>{`胜利阵营：${replayDetail.winnerLabel || '未知'}`}</span>
+            </div>
+            {Array.isArray(replayDetail.players) && replayDetail.players.length > 0 ? (
+              <div className="replay-player-list">
+                {replayDetail.players.map((player, index) => (
+                  <span key={`${player.username || index}-${player.position || index}`}>
+                    {`${player.position || '-'}号 ${player.name || player.username || '玩家'}${player.roleName ? ` / ${player.roleName}` : ''}`}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <pre className="replay-text">
+              {(replayDetail.analysis && replayDetail.analysis.text) ||
+                (replayDetail.analysis && replayDetail.analysis.json ? JSON.stringify(replayDetail.analysis.json, null, 2) : '') ||
+                (replayDetail.gameRecord ? JSON.stringify(replayDetail.gameRecord, null, 2) : '') ||
+                '本局复盘暂时没有文本内容。'}
+            </pre>
+          </div>
+        ) : (
+          <div className="replay-loading">暂无复盘详情</div>
+        )}
       </Modal>
 
     </div>

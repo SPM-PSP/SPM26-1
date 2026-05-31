@@ -1,6 +1,6 @@
 export const reportData = {
   meta: {
-    title: "月夜审判复盘卷宗",
+    title: "雾中窥影复盘卷宗",
     subtitle: "基于 AI 复盘结果生成的对局档案与行为分析",
     gameId: "20251221_114858",
     mode: "9 人局",
