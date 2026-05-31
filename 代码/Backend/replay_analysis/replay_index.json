@@ -1,0 +1,218 @@
+[
+  {
+    "gameId": 357,
+    "roomId": 47,
+    "playerCount": 6,
+    "mode": "standard_6",
+    "winner": 0,
+    "winnerLabel": "狼人阵营",
+    "days": 2,
+    "startTime": "2026-05-31T10:17:09.059Z",
+    "endTime": "2026-05-31T10:17:09.059Z",
+    "timestamp": "2026-05-31T18:19:26.592397",
+    "analysisFiles": {
+      "json": "replay_analysis/ai_replay_20260531_181709.json",
+      "text": "replay_analysis/ai_replay_20260531_181709.txt"
+    },
+    "players": [
+      {
+        "username": "ai_2",
+        "name": "AI Player 2",
+        "position": 6,
+        "role": "villager",
+        "camp": 1,
+        "status": "dead",
+        "outReason": "vote"
+      },
+      {
+        "username": "ai_1",
+        "name": "AI Player 1",
+        "position": 5,
+        "role": "witch",
+        "camp": 1,
+        "status": "alive",
+        "outReason": "unknown"
+      },
+      {
+        "username": "002",
+        "name": "yangcehua",
+        "position": 4,
+        "role": "villager",
+        "camp": 1,
+        "status": "dead",
+        "outReason": "assault"
+      },
+      {
+        "username": "host",
+        "name": "路荏乙",
+        "position": 3,
+        "role": "wolf",
+        "camp": 0,
+        "status": "alive",
+        "outReason": "unknown"
+      },
+      {
+        "username": "player001",
+        "name": "WhoamI",
+        "position": 2,
+        "role": "wolf",
+        "camp": 0,
+        "status": "dead",
+        "outReason": "poison"
+      },
+      {
+        "username": "006",
+        "name": "steave",
+        "position": 1,
+        "role": "predictor",
+        "camp": 1,
+        "status": "alive",
+        "outReason": "unknown"
+      }
+    ]
+  },
+  {
+    "gameId": 355,
+    "roomId": 47,
+    "playerCount": 6,
+    "mode": "standard_6",
+    "winner": 0,
+    "winnerLabel": "狼人阵营",
+    "days": 3,
+    "startTime": "2026-05-30T14:43:53.059Z",
+    "endTime": "2026-05-30T14:43:53.060Z",
+    "timestamp": "2026-05-30T22:44:26.830268",
+    "analysisFiles": {
+      "json": "replay_analysis/ai_replay_20260530_220923.json",
+      "text": "replay_analysis/ai_replay_20260530_220923.txt"
+    },
+    "players": [
+      {
+        "username": "ai_2",
+        "name": "AI Player 2",
+        "position": 6,
+        "role": "villager",
+        "camp": 1,
+        "status": "dead",
+        "outReason": "assault"
+      },
+      {
+        "username": "ai_1",
+        "name": "AI Player 1",
+        "position": 5,
+        "role": "witch",
+        "camp": 1,
+        "status": "dead",
+        "outReason": "vote"
+      },
+      {
+        "username": "002",
+        "name": "yangcehua",
+        "position": 4,
+        "role": "villager",
+        "camp": 1,
+        "status": "alive",
+        "outReason": "unknown"
+      },
+      {
+        "username": "host",
+        "name": "路荏乙",
+        "position": 3,
+        "role": "wolf",
+        "camp": 0,
+        "status": "dead",
+        "outReason": "poison"
+      },
+      {
+        "username": "player001",
+        "name": "WhoamI",
+        "position": 2,
+        "role": "wolf",
+        "camp": 0,
+        "status": "alive",
+        "outReason": "unknown"
+      },
+      {
+        "username": "006",
+        "name": "steave",
+        "position": 1,
+        "role": "predictor",
+        "camp": 1,
+        "status": "dead",
+        "outReason": "vote"
+      }
+    ]
+  },
+  {
+    "gameId": 343,
+    "roomId": 47,
+    "playerCount": 6,
+    "mode": "standard_6",
+    "winner": 0,
+    "winnerLabel": "狼人阵营",
+    "days": 2,
+    "startTime": "2026-05-30T12:36:20.284Z",
+    "endTime": "2026-05-30T12:36:20.284Z",
+    "timestamp": "2026-05-30T20:36:24.036203",
+    "analysisFiles": {
+      "json": "replay_analysis/ai_replay_20260530_203620.json",
+      "text": "replay_analysis/ai_replay_20260530_203620.txt"
+    },
+    "players": [
+      {
+        "username": "ai_2",
+        "name": "AI Player 2",
+        "position": 6,
+        "role": "villager",
+        "camp": 1,
+        "status": "dead",
+        "outReason": "assault"
+      },
+      {
+        "username": "ai_1",
+        "name": "AI Player 1",
+        "position": 5,
+        "role": "witch",
+        "camp": 1,
+        "status": "alive",
+        "outReason": "unknown"
+      },
+      {
+        "username": "host",
+        "name": "路荏乙",
+        "position": 4,
+        "role": "villager",
+        "camp": 1,
+        "status": "dead",
+        "outReason": "assault"
+      },
+      {
+        "username": "002",
+        "name": "yangcehua",
+        "position": 3,
+        "role": "wolf",
+        "camp": 0,
+        "status": "alive",
+        "outReason": "unknown"
+      },
+      {
+        "username": "player001",
+        "name": "WhoamI",
+        "position": 2,
+        "role": "wolf",
+        "camp": 0,
+        "status": "alive",
+        "outReason": "unknown"
+      },
+      {
+        "username": "003",
+        "name": "Xiann",
+        "position": 1,
+        "role": "predictor",
+        "camp": 1,
+        "status": "alive",
+        "outReason": "unknown"
+      }
+    ]
+  }
+]
