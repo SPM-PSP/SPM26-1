@@ -297,7 +297,7 @@
 
 
 ### 3.4 硬件配置项HWCI
-根据当前组内部署安排，系统将采用 4 个自建节点，按照实际占用的独立主机统计HWCI配置。
+根据当前组内部署安排，系统将采用 3 个自建节点，按照实际占用的独立主机统计HWCI配置。
 
 <table align="center">
   <thead>
@@ -319,19 +319,13 @@
       <td>HWCI-02</td>
       <td>后端与数据服务器</td>
       <td>8 核 CPU / 16GB 内存 / 500GB SSD</td>
-      <td>部署游戏逻辑服务（含 WebSocket）、MySQL、Redis，统一承载业务处理、状态缓存与数据持久化。</td>
+      <td>部署游戏逻辑服务（含 WebSocket）、语音交互服务、MySQL、Redis，统一承载业务处理、状态缓存与数据持久化。</td>
     </tr>
     <tr>
       <td>HWCI-03</td>
       <td>AI 推理服务器</td>
       <td>8 核 GPU / 32GB 内存 / 500GB SSD</td>
       <td>部署 AI Agent 推理服务，负责上下文构建、发言生成、投票与夜间行动决策。</td>
-    </tr>
-    <tr>
-      <td>HWCI-04</td>
-      <td>语音处理服务器</td>
-      <td>8 核 GPU / 16GB 内存 / 300GB SSD</td>
-      <td>部署语音模块（重点为 STT 本地处理链路），负责语音分片接收、识别与结果回传。</td>
     </tr>
   </tbody>
 </table>
@@ -373,8 +367,8 @@
     <tr>
       <td>CSCI－04</td>
       <td>语音STT/TTS服务</td>
-      <td>HWCI-04</td>
-      <td>语音服务独立部署于语音处理服务器，接收前端语音输入或后端 TTS 请求，并将处理结果返回游戏逻辑服务</td>
+      <td>HWCI-02</td>
+      <td>语音服务部署于后端与数据服务器，接收前端语音输入或后端 TTS 请求，并将处理结果返回游戏逻辑服务</td>
     </tr>
     <tr>
       <td>CSCI－05</td>
