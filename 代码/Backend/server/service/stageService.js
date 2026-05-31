@@ -500,16 +500,52 @@
     let randomPosition = Math.floor(Math.random() * alivePlayer.length )
     let randomOrder = Math.floor(Math.random() * 2 ) + 1 // 闅忔満鍙戣█椤哄簭
     let targetPlayer = alivePlayer[randomPosition]
-    const speakOrder = []
+    const firstNightDeadSpeakers = []
+    if(gameInstance.day === 1){
+      const deadTags = await $service.baseService.query(gameTag, {
+        roomId: gameInstance.roomId,
+        gameId: gameInstance._id,
+        day: 1,
+        stage: { $in: [2, 3] },
+        mode: 1
+      }, {}, { sort: { position: 1 } })
+      const addedDead = {}
+      for(let i = 0; i < (deadTags || []).length; i++){
+        const tag = deadTags[i]
+        if(!tag.target || addedDead[tag.target]){
+          continue
+        }
+        const deadPlayer = await $service.baseService.queryOne(player, {
+          roomId: gameInstance.roomId,
+          gameId: gameInstance._id,
+          username: tag.target,
+          status: 0
+        })
+        if(deadPlayer){
+          firstNightDeadSpeakers.push({
+            username: deadPlayer.username,
+            name: deadPlayer.name,
+            position: deadPlayer.position,
+            isFirstNightLastWords: true
+          })
+          addedDead[tag.target] = true
+        }
+      }
+    }
+    const aliveSpeakOrder = []
     for(let i = 0; i < alivePlayer.length; i++){
       const offset = randomOrder === 1 ? i : -i
       const index = (randomPosition + offset + alivePlayer.length) % alivePlayer.length
       const item = alivePlayer[index]
-      speakOrder.push({
+      aliveSpeakOrder.push({
         username: item.username,
         name: item.name,
         position: item.position
       })
+    }
+    const speakOrder = firstNightDeadSpeakers.concat(aliveSpeakOrder)
+    if(firstNightDeadSpeakers.length > 0){
+      targetPlayer = firstNightDeadSpeakers[0]
     }
     let tagObject = {
       roomId: gameInstance.roomId,

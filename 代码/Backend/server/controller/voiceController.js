@@ -64,10 +64,6 @@ module.exports = app => ({
         ctx.body = $helper.Result.fail(-1, 'player not found in this game')
         return
       }
-      if(currentPlayer.status !== 1){
-        ctx.body = $helper.Result.fail(-1, 'eliminated players cannot speak')
-        return
-      }
 
       const turnResult = await $service.gameService.getSpeechTurnState(gameInstance)
       if(!turnResult.result){
@@ -75,6 +71,11 @@ module.exports = app => ({
         return
       }
       const currentSpeaker = turnResult.data && turnResult.data.currentSpeaker
+      const isFirstNightLastWords = !!(currentSpeaker && currentSpeaker.isFirstNightLastWords)
+      if(currentPlayer.status !== 1 && !isFirstNightLastWords){
+        ctx.body = $helper.Result.fail(-1, 'eliminated players cannot speak')
+        return
+      }
       if(!currentSpeaker || currentSpeaker.username !== currentPlayer.username){
         const speakerText = currentSpeaker ? (currentSpeaker.position + ' seat player is speaking') : 'no current speaker'
         ctx.body = $helper.Result.fail(-1, 'not your speech turn, current speaker is ' + speakerText)
@@ -95,7 +96,7 @@ module.exports = app => ({
         isCommon: 1,
         isTitle: 0,
         content: {
-          type: 'speech',
+          type: isFirstNightLastWords ? 'lastWords' : 'speech',
           source: 'human',
           text: sttResult.text,
           level: 4,
@@ -112,7 +113,7 @@ module.exports = app => ({
         const speechEvent = {
           day: gameInstance.day,
           stage: gameInstance.stage,
-          eventType: 'speech',
+            eventType: isFirstNightLastWords ? 'lastWords' : 'speech',
           speaker: currentPlayer.username,
           speakerSeat: currentPlayer.position,
           speakerDisplayName: currentPlayer.position + '号(' + (currentPlayer.name || currentPlayer.username) + ')',
@@ -190,6 +191,42 @@ module.exports = app => ({
       }
     } catch (e) {
       ctx.body = $helper.Result.fail(-1, e.message || 'submit speech failed')
+    }
+  },
+
+  async aiSpeechPlayed (ctx) {
+    const { $service, $helper, $model } = app
+    const { game } = $model
+    const body = ctx.request.body || {}
+    const { gameId, recordId } = body
+
+    if(!gameId){
+      ctx.body = $helper.Result.fail(-1, 'gameId is required')
+      return
+    }
+    if(!recordId){
+      ctx.body = $helper.Result.fail(-1, 'recordId is required')
+      return
+    }
+
+    try {
+      const gameInstance = await $service.baseService.queryById(game, gameId)
+      if(!gameInstance){
+        ctx.body = $helper.Result.fail(-1, 'game not found')
+        return
+      }
+      const result = await $service.gameService.completeAiSpeechPlayback(gameInstance, recordId)
+      if(!result.result){
+        ctx.body = $helper.Result.fail(result.errorCode || -1, result.errorMessage || 'confirm ai speech playback failed')
+        return
+      }
+      ctx.body = $helper.Result.success({
+        recordId,
+        nextSpeaker: result.data ? result.data.currentSpeaker : null,
+        finished: result.data ? !!result.data.finished : false
+      })
+    } catch (e) {
+      ctx.body = $helper.Result.fail(-1, e.message || 'confirm ai speech playback failed')
     }
   },
 })

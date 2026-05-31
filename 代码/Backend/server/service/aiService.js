@@ -41,9 +41,9 @@ module.exports = app => {
     const { $helper, $log4 } = app
     const url = getBaseUrl() + path
     const startTime = Date.now()
-    console.log('[aiService] 璇锋眰AI鏈嶅姟:', url)
-    console.log('[aiService] 璇锋眰瓒呮椂璁剧疆:', getTimeout() + 'ms')
-    console.log('[aiService] 璇锋眰鏁版嵁:', JSON.stringify(data, null, 2))
+    console.log('[aiService] 请求AI服务:', url)
+    console.log('[aiService] 请求超时设置:', getTimeout() + 'ms')
+    console.log('[aiService] 请求数据:', JSON.stringify(data, null, 2))
     
     try {
       const res = await axios({
@@ -57,9 +57,9 @@ module.exports = app => {
       })
       const endTime = Date.now()
       const duration = endTime - startTime
-      console.log('[aiService] 璇锋眰鑰楁椂:', duration + 'ms')
-      console.log('[aiService] 鍝嶅簲鐘舵€?', res.status)
-      console.log('[aiService] 鍝嶅簲鏁版嵁:', JSON.stringify(res.data, null, 2))
+      console.log('[aiService] 请求耗时:', duration + 'ms')
+      console.log('[aiService] 响应状态:', res.status)
+      console.log('[aiService] 响应数据:', JSON.stringify(res.data, null, 2))
       
       const body = res.data || {}
       if(body.code !== undefined && body.code !== 200){
@@ -68,8 +68,8 @@ module.exports = app => {
       return $helper.wrapResult(true, body.data === undefined ? body : body.data)
     } catch (e) {
       const errorMsg = 'ai service unavailable: ' + e.message
-      console.log('[aiService] 璇锋眰澶辫触:', errorMsg)
-      console.log('[aiService] 閿欒璇︽儏:', e.toString())
+      console.log('[aiService] 请求失败:', errorMsg)
+      console.log('[aiService] 错误详情:', e.toString())
       if($log4 && $log4.errorLogger){
         $log4.errorLogger.error('[aiService] post ' + path + ' failed: ' + e.toString())
       }
@@ -80,7 +80,7 @@ module.exports = app => {
   const get = async (path) => {
     const { $helper, $log4 } = app
     const url = getBaseUrl() + path
-    console.log('[aiService] GET璇锋眰AI鏈嶅姟:', url)
+    console.log('[aiService] GET请求AI服务:', url)
     
     try {
       const res = await axios({
@@ -91,8 +91,8 @@ module.exports = app => {
           'Content-Type': 'application/json'
         }
       })
-      console.log('[aiService] 鍝嶅簲鐘舵€?', res.status)
-      console.log('[aiService] 鍝嶅簲鏁版嵁:', JSON.stringify(res.data, null, 2))
+      console.log('[aiService] 响应状态:', res.status)
+      console.log('[aiService] 响应数据:', JSON.stringify(res.data, null, 2))
       
       const body = res.data || {}
       if(body.code !== undefined && body.code !== 200){
@@ -101,8 +101,8 @@ module.exports = app => {
       return $helper.wrapResult(true, body.data === undefined ? body : body.data)
     } catch (e) {
       const errorMsg = 'ai service unavailable: ' + e.message
-      console.log('[aiService] GET璇锋眰澶辫触:', errorMsg)
-      console.log('[aiService] 閿欒璇︽儏:', e.toString())
+      console.log('[aiService] GET请求失败:', errorMsg)
+      console.log('[aiService] 错误详情:', e.toString())
       if($log4 && $log4.errorLogger){
         $log4.errorLogger.error('[aiService] get ' + path + ' failed: ' + e.toString())
       }
@@ -118,7 +118,7 @@ module.exports = app => {
     const map = {
       wolf: 'werewolf',
       predictor: 'seer',
-      witch: 'witch',        // 濂冲帆瑙掕壊鏄犲皠锛屽鏋淎I鏈嶅姟鏈熸湜涓嶅悓鍚嶇О锛屽彲鑳介渶瑕佽皟鏁翠负 'poisoner' 鎴?'witch'
+      witch: 'witch',        // 女巫角色映射，如果 AI 服务期望不同名称，可能需要调整为 'poisoner' 或 'witch'
       hunter: 'hunter',
       villager: 'villager'
     }
@@ -156,17 +156,17 @@ module.exports = app => {
 
     async checkConnection() {
       try {
-        console.log('[aiService] 妫€鏌I鏈嶅姟杩為€氭€?..')
+        console.log('[aiService] 检查AI服务连通性...')
         const result = await get('/health')
         if(result.result) {
-          console.log('[aiService] AI鏈嶅姟杩炴帴姝ｅ父')
+          console.log('[aiService] AI服务连接正常')
           return true
         } else {
-          console.log('[aiService] AI鏈嶅姟鍝嶅簲寮傚父:', result.errorMessage)
+          console.log('[aiService] AI服务响应异常:', result.errorMessage)
           return false
         }
       } catch (e) {
-        console.log('[aiService] AI鏈嶅姟杩炴帴澶辫触:', e.message)
+        console.log('[aiService] AI服务连接失败:', e.message)
         return false
       }
     },
@@ -232,7 +232,7 @@ module.exports = app => {
       
       const isConnected = await this.checkConnection()
       if(!isConnected) {
-        return app.$helper.wrapResult(false, 'AI鏈嶅姟杩炴帴澶辫触锛岃妫€鏌ユ湇鍔″湴鍧€: ' + getBaseUrl(), -1)
+        return app.$helper.wrapResult(false, 'AI服务连接失败，请检查服务地址: ' + getBaseUrl(), -1)
       }
       
       const payload = {
@@ -312,13 +312,23 @@ module.exports = app => {
       if(!gameInstance || gameInstance.status !== 1){
         return $helper.wrapResult(true, [])
       }
+      if(gameInstance.stage === 5 || gameInstance.stage === 7){
+        const pendingPlaybackResult = await $service.gameService.getPendingAiSpeechPlayback(gameInstance)
+        if(pendingPlaybackResult.result && pendingPlaybackResult.data){
+          return $helper.wrapResult(true, [{
+            success: true,
+            action: 'wait_ai_speech_playback',
+            recordId: pendingPlaybackResult.data._id
+          }])
+        }
+      }
       let aiPlayers = await $service.baseService.query(player, {
         roomId: gameInstance.roomId,
         gameId: gameInstance._id,
         username: { $like: 'ai_%' },
         status: 1
       }, {}, { sort: { position: 1 } })
-      if((!aiPlayers || aiPlayers.length < 1) && gameInstance.stage !== 7){
+      if((!aiPlayers || aiPlayers.length < 1) && gameInstance.stage !== 5 && gameInstance.stage !== 7){
         return $helper.wrapResult(true, [])
       }
 
@@ -365,7 +375,7 @@ module.exports = app => {
         }
         app.$nodeCache.set(speechLockKey, 1, 120)
         let currentAi = (aiPlayers || []).find(item => item.username === turnResult.data.currentSpeaker.username)
-        if(!currentAi && gameInstance.stage === 7){
+        if(!currentAi && (gameInstance.stage === 5 || gameInstance.stage === 7)){
           currentAi = await $service.baseService.queryOne(player, {
             roomId: gameInstance.roomId,
             gameId: gameInstance._id,
@@ -479,6 +489,18 @@ module.exports = app => {
           to: target.username,
           action: actionName
         })
+
+        if((actionName === 'antidote' || actionName === 'poison') && Array.isArray(actor.skill)){
+          const newSkillStatus = actor.skill.map(item => item.key === actionName ? {
+              name: item.name,
+              key: item.key,
+              status: 0
+            } : item)
+          actor.skill = newSkillStatus
+          await $service.baseService.updateById(player, actor._id, {
+            skill: newSkillStatus
+          })
+        }
         
         if (actionName === 'vote') {
           try {
@@ -489,7 +511,7 @@ module.exports = app => {
               speaker: actor.username,
               speakerSeat: actor.position,
               speakerDisplayName: playerDisplayNames[actor.username],
-              content: `鎶曠エ缁?${target.name}(${target.position}鍙?`,
+              content: `投票给了${target.name}(${target.position}号)`,
               weight: 1.0,
               targets: [target.username]
             }
@@ -515,7 +537,7 @@ module.exports = app => {
             })
           } catch (error) {
             if(app.$log4 && app.$log4.errorLogger){
-              app.$log4.errorLogger.error('[AI Service] 鍙戦€丄I鎶曠エ浜嬩欢澶辫触: ' + error.toString())
+              app.$log4.errorLogger.error('[AI Service] 发送AI投票事件失败: ' + error.toString())
             }
           }
         }
@@ -526,6 +548,23 @@ module.exports = app => {
       const appendAiSpeech = async (actor, speechText, recordType = 'speech') => {
         if(!speechText){
           return null
+        }
+        let audioBase64 = ''
+        let audioMime = ''
+        let playbackRequired = false
+        let ttsError = ''
+        try {
+          const audio = await $service.voiceService.ttsToBuffer(speechText)
+          if(audio && audio.length > 0){
+            audioBase64 = audio.toString('base64')
+            audioMime = 'audio/mpeg'
+            playbackRequired = true
+          }
+        } catch (error) {
+          ttsError = error.message || error.toString()
+          if(app.$log4 && app.$log4.errorLogger){
+            app.$log4.errorLogger.error('[AI Service] AI发言TTS失败，降级为文本推进: ' + error.toString())
+          }
         }
         const savedRecord = await $service.baseService.save(record, {
           roomId: gameInstance.roomId,
@@ -539,6 +578,12 @@ module.exports = app => {
             type: recordType,
             source: 'ai',
             text: speechText,
+            audioBase64,
+            audioMime,
+            audioDataUrl: audioBase64 ? ('data:' + audioMime + ';base64,' + audioBase64) : '',
+            playbackRequired,
+            playbackStatus: playbackRequired ? 'pending' : 'skipped',
+            ttsError,
             from: {
               username: actor.username,
               name: actor.name,
@@ -585,7 +630,7 @@ module.exports = app => {
         } catch (error) {
           // AI鏈嶅姟璋冪敤澶辫触涓嶅奖鍝嶅彂瑷€鍔熻兘锛屽彧璁板綍鏃ュ織
           if(app.$log4 && app.$log4.errorLogger){
-            app.$log4.errorLogger.error('[AI Service] 鍙戦€丄I鍙戣█浜嬩欢澶辫触: ' + error.toString())
+            app.$log4.errorLogger.error('[AI Service] 发送AI发言事件失败: ' + error.toString())
           }
         }
         
@@ -646,7 +691,7 @@ module.exports = app => {
             gameId: gameInstance._id,
             day: gameInstance.day,
             stage: 2,
-            action: 'assault'
+            action: 'kill'
           })
           
           const nightDeathCandidate = killActions.length > 0 ? killActions[0].to : null
@@ -714,13 +759,43 @@ module.exports = app => {
         const decision = invokeResult.data && invokeResult.data.decision ? invokeResult.data.decision : {}
         if(stageName === 'speech' || stageName === 'lastWords'){
           const text = decision.speechText || decision.lastWords || decision.content || 'No further speech.'
-          await appendAiSpeech(actor, text, stageName === 'lastWords' ? 'lastWords' : 'speech')
+          const recordType = (stageName === 'lastWords' || (speechTurnState && speechTurnState.currentSpeaker && speechTurnState.currentSpeaker.isFirstNightLastWords)) ? 'lastWords' : 'speech'
+          const savedSpeechRecord = await appendAiSpeech(actor, text, recordType)
           app.$ws.connections.forEach(function (conn) {
             let url = '/lrs/' + gameInstance.roomId
             if(conn.path === url){
               conn.sendText('refreshGame')
+              if(savedSpeechRecord && savedSpeechRecord.content && savedSpeechRecord.content.playbackRequired){
+                conn.sendText(JSON.stringify({
+                  type: 'aiSpeechReady',
+                  roomId: gameInstance.roomId,
+                  gameId: gameInstance._id,
+                  recordId: savedSpeechRecord._id,
+                  speechType: recordType,
+                  speaker: {
+                    username: actor.username,
+                    name: actor.name,
+                    position: actor.position
+                  },
+                  text,
+                  audioBase64: savedSpeechRecord.content.audioBase64,
+                  audioMime: savedSpeechRecord.content.audioMime,
+                  audioDataUrl: savedSpeechRecord.content.audioDataUrl
+                }))
+              }
             }
           })
+          if(savedSpeechRecord && savedSpeechRecord.content && savedSpeechRecord.content.playbackRequired){
+            results.push({
+              aiId: actor.username,
+              success: true,
+              action: stageName,
+              recordId: savedSpeechRecord._id,
+              playbackRequired: true,
+              waitingForPlaybackAck: true
+            })
+            continue
+          }
           const advanceResult = await $service.gameService.advanceSpeechTurn(gameInstance)
           if(advanceResult.result){
             if(advanceResult.data.finished && stageName !== 'lastWords'){
@@ -737,7 +812,7 @@ module.exports = app => {
         }
 
         if(gameInstance.stage === 3 && actor.role === 'witch'){
-          if(decision.skillType === 'antidote'){
+          if(decision.skillType === 'antidote' || decision.skillType === 'save_and_poison'){
             const killAction = await $service.baseService.queryOne(action, {
               roomId: gameInstance.roomId,
               gameId: gameInstance._id,
@@ -750,8 +825,10 @@ module.exports = app => {
               await saveActionIfNeeded(actor, targetPlayer, 'antidote')
               results.push({ aiId: actor.username, success: true, action: 'antidote', target: targetPlayer.username })
             }
-          } else if(decision.skillType === 'poison'){
-            const targetPlayer = await getTargetPlayer(decision.skillTarget)
+          }
+          if(decision.skillType === 'poison' || decision.skillType === 'save_and_poison'){
+            const poisonTarget = decision.skillTarget || (decision.nightAction && decision.nightAction.poisonTarget)
+            const targetPlayer = await getTargetPlayer(poisonTarget)
             if(targetPlayer){
               await saveActionIfNeeded(actor, targetPlayer, 'poison')
               results.push({ aiId: actor.username, success: true, action: 'poison', target: targetPlayer.username })
@@ -764,7 +841,7 @@ module.exports = app => {
         if(actionName === 'assault' && actor.role === 'wolf'){
           const privateVision = await buildPrivateVision(actor)
           
-          console.log('[aiService] AI鐙间汉澶滆鍔ㄨ皟璇曚俊鎭?', {
+          console.log('[aiService] AI狼人夜间行动调试信息:', {
             actor: actor.username,
             wolfDecisionMode: privateVision.wolfDecisionMode,
             allWolfPlayers: wolfPlayers.map(w => ({ username: w.username, isAI: isAiId(w.username) })),
@@ -822,7 +899,7 @@ module.exports = app => {
                           })
                         }
                       } else {
-                        console.error('[aiService] finalKillTarget瀵瑰簲鐨勭帺瀹朵笉瀛樺湪:', finalKillTarget)
+                        console.error('[aiService] finalKillTarget对应的玩家不存在:', finalKillTarget)
                         await fallbackToOldExecution(consensusData, aiWolfPlayers, results, getTargetPlayer, saveActionIfNeeded)
                       }
                     } else {
@@ -831,7 +908,7 @@ module.exports = app => {
                     }
                   } else {
                     // consensus澶辫触锛屽洖閫€鍒板崟涓狝I澶勭悊
-                    console.log('[aiService] night-consensus澶辫触锛屽洖閫€鍒板崟涓狝I澶勭悊:', consensusResult.errorMessage)
+                    console.log('[aiService] night-consensus失败，回退到单个AI处理:', consensusResult.errorMessage)
                   }
 
                   // 鏃х殑鎵ц鏂瑰紡浣滀负鍥為€€鏂规
@@ -874,7 +951,7 @@ module.exports = app => {
                     }
                   }
                 } catch (error) {
-                  console.log('[aiService] night-consensus寮傚父锛屽洖閫€鍒板崟涓狝I澶勭悊:', error.toString())
+                  console.log('[aiService] night-consensus异常，回退到单个AI处理:', error.toString())
                 }
               }
               // 鍏朵粬AI鐙间汉璺宠繃澶勭悊锛岀瓑寰呯涓€涓狝I瀹屾垚consensus娴佺▼
@@ -1011,6 +1088,14 @@ module.exports = app => {
           return $helper.wrapResult(true, true)
         }
         return $helper.wrapResult(true, isAiId(witch.username))
+      }
+
+      if(gameInstance.stage === 6 || gameInstance.stage === 6.5){
+        const voteStatusResult = await $service.gameService.getVoteStageStatus(gameInstance)
+        if(!voteStatusResult.result || !voteStatusResult.data){
+          return $helper.wrapResult(true, false)
+        }
+        return $helper.wrapResult(true, !!voteStatusResult.data.finished)
       }
 
       return $helper.wrapResult(true, false)

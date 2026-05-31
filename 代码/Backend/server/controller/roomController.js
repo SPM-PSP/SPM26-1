@@ -275,7 +275,19 @@ module.exports = app => ({
         newWaitPlayer.push(waitPlayer[i])
       }
     }
-    await $service.baseService.updateById(room, id, { wait: newWaitPlayer})
+    let obList = roomInstance.ob
+    if(typeof obList === 'string'){
+      try {
+        obList = JSON.parse(obList)
+      } catch(e) {
+        obList = []
+      }
+    }
+    if(!Array.isArray(obList)){
+      obList = []
+    }
+    const newObList = obList.filter(item => item !== username)
+    await $service.baseService.updateById(room, id, { wait: newWaitPlayer, ob: newObList})
     $ws.connections.forEach(function (conn) {
       let url = '/lrs/' + roomInstance._id
       if(conn.path === url){
@@ -385,12 +397,16 @@ module.exports = app => ({
       ctx.body = $helper.Result.success('入座成功')
       return
     }
-    if(seatValue) {
+    if(seatValue && !$service.aiService.isAiId(seatValue)) {
       ctx.body = $helper.Result.fail(-1,'当前座位已经有人，请选择别的座位入座！')
       return
     }
 
     // 判断是否已经入座
+    if(seatValue && $service.aiService.isAiId(seatValue)){
+      await $service.baseService.updateById(room, id, { ['v' + position]: null })
+    }
+
     let isSeat =  await $service.roomService.findInSeatPlayer(id, username)
     let waitPlayer = roomInstance.wait
     if(!isSeat.result){

@@ -1,6 +1,156 @@
 const axios = require('axios')
+const fs = require('fs')
+const path = require('path')
 
 module.exports = app => {
+  const replayJobs = new Set()
+  const getReplayDir = (outputDir = 'replay_analysis') => path.resolve(outputDir)
+  const getReplayIndexPath = (outputDir = 'replay_analysis') => path.join(getReplayDir(outputDir), 'replay_index.json')
+
+  const normalizeFilePath = (filePath) => {
+    if(!filePath){
+      return filePath
+    }
+    return filePath.replace(/\\/g, '/')
+  }
+
+  const readReplayIndex = (outputDir = 'replay_analysis') => {
+    const indexPath = getReplayIndexPath(outputDir)
+    if(!fs.existsSync(indexPath)){
+      return []
+    }
+    try {
+      const raw = fs.readFileSync(indexPath, 'utf8')
+        .replace(/^\uFEFF+/, '')
+        .replace(/^(?:锘縖|锘?)+/, '')
+      const data = JSON.parse(raw)
+      return Array.isArray(data) ? data : []
+    } catch (e) {
+      if(app.$log4 && app.$log4.errorLogger){
+        app.$log4.errorLogger.error('[replayService] read replay index failed: ' + e.toString())
+      }
+      return []
+    }
+  }
+
+  const writeReplayIndex = (items, outputDir = 'replay_analysis') => {
+    const replayDir = getReplayDir(outputDir)
+    if(!fs.existsSync(replayDir)){
+      fs.mkdirSync(replayDir, { recursive: true })
+    }
+    fs.writeFileSync(getReplayIndexPath(outputDir), JSON.stringify(items, null, 2), 'utf8')
+  }
+
+  const getPlayersFromGameRecord = (gameRecord) => {
+    const players = gameRecord &&
+      gameRecord.final_result &&
+      gameRecord.final_result.final_state &&
+      gameRecord.final_result.final_state.players
+    if(!players || typeof players !== 'object'){
+      return []
+    }
+    return Object.keys(players).map(username => ({
+      username,
+      name: players[username].name,
+      position: players[username].position,
+      role: players[username].role,
+      camp: players[username].camp,
+      status: players[username].status,
+      outReason: players[username].out_reason
+    }))
+  }
+
+  const upsertReplayIndex = (gameRecord, analysisFiles, timestamp, outputDir = 'replay_analysis') => {
+    if(!gameRecord || !gameRecord.game_id){
+      return null
+    }
+    const items = readReplayIndex(outputDir)
+    const gameId = String(gameRecord.game_id)
+    const entry = {
+      gameId: gameRecord.game_id,
+      roomId: gameRecord.room_id,
+      playerCount: gameRecord.player_count,
+      mode: gameRecord.mode,
+      winner: gameRecord.winner,
+      winnerLabel: gameRecord.winner_label,
+      days: gameRecord.days,
+      startTime: gameRecord.start_time,
+      endTime: gameRecord.end_time,
+      timestamp: timestamp || new Date().toISOString(),
+      analysisFiles: {
+        json: normalizeFilePath(analysisFiles && analysisFiles.json),
+        text: normalizeFilePath(analysisFiles && analysisFiles.text)
+      },
+      players: getPlayersFromGameRecord(gameRecord)
+    }
+    const nextItems = items.filter(item => String(item.gameId) !== gameId)
+    nextItems.unshift(entry)
+    writeReplayIndex(nextItems, outputDir)
+    return entry
+  }
+
+  const getReplayIndexByGameId = (gameId, outputDir = 'replay_analysis') => {
+    const items = readReplayIndex(outputDir)
+    return items.find(item => String(item.gameId) === String(gameId)) || null
+  }
+
+  const findGeneratedAnalysisFilesSince = (outputDir = 'replay_analysis', startedAt = 0) => {
+    const replayDir = getReplayDir(outputDir)
+    if(!fs.existsSync(replayDir)){
+      return null
+    }
+    const threshold = Math.max(0, Number(startedAt || 0) - 5000)
+    const jsonFiles = fs.readdirSync(replayDir)
+      .filter(name => /^ai_replay_\d{8}_\d{6}\.json$/.test(name))
+      .map(name => {
+        const fullPath = path.join(replayDir, name)
+        return {
+          name,
+          fullPath,
+          mtimeMs: fs.statSync(fullPath).mtimeMs,
+          stamp: name.replace(/^ai_replay_/, '').replace(/\.json$/, '')
+        }
+      })
+      .filter(item => item.mtimeMs >= threshold)
+      .sort((a, b) => b.mtimeMs - a.mtimeMs)
+
+    for(let i = 0; i < jsonFiles.length; i++){
+      const jsonFile = jsonFiles[i]
+      const textName = 'ai_replay_' + jsonFile.stamp + '.txt'
+      const textPath = path.join(replayDir, textName)
+      if(fs.existsSync(textPath)){
+        return {
+          json: normalizeFilePath(path.join(outputDir, jsonFile.name)),
+          text: normalizeFilePath(path.join(outputDir, textName)),
+          timestamp: new Date(jsonFile.mtimeMs).toISOString(),
+          recovered: true
+        }
+      }
+    }
+    return null
+  }
+
+  const getReplayAnalysisContent = (analysisFiles) => {
+    const content = {}
+    if(!analysisFiles){
+      return content
+    }
+    const allowedDir = getReplayDir()
+    ;['json', 'text'].forEach(type => {
+      const file = analysisFiles[type]
+      if(!file){
+        return
+      }
+      const filePath = path.resolve(file)
+      if(!filePath.startsWith(allowedDir) || !fs.existsSync(filePath)){
+        return
+      }
+      const raw = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF+/, '')
+      content[type] = type === 'json' ? JSON.parse(raw) : raw
+    })
+    return content
+  }
+
   const getBaseUrl = () => {
     return process.env.AI_REPLAY_SERVICE_BASE_URL ||
       (app.$config.aiReplayService && app.$config.aiReplayService.baseUrl) ||
@@ -8,7 +158,7 @@ module.exports = app => {
   }
 
   const getTimeout = () => {
-    return (app.$config.aiReplayService && app.$config.aiReplayService.timeout) || 60000
+    return (app.$config.aiReplayService && app.$config.aiReplayService.timeout) || 180000
   }
 
   const getAiConfig = (options = {}) => {
@@ -28,22 +178,28 @@ module.exports = app => {
 
   const post = async (path, data) => {
     const { $helper, $log4 } = app
+    const url = getBaseUrl() + path
+    const timeout = getTimeout()
+    const payloadSize = data ? Buffer.byteLength(JSON.stringify(data), 'utf8') : 0
     try {
+      console.log('[replayService] POST ' + url + ', timeout=' + timeout + 'ms, payload=' + payloadSize + ' bytes')
       const res = await axios({
         method: 'post',
-        url: getBaseUrl() + path,
+        url,
         data,
-        timeout: getTimeout(),
+        timeout,
         headers: {
           'Content-Type': 'application/json'
         }
       })
+      console.log('[replayService] POST ' + url + ' success, status=' + res.status)
       const body = res.data || {}
       if (body.error) {
         return $helper.wrapResult(false, body.error, -1)
       }
       return $helper.wrapResult(true, body)
     } catch (e) {
+      console.log('[replayService] POST ' + url + ' failed: ' + e.message)
       if($log4 && $log4.errorLogger){
         $log4.errorLogger.error('[replayService] post ' + path + ' failed: ' + e.toString())
       }
@@ -142,11 +298,121 @@ module.exports = app => {
         total_deaths: players.filter(p => p.status === 0).length
       }
 
+      const playerProfileMap = {}
+      players.forEach(p => {
+        playerProfileMap[p.username] = {
+          username: p.username,
+          name: p.name,
+          position: p.position,
+          role: p.role,
+          camp: p.camp,
+          status: p.status === 1 ? 'alive' : 'dead',
+          out_reason: p.outReason || 'unknown'
+        }
+      })
+
+      const getProfile = (username) => username && playerProfileMap[username] ? playerProfileMap[username] : null
+      const getRecordText = (content) => {
+        if(!content){
+          return ''
+        }
+        if(content.text){
+          return content.text
+        }
+        if(Array.isArray(content.content)){
+          return content.content.map(item => item && item.text ? item.text : '').join('')
+        }
+        return ''
+      }
+
+      gameRecord.vote_records = actions
+        .filter(a => a.action === 'vote')
+        .map(a => ({
+          day: a.day,
+          stage: a.stage,
+          actor: getProfile(a.from),
+          target: getProfile(a.to),
+          target_name: getProfile(a.to) ? getProfile(a.to).name : a.to,
+          vote_phase: a.stage === 6.5 ? 'pk' : 'normal'
+        }))
+
+      gameRecord.player_logs = {}
+      players.forEach(p => {
+        gameRecord.player_logs[p.username] = {
+          profile: playerProfileMap[p.username],
+          speeches: [],
+          actions: [],
+          votes_cast: [],
+          votes_received: []
+        }
+      })
+
+      records.forEach(r => {
+        const content = r.content || {}
+        if((content.type === 'speech' || content.type === 'lastWords') && content.from && content.from.username){
+          const log = gameRecord.player_logs[content.from.username]
+          if(log){
+            log.speeches.push({
+              day: r.day,
+              stage: r.stage,
+              type: content.type,
+              text: getRecordText(content)
+            })
+          }
+        }
+      })
+
+      actions.forEach(a => {
+        const actorLog = gameRecord.player_logs[a.from]
+        const targetProfile = getProfile(a.to)
+        if(actorLog){
+          const actionItem = {
+            day: a.day,
+            stage: a.stage,
+            action: a.action,
+            target: targetProfile,
+            target_name: targetProfile ? targetProfile.name : a.to
+          }
+          if(a.action === 'vote'){
+            actorLog.votes_cast.push(actionItem)
+          } else {
+            actorLog.actions.push(actionItem)
+          }
+        }
+        if(a.action === 'vote'){
+          const targetLog = gameRecord.player_logs[a.to]
+          if(targetLog){
+            targetLog.votes_received.push({
+              day: a.day,
+              stage: a.stage,
+              actor: getProfile(a.from)
+            })
+          }
+        }
+      })
+
       // 按回合整理记录
       gameRecord.round_records = []
       for (let day = 1; day <= gameInstance.day; day++) {
         const dayRecords = records.filter(r => r.day === day)
         const dayActions = actions.filter(a => a.day === day)
+        const daySpeeches = dayRecords
+          .filter(r => r.content && (r.content.type === 'speech' || r.content.type === 'lastWords'))
+          .map(r => ({
+            day: r.day,
+            stage: r.stage,
+            type: r.content.type,
+            actor: r.content.from ? getProfile(r.content.from.username) || r.content.from : null,
+            text: getRecordText(r.content)
+          }))
+        const dayActionSamples = dayActions.map(a => ({
+          day: a.day,
+          stage: a.stage,
+          action: a.action,
+          actor: getProfile(a.from),
+          target: getProfile(a.to),
+          target_name: getProfile(a.to) ? getProfile(a.to).name : a.to
+        }))
         
         // 统计投票
         const voteActions = dayActions.filter(a => a.action === 'vote')
@@ -155,22 +421,39 @@ module.exports = app => {
           voteCounts[v.to] = (voteCounts[v.to] || 0) + 1
         })
         
-        // 找出被投出的玩家
-        let votedOut = null
-        let maxVotes = 0
-        for (const [playerId, count] of Object.entries(voteCounts)) {
-          if (count > maxVotes) {
-            maxVotes = count
-            votedOut = playerId
+        // 优先使用真实放逐记录。不能只按最高票推断，否则平票也会被误写成出局。
+        const outRecord = dayRecords.find(r => {
+          const content = r.content || {}
+          return content.action === 'out' || content.actionName === '放逐'
+        })
+        let votedOut = outRecord && outRecord.content && outRecord.content.from
+          ? outRecord.content.from.username
+          : null
+        if(!votedOut){
+          let maxVotes = 0
+          let topPlayers = []
+          for (const [playerId, count] of Object.entries(voteCounts)) {
+            if (count > maxVotes) {
+              maxVotes = count
+              topPlayers = [playerId]
+            } else if (count === maxVotes) {
+              topPlayers.push(playerId)
+            }
           }
+          votedOut = topPlayers.length === 1 ? topPlayers[0] : null
         }
+        const votedOutInfo = votedOut ? gameRecord.final_result.final_state.players[votedOut] : null
 
         gameRecord.round_records.push({
           day,
           records: dayRecords.map(r => r.content),
+          speeches: daySpeeches,
+          actions: dayActionSamples,
+          votes: dayActionSamples.filter(item => item.action === 'vote'),
           vote_results: {
             vote_counts: voteCounts,
-            voted_out: votedOut ? gameRecord.final_result.final_state.players[votedOut] : null
+            voted_out: votedOutInfo,
+            voted_out_name: votedOutInfo ? ((votedOutInfo.position || '') + '号' + (votedOutInfo.name ? '（' + votedOutInfo.name + '）' : '')) : null
           }
         })
       }
@@ -199,6 +482,17 @@ module.exports = app => {
 
     try {
       // 生成游戏记录
+      const existingReplay = getReplayIndexByGameId(gameInstance._id, options.outputDir || 'replay_analysis')
+      if(existingReplay && options.force !== true){
+        return $helper.wrapResult(true, {
+          game_record: null,
+          analysis_files: existingReplay.analysisFiles,
+          replay_index: existingReplay,
+          timestamp: existingReplay.timestamp,
+          reused: true
+        })
+      }
+
       const gameRecord = await generateGameRecord(gameInstance)
 
       // 准备AI配置
@@ -212,16 +506,41 @@ module.exports = app => {
         desensitize: options.desensitize !== false
       }
 
+      const startedAt = Date.now()
       const result = await post('/analyze', requestData)
       
       if (result.result) {
         const analysisData = result.data || {}
+        const analysisFiles = analysisData.result
+        const replayIndex = upsertReplayIndex(
+          gameRecord,
+          analysisFiles,
+          analysisData.timestamp,
+          options.outputDir || 'replay_analysis'
+        )
         return $helper.wrapResult(true, {
           game_record: gameRecord,
-          analysis_files: analysisData.result,
+          analysis_files: analysisFiles,
+          replay_index: replayIndex,
           timestamp: analysisData.timestamp
         })
       } else {
+        const recoveredFiles = findGeneratedAnalysisFilesSince(options.outputDir || 'replay_analysis', startedAt)
+        if(recoveredFiles){
+          const replayIndex = upsertReplayIndex(
+            gameRecord,
+            recoveredFiles,
+            recoveredFiles.timestamp,
+            options.outputDir || 'replay_analysis'
+          )
+          return $helper.wrapResult(true, {
+            game_record: gameRecord,
+            analysis_files: recoveredFiles,
+            replay_index: replayIndex,
+            timestamp: recoveredFiles.timestamp,
+            recovered: true
+          })
+        }
         return result
       }
     } catch (error) {
@@ -229,9 +548,75 @@ module.exports = app => {
     }
   }
 
+  const ensureGameReplay = async (gameInstance, options = {}) => {
+    const { $helper } = app
+    if(!gameInstance || !gameInstance._id){
+      return $helper.wrapResult(false, 'gameInstance为空', -1)
+    }
+
+    const gameId = String(gameInstance._id)
+    const outputDir = options.outputDir || 'replay_analysis'
+    const existingReplay = getReplayIndexByGameId(gameId, outputDir)
+    if(existingReplay){
+      console.log('[ReplayAuto] skip existing replay, gameId=' + gameId)
+      return $helper.wrapResult(true, {
+        replay_index: existingReplay,
+        reused: true
+      })
+    }
+
+    if(replayJobs.has(gameId)){
+      console.log('[ReplayAuto] skip running replay job, gameId=' + gameId)
+      return $helper.wrapResult(true, {
+        gameId,
+        running: true
+      })
+    }
+
+    replayJobs.add(gameId)
+    try {
+      console.log('[ReplayAuto] start replay generation, gameId=' + gameId)
+      const result = await analyzeGame(gameInstance, {
+        enableAI: options.enableAI !== false,
+        aiModel: options.aiModel,
+        outputDir,
+        desensitize: options.desensitize !== false,
+        force: false
+      })
+      if(result.result){
+        console.log('[ReplayAuto] success replay generation, gameId=' + gameId)
+      } else {
+        console.log('[ReplayAuto] failed replay generation, gameId=' + gameId + ', error=' + result.errorMessage)
+      }
+      return result
+    } catch (e) {
+      console.log('[ReplayAuto] failed replay generation, gameId=' + gameId + ', error=' + e.message)
+      return $helper.wrapResult(false, '自动生成复盘失败: ' + e.message, -1)
+    } finally {
+      replayJobs.delete(gameId)
+    }
+  }
+
+  const triggerGameReplay = (gameInstance, options = {}) => {
+    const gameId = gameInstance && gameInstance._id
+    setImmediate(async () => {
+      try {
+        await ensureGameReplay(gameInstance, options)
+      } catch (e) {
+        console.log('[ReplayAuto] unexpected error, gameId=' + gameId + ', error=' + e.message)
+      }
+    })
+  }
+
   return {
     checkHealth,
     generateGameRecord,
-    analyzeGame
+    analyzeGame,
+    ensureGameReplay,
+    triggerGameReplay,
+    readReplayIndex,
+    getReplayIndexByGameId,
+    getReplayAnalysisContent,
+    findGeneratedAnalysisFilesSince
   }
 }

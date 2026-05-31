@@ -210,7 +210,10 @@ class Application {
     let server = this.$app.listen(port, ()=>{
       console.log(chalk.green('server start on ' + port + '..........'))
     });
-    // server.timeout = 1000 * 60 * 5
+    const requestTimeout = (this.$config.serverTimeout || 1000 * 60 * 10)
+    server.timeout = requestTimeout
+    server.requestTimeout = requestTimeout
+    server.headersTimeout = requestTimeout + 5000
   }
 
 }

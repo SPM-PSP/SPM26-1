@@ -43,11 +43,14 @@ module.exports = app => {
   router.get('/api/game/boomPlayer/auth', $middleware.auth, $controller.gameController.boomPlayer)
   router.post('/api/game/replay/auth', $middleware.auth, $controller.gameController.replayGame)
   router.get('/api/game/replay/health/auth', $middleware.auth, $controller.gameController.replayHealth)
+  router.get('/api/game/replay/player/history/auth', $middleware.auth, $controller.gameController.getPlayerReplayHistory)
+  router.get('/api/game/replay/detail/auth', $middleware.auth, $controller.gameController.getReplayDetail)
   router.get('/api/game/replay/file', $controller.gameController.getReplayFile)
 
   router.post('/api/voice/stt/auth', $middleware.auth, $controller.voiceController.stt)
   router.post('/api/voice/tts/auth', $middleware.auth, $controller.voiceController.tts)
   router.post('/api/voice/speech/auth', $middleware.auth, $controller.voiceController.speech)
+  router.post('/api/voice/aiSpeech/played/auth', $middleware.auth, $controller.voiceController.aiSpeechPlayed)
 
   router.post('/api/game/saveLastWords/auth', $middleware.auth, $controller.gameController.saveLastWords)
 

@@ -338,7 +338,7 @@
    * @apiGroup 游戏模块
    */
   async getGameInfo (ctx) {
-    const { $service, $helper, $model, $constants } = app
+    const { $service, $helper, $model, $constants, $nodeCache } = app
     const { game, player, record } = $model
     const { playerRoleMap, stageMap } = $constants
     const { id } = ctx.query
@@ -356,6 +356,9 @@
     let isOb = obResult.result && obResult.data === 'Y'
     // 查询你在游戏中的状态
     let currentPlayer = await $service.baseService.queryOne(player, {roomId: gameInstance.roomId, gameId: gameInstance._id, username: currentUser.username})
+    if(currentPlayer){
+      isOb = false
+    }
     if(!isOb && !currentPlayer){
       ctx.body = $helper.Result.fail(-1,'未查询到你在该游戏中')
       return
@@ -420,6 +423,11 @@
         type: item.content.type,
         text: item.content.text,
         source: item.content.source,
+        audioBase64: item.content.audioBase64,
+        audioMime: item.content.audioMime,
+        audioDataUrl: item.content.audioDataUrl,
+        playbackRequired: item.content.playbackRequired,
+        playbackStatus: item.content.playbackStatus,
         from: item.content.from
       }))
     let speechTurnInfo = null
@@ -436,17 +444,28 @@
           speechTurnResult.data.currentSpeaker &&
           $service.aiService.isAiId(speechTurnResult.data.currentSpeaker.username)
         ){
-          setImmediate(async () => {
-            try {
-              const latestGame = await $service.baseService.queryById(game, gameInstance._id)
-              await $service.aiService.runAiForStage(latestGame)
-            } catch (e) {
-              app.$log4.errorLogger.error('[gameController] trigger ai speech failed: ' + e.toString())
-            }
-          })
+          const pendingPlaybackResult = await $service.gameService.getPendingAiSpeechPlayback(gameInstance)
+          if(!pendingPlaybackResult.result || !pendingPlaybackResult.data){
+            setImmediate(async () => {
+              try {
+                const latestGame = await $service.baseService.queryById(game, gameInstance._id)
+                await $service.aiService.runAiForStage(latestGame)
+              } catch (e) {
+                app.$log4.errorLogger.error('[gameController] trigger ai speech failed: ' + e.toString())
+              }
+            })
+          }
         }
       }
     }
+    let voteStageInfo = null
+    if(gameInstance.stage === 6 || gameInstance.stage === 6.5){
+      let voteStageResult = await $service.gameService.getVoteStageStatus(gameInstance)
+      if(voteStageResult.result){
+        voteStageInfo = voteStageResult.data
+      }
+    }
+    const timerValue = $nodeCache.get('game-time-' + gameInstance._id)
 
     let gameInfo = {
       _id: gameInstance._id,
@@ -473,6 +492,8 @@
       action: actionInfo.data,
       speechRecords: speechRecordList,
       speechTurn: speechTurnInfo,
+      voteStage: voteStageInfo,
+      timerTime: typeof timerValue === 'number' ? timerValue : 0,
       winner: gameInstance.winner,
       isOb: isOb
     }
@@ -806,7 +827,7 @@
    * @apiGroup 游戏模块
    */
   async checkPlayer (ctx) {
-    const { $service, $helper, $model, $ws } = app
+    const { $service, $helper, $model, $ws, $constants } = app
     const { game, player, action, vision, record } = $model
     const { roomId, gameId, username } = ctx.query
     if(!roomId || roomId === ''){
@@ -1218,6 +1239,28 @@
     }
 
     let targetPlayer = await $service.baseService.queryOne(player, {roomId: roomId, gameId: gameInstance._id, username: username})
+    if(!targetPlayer || targetPlayer.status !== 1){
+      ctx.body = $helper.Result.fail(-1,'投票目标不存在或已出局！')
+      return
+    }
+    if(gameInstance.stage === 6.5 && gameInstance.flatTicket === 2){
+      const pkTag = await $service.baseService.queryOne($model.gameTag, {
+        roomId: roomId,
+        gameId: gameInstance._id,
+        day: gameInstance.day,
+        mode: 3,
+        desc: 'pkPlayer'
+      })
+      const pkPlayers = pkTag && Array.isArray(pkTag.value2) ? pkTag.value2 : []
+      if(pkPlayers.includes(currentPlayer.username)){
+        ctx.body = $helper.Result.fail(-1,'PK玩家不能参与本轮PK投票！')
+        return
+      }
+      if(!pkPlayers.includes(targetPlayer.username)){
+        ctx.body = $helper.Result.fail(-1,'PK阶段只能投票给PK候选玩家！')
+        return
+      }
+    }
 
     let actionObject = {
       roomId: roomId,
@@ -1290,7 +1333,12 @@
       name: targetPlayer.name,
       position: targetPlayer.position,
     }
-    ctx.body = $helper.Result.success(r)
+    const voteStatusResult = await $service.gameService.getVoteStageStatus(gameInstance)
+    const autoAdvanceResult = await $service.gameService.tryAutoAdvanceVoteStage(gameInstance)
+    ctx.body = $helper.Result.success(Object.assign({}, r, {
+      voteStatus: voteStatusResult.result ? voteStatusResult.data : null,
+      autoAdvanced: autoAdvanceResult.result && autoAdvanceResult.data ? !!autoAdvanceResult.data.advanced : false
+    }))
     
     // 发送投票更新通知
     if($ws && $ws.connections){
@@ -1828,7 +1876,7 @@
    * @apiGroup 游戏模块
    */
   async gameAgain (ctx) {
-    const { $service, $helper, $model, $ws } = app
+    const { $service, $helper, $model, $ws, $constants } = app
     const { room } = $model
     const { roomId } = ctx.query
     if(!roomId || roomId === ''){
@@ -1850,6 +1898,14 @@
     let update = {
       status: 0,
       gameId: null
+    }
+    const roomData = roomInstance.toJSON ? roomInstance.toJSON() : roomInstance
+    const maxSeatCount = $constants.maxSeatCount || 12
+    for(let i = 1; i <= maxSeatCount; i++){
+      const seatUser = roomData['v' + i]
+      if(seatUser && $service.aiService.isAiId(seatUser)){
+        update['v' + i] = null
+      }
     }
     await $service.baseService.updateById(room, roomInstance._id, update)
     $ws.connections.forEach(function (conn) {
@@ -1932,7 +1988,9 @@
     const { $service, $helper, $model } = app
     const { game } = $model
     const body = ctx.request.body || {}
-    const { gameId, enableAI, aiModel, outputDir, desensitize } = body
+    const { gameId, enableAI, aiModel, outputDir, desensitize, force } = body
+
+    console.log('[ReplayAPI] request received, gameId=' + gameId + ', enableAI=' + enableAI + ', force=' + force)
 
     if(!gameId || gameId === ''){
       ctx.body = $helper.Result.fail(-1, 'gameId不能为空！')
@@ -1958,10 +2016,13 @@
         enableAI: enableAI !== false,
         aiModel: aiModel,
         outputDir: outputDir || 'replay_analysis',
-        desensitize: desensitize !== false
+        desensitize: desensitize !== false,
+        force: force === true
       }
 
+      console.log('[ReplayAPI] start analyzeGame, gameId=' + gameId)
       const result = await $service.replayService.analyzeGame(gameInstance, options)
+      console.log('[ReplayAPI] analyzeGame finished, gameId=' + gameId + ', success=' + result.result)
 
       if(!result.result){
         ctx.body = $helper.Result.fail(result.errorCode || -1, result.errorMessage || '复盘分析失败')
@@ -1981,6 +2042,168 @@
         app.$log4.errorLogger.error('[replayGame] 复盘分析失败: ' + error.toString())
       }
       ctx.body = $helper.Result.fail(-1, '复盘分析失败: ' + error.message)
+    }
+  },
+
+  /**
+   * @api {get} /api/game/replay/player/history/auth 查询玩家历史复盘列表
+   * @apiGroup 游戏模块
+   */
+  async getPlayerReplayHistory (ctx) {
+    const { $service, $helper, $model, $constants } = app
+    const { game, player } = $model
+    const { playerRoleMap } = $constants
+    const { username, limit, page } = ctx.query
+
+    try {
+      const currentUser = await $service.baseService.userInfo(ctx)
+      const targetUsername = username || currentUser.username
+      const pageSize = Math.min(Math.max(parseInt(limit || 20), 1), 50)
+      const pageNo = Math.max(parseInt(page || 1), 1)
+
+      console.log('\n[ReplayHistory] request')
+      console.log('[ReplayHistory] currentUser=' + currentUser.username + ', targetUsername=' + targetUsername + ', page=' + pageNo + ', limit=' + pageSize)
+
+      const joinedPlayers = await $service.baseService.query(player, {
+        username: targetUsername
+      }, {}, { sort: { gameId: -1 } })
+
+      if(!joinedPlayers || joinedPlayers.length < 1){
+        console.log('[ReplayHistory] no joined games found for username=' + targetUsername)
+        ctx.body = $helper.Result.success({
+          username: targetUsername,
+          total: 0,
+          page: pageNo,
+          limit: pageSize,
+          list: []
+        })
+        return
+      }
+
+      const replayIndex = $service.replayService.readReplayIndex()
+      const replayIndexMap = {}
+      replayIndex.forEach(item => {
+        replayIndexMap[String(item.gameId)] = item
+      })
+      console.log('[ReplayHistory] joinedPlayerRows=' + joinedPlayers.length + ', replayIndexRows=' + replayIndex.length)
+
+      const rows = []
+      for(let i = 0; i < joinedPlayers.length; i++){
+        const p = joinedPlayers[i]
+        const gameInstance = await $service.baseService.queryById(game, p.gameId)
+        if(!gameInstance || gameInstance.status !== 2){
+          continue
+        }
+
+        const indexItem = replayIndexMap[String(gameInstance._id)]
+        const winnerLabel = gameInstance.winner === 1 ? '好人阵营' : gameInstance.winner === 0 ? '狼人阵营' : '未知'
+        const roleInfo = playerRoleMap[p.role] || {}
+        rows.push({
+          gameId: gameInstance._id,
+          roomId: gameInstance.roomId,
+          playerCount: gameInstance.playerCount,
+          mode: gameInstance.mode,
+          days: gameInstance.day,
+          winner: gameInstance.winner,
+          winnerLabel,
+          isWin: p.camp === gameInstance.winner,
+          player: {
+            username: p.username,
+            name: p.name,
+            position: p.position,
+            role: p.role,
+            roleName: roleInfo.name || p.roleName || p.role,
+            camp: p.camp,
+            status: p.status,
+            outReason: p.outReason || null
+          },
+          hasReplay: !!indexItem,
+          replayFiles: indexItem ? indexItem.analysisFiles : null,
+          replayTimestamp: indexItem ? indexItem.timestamp : null,
+          startTime: indexItem ? indexItem.startTime : gameInstance.createTime,
+          endTime: indexItem ? indexItem.endTime : gameInstance.modifyTime
+        })
+      }
+
+      rows.sort((a, b) => new Date(b.endTime || 0) - new Date(a.endTime || 0))
+      const total = rows.length
+      const start = (pageNo - 1) * pageSize
+      const list = rows.slice(start, start + pageSize)
+      console.log('[ReplayHistory] success username=' + targetUsername + ', finishedGames=' + total + ', returned=' + list.length + ', withReplay=' + rows.filter(item => item.hasReplay).length)
+
+      ctx.body = $helper.Result.success({
+        username: targetUsername,
+        total,
+        page: pageNo,
+        limit: pageSize,
+        list
+      })
+    } catch (error) {
+      if(app.$log4 && app.$log4.errorLogger){
+        app.$log4.errorLogger.error('[getPlayerReplayHistory] 查询玩家历史复盘失败: ' + error.toString())
+      }
+      ctx.body = $helper.Result.fail(-1, '查询玩家历史复盘失败: ' + error.message)
+    }
+  },
+
+  /**
+   * @api {get} /api/game/replay/detail/auth 查询单局复盘详情
+   * @apiGroup 游戏模块
+   */
+  async getReplayDetail (ctx) {
+    const { $service, $helper, $model } = app
+    const { game, player } = $model
+    const { gameId } = ctx.query
+
+    if(!gameId || gameId === ''){
+      ctx.body = $helper.Result.fail(-1, 'gameId不能为空！')
+      return
+    }
+
+    try {
+      const currentUser = await $service.baseService.userInfo(ctx)
+      console.log('\n[ReplayDetail] request')
+      console.log('[ReplayDetail] currentUser=' + currentUser.username + ', gameId=' + gameId)
+      const gameInstance = await $service.baseService.queryById(game, gameId)
+      if(!gameInstance){
+        console.log('[ReplayDetail] failed: game not found, gameId=' + gameId)
+        ctx.body = $helper.Result.fail(-1, '游戏不存在！')
+        return
+      }
+
+      const currentPlayer = await $service.baseService.queryOne(player, {
+        gameId: gameInstance._id,
+        roomId: gameInstance.roomId,
+        username: currentUser.username
+      })
+      const obResult = await $service.roomService.isOb(gameInstance.roomId, currentUser.username)
+      const isOb = obResult.result && obResult.data === 'Y'
+      if(!currentPlayer && !isOb){
+        console.log('[ReplayDetail] denied: current user is not player or observer, gameId=' + gameId)
+        ctx.body = $helper.Result.fail(-1, '未查询到你在该游戏中，无法查看复盘详情！')
+        return
+      }
+
+      const indexItem = $service.replayService.getReplayIndexByGameId(gameInstance._id)
+      if(!indexItem){
+        console.log('[ReplayDetail] failed: replay index not found, gameId=' + gameId)
+        ctx.body = $helper.Result.fail(-1, '该局还没有生成复盘，请先调用复盘分析接口！')
+        return
+      }
+
+      const analysisContent = $service.replayService.getReplayAnalysisContent(indexItem.analysisFiles)
+      const gameRecord = await $service.replayService.generateGameRecord(gameInstance)
+      console.log('[ReplayDetail] success gameId=' + gameId + ', hasJson=' + !!analysisContent.json + ', hasText=' + !!analysisContent.text)
+      ctx.body = $helper.Result.success({
+        ...indexItem,
+        gameRecord,
+        analysis: analysisContent
+      })
+    } catch (error) {
+      if(app.$log4 && app.$log4.errorLogger){
+        app.$log4.errorLogger.error('[getReplayDetail] 查询复盘详情失败: ' + error.toString())
+      }
+      ctx.body = $helper.Result.fail(-1, '查询复盘详情失败: ' + error.message)
     }
   },
 
