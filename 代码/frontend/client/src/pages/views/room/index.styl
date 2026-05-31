@@ -58,81 +58,65 @@
     font-size 16px
     font-weight 500
     text-align center
-.player-click-modal
-  background-color #fef9eb
+/* .player-click-modal – full theme defined near bottom of file */
+
+.game-record-modal
   font-family Georgia, 'Noto Serif SC', 'Noto Serif', serif
   .ant-modal-content
-    background-color #fef9eb !important
-    border none
+    background #e5d7bd!important
+    border 1px solid rgba(79, 52, 29, 0.34)
+    border-radius 8px
+    overflow hidden
+    box-shadow 0 24px 70px rgba(21, 14, 8, 0.34), inset 0 0 0 1px rgba(255,255,255,0.36)
   .ant-modal-header
-    background-color #fef9eb !important
-    border-bottom none
-  .ant-modal-footer
-    background-color #fef9eb !important
-    border-top none
+    background linear-gradient(180deg, #f1e8d6 0%, #e5d7bd 100%)!important
+    border-bottom 1px solid rgba(91, 60, 34, 0.22)!important
+    padding 22px 26px 16px
   .ant-modal-title
-    color #7a000b
-  .content-wrap
-    width 100%
-    .content-view
-      border-radius 4px
-      border 1px solid #eeeeee
-      overflow scroll
-      height 300px
-      position relative
-      margin-left 20px
-      margin-right 20px
-      padding 10px
-      flex-wrap wrap
-      flex-direction row
-      justify-content space-around
-      display flex
-      .player-cell
-        width 120px
-        height 70px
-        margin 10px
-        border-radius 2px
-        position relative
-        .camp-tag
-          height 20px
-          position absolute
-          border-radius 10px
-          right 4px
-          top 4px
-          padding-left 10px
-          padding-right 10px
-          line-height 20px
-          text-align center
-          font-weight 500
-          color #ffffff
-      .check-item
-        background-color #ffcc80
-      .normal-item
-        background-color #e1d9c6
-      .target-item
-        background-color #d4237a
-      .txt
-        font-weight 500
-      .check-text
-        color #2e1500
-      .normal-text
-        color #7e7667
-        opacity 0.6
-    .result-view
-      .tit
-        font-size 14px
-        line-height 20px
-        font-weight 500
-        text-align center
-        width 100%
-      .content
-        width auto
-        font-size 14px
-    .prompt-view
-      font-size 14px
-      color orange
-      font-style italic
-      font-weight 500
+    color #5d261f
+  .ant-modal-body
+    background #e5d7bd
+    padding 0 0 18px!important
+  .ant-modal-footer
+    background #e5d7bd!important
+    border-top 1px solid rgba(91, 60, 34, 0.18)!important
+    padding 14px 26px 20px
+  .btn-primary
+    min-width 96px
+    height 38px
+    border-radius 4px
+    color #f8efd8!important
+    background #5d261f!important
+    border-color #5d261f!important
+    font-weight 700
+    letter-spacing 0
+    box-shadow 0 5px 14px rgba(82, 35, 28, 0.22)!important
+  .game-record-modal-title
+    display flex
+    align-items center
+    gap 12px
+    color #5d261f
+    svg
+      font-size 24px
+      padding 8px
+      width 42px
+      height 42px
+      border-radius 50%
+      color #efe5cd
+      background #5d261f
+      box-shadow 0 4px 12px rgba(77, 42, 25, 0.24)
+    strong
+      display block
+      font-size 22px
+      line-height 28px
+      letter-spacing 0
+    span
+      display block
+      margin-top 2px
+      color #75654f
+      font-size 13px
+      line-height 18px
+      font-weight 600
 .role-card-wrap
   .card-img
     width 100%
@@ -958,6 +942,22 @@
   font-size 16px
   font-weight 900
 
+.room-day-shell .ready-day-player.day-player-speaking
+  opacity 1
+  filter drop-shadow(0 0 16px rgba(243, 201, 110, .52))
+
+.room-day-shell .ready-day-player.day-player-speaking .ready-seat-frame
+  box-shadow 0 0 0 4px #f3c96e, 0 0 0 8px rgba(96, 116, 49, .28), 0 20px 34px rgba(74, 50, 10, .22)
+
+.room-day-shell .ready-day-player.day-player-speaking .ready-seat-name
+  background #f3c96e
+  color #4a0006
+  box-shadow 0 0 0 2px rgba(74, 0, 6, .18)
+
+.room-day-shell .ready-day-player.day-player-speaking .ready-seat-note
+  color var(--primary)
+  font-weight 1000
+
 .day-player-tags
   display flex
   flex-wrap wrap
@@ -974,6 +974,14 @@
   font-size 10px
   font-weight 900
   line-height 1.2
+
+.day-player-tags .wolf
+  color #fff
+  background var(--primary)
+
+.day-player-tags .good
+  color #102c17
+  background #b7ccb9
 
 .ready-center-piece
   position absolute
@@ -1158,6 +1166,108 @@
 
 .day-speaker-card
   margin-top 0
+
+.day-vote-panel
+  margin 0 0 16px
+  padding 14px
+  border 1px solid rgba(96, 116, 49, .2)
+  border-radius 8px
+  background rgba(215, 234, 171, .34)
+
+.day-vote-countdown
+  text-align center
+
+.day-vote-countdown span
+  display block
+  color #607431
+  font-size 12px
+  font-weight 900
+
+.day-vote-countdown strong
+  display block
+  margin 4px 0 10px
+  color var(--primary)
+  font-size 36px
+  line-height 1.1
+  font-weight 1000
+
+.day-speech-countdown-panel
+  background rgba(255, 218, 215, .3)
+
+.day-speech-turn-text
+  color #43483f
+  font-size 13px
+  line-height 1.55
+  font-weight 800
+  text-align center
+
+.day-vote-progress div
+  display flex
+  align-items center
+  justify-content space-between
+  color #43483f
+  font-size 12px
+  font-weight 900
+
+.day-vote-progress strong
+  color var(--primary)
+
+.day-vote-progress i
+  display block
+  height 8px
+  margin-top 8px
+  border-radius 999px
+  background rgba(67, 72, 63, .14)
+  overflow hidden
+
+.day-vote-progress b
+  display block
+  height 100%
+  border-radius inherit
+  background var(--primary)
+  transition width .2s ease
+
+.day-vote-roster
+  display grid
+  gap 8px
+  max-height 150px
+  margin-top 12px
+  overflow-y auto
+
+.day-vote-roster span
+  display flex
+  align-items center
+  justify-content space-between
+  gap 10px
+  padding 7px 9px
+  border-radius 4px
+  color #43483f
+  background rgba(254, 249, 235, .7)
+  font-size 12px
+  font-weight 800
+
+.day-vote-roster span.done
+  color #607431
+
+.day-vote-roster em
+  flex 0 0 auto
+  color inherit
+  font-style normal
+  font-weight 900
+
+.vote-result-status
+  display flex
+  flex-wrap wrap
+  gap 8px
+  margin-top 10px
+
+.vote-result-status span
+  padding 4px 8px
+  border-radius 4px
+  color #5d261f
+  background rgba(255, 218, 215, .36)
+  font-size 12px
+  font-weight 800
 
 .day-discussion-list
   display flex
@@ -2694,6 +2804,283 @@
 .night-side-actions button:hover
   background #812025
 
+/* ─── Settings Modal ─────────────────────────────────── */
+.setting-modal-wrap
+  font-family Georgia, 'Noto Serif SC', 'Noto Serif', serif
+  .ant-modal-content
+    background #fef9eb !important
+    border 1px solid rgba(79, 52, 29, 0.28)
+    border-radius 18px
+    overflow hidden
+    box-shadow 0 32px 72px rgba(21, 14, 8, 0.32), inset 0 0 0 1px rgba(255,255,255,0.3)
+  .ant-modal-header
+    background linear-gradient(180deg, #f2e8d4 0%, #fef9eb 100%) !important
+    border-bottom 1px solid rgba(91, 60, 34, 0.2) !important
+    padding 22px 28px 18px
+  .ant-modal-title
+    color #5d261f
+  .ant-modal-body
+    background #fef9eb
+    padding 20px 28px 10px !important
+  .ant-modal-footer
+    background #fef9eb !important
+    border-top 1px solid rgba(91, 60, 34, 0.14) !important
+    padding 14px 28px 22px
+    text-align center
+  .setting-modal-title
+    display flex
+    align-items center
+    gap 10px
+    color #5d261f
+    font-size 22px
+    font-weight 900
+    font-style italic
+  .settings
+    width 100%
+  .setting-cell
+    display flex
+    align-items center
+    min-height 48px
+    padding 9px 0
+    border-bottom 1px solid rgba(91, 60, 34, 0.1)
+    gap 12px
+    &:last-child
+      border-bottom 0
+  .item-title
+    min-width 0
+    width 190px
+    flex none
+    text-align right !important
+    color #5d261f
+    font-weight 800
+    font-size 13px
+    line-height 1.4
+    padding-right 10px
+  .fake-input
+    min-width 56px
+    height 36px
+    line-height 36px
+    text-align center
+    border-radius 8px
+    border 1px solid rgba(91, 60, 34, 0.22)
+    background rgba(247, 238, 221, 0.9)
+    color #482400
+    font-size 17px
+    font-weight 900
+  .icon-font
+    color #63000a
+    font-size 21px
+    cursor pointer
+    opacity 0.78
+    transition opacity .15s
+    &:hover
+      opacity 1
+  .ant-radio-button-wrapper
+    border-color rgba(91, 60, 34, 0.28) !important
+    background rgba(248, 243, 229, .9) !important
+    color #5d261f !important
+    font-family inherit
+    font-weight 800
+    font-size 13px
+    &:hover
+      color #63000a !important
+      border-color rgba(99, 0, 10, .45) !important
+      background rgba(248, 243, 229, 1) !important
+  .ant-radio-button-wrapper-checked
+    background #63000a !important
+    border-color #63000a !important
+    color #fff !important
+    box-shadow -1px 0 0 0 #63000a !important
+    &:before
+      background #63000a !important
+  .ant-radio-button-wrapper:not(:first-child)::before
+    background rgba(91, 60, 34, 0.2) !important
+  .btn-primary,
+  .btn-primary:hover,
+  .btn-primary:focus,
+  .btn-primary:after
+    background #63000a !important
+    border-color #63000a !important
+    color #f8efd8 !important
+    min-width 110px
+    height 42px
+    border-radius 8px
+    font-family inherit
+    font-weight 900
+    font-size 15px
+    letter-spacing .04em
+    box-shadow 0 8px 20px rgba(82, 35, 28, 0.22) !important
+    transition background .18s ease !important
+  .btn-primary:hover,
+  .btn-primary:focus
+    background #85171b !important
+    border-color #85171b !important
+
+/* ─── Vote / Action Modal ────────────────────────────── */
+.player-click-modal
+  background-color #fef9eb
+  font-family Georgia, 'Noto Serif SC', 'Noto Serif', serif
+  .ant-modal-content
+    background #fef9eb !important
+    border 1px solid rgba(79, 52, 29, 0.26)
+    border-radius 18px
+    overflow hidden
+    box-shadow 0 32px 72px rgba(21, 14, 8, 0.3), inset 0 0 0 1px rgba(255,255,255,0.28)
+  .ant-modal-header
+    background linear-gradient(180deg, #f2e8d4 0%, #fef9eb 100%) !important
+    border-bottom 1px solid rgba(91, 60, 34, 0.18) !important
+    padding 22px 28px 16px
+  .ant-modal-title
+    color #5d261f
+    font-size 20px
+    font-weight 900
+    font-style italic
+  .ant-modal-body
+    background #fef9eb !important
+    padding 20px 22px 18px !important
+  .ant-modal-footer
+    background #fef9eb !important
+    border-top 1px solid rgba(91, 60, 34, 0.14) !important
+    padding 14px 28px 22px
+    text-align center
+  .btn-primary,
+  .btn-primary:hover,
+  .btn-primary:focus,
+  .btn-primary:after
+    background #63000a !important
+    border-color #63000a !important
+    color #f8efd8 !important
+    min-width 100px
+    height 40px
+    border-radius 8px
+    font-family inherit
+    font-weight 900
+    box-shadow 0 6px 18px rgba(82, 35, 28, 0.2) !important
+    transition background .18s ease !important
+  .btn-primary:hover,
+  .btn-primary:focus
+    background #85171b !important
+    border-color #85171b !important
+  .content-wrap
+    width 100%
+    .content-view
+      border-radius 12px
+      border 1px solid rgba(91, 60, 34, 0.14)
+      background rgba(243, 236, 218, 0.5)
+      overflow auto
+      max-height 380px
+      margin 0
+      padding 16px 14px
+      display flex
+      flex-wrap wrap
+      gap 14px
+      justify-content center
+      scrollbar-width thin
+      scrollbar-color rgba(99, 0, 10, .2) transparent
+    .player-cell
+      width 138px
+      min-height 100px
+      margin 0
+      border-radius 12px
+      border 2px solid rgba(91, 60, 34, 0.18)
+      background rgba(254, 249, 235, .95)
+      box-shadow 0 6px 18px rgba(29, 28, 19, .1)
+      display flex
+      flex-direction column
+      align-items center
+      justify-content center
+      gap 5px
+      padding 12px 8px
+      position relative
+      transition box-shadow .18s, border-color .18s, background .18s
+    .check-item
+      background linear-gradient(160deg, #fdf0dd, #fef9eb) !important
+      border-color rgba(99, 0, 10, 0.28) !important
+      cursor pointer
+      &:hover
+        box-shadow 0 10px 24px rgba(99, 0, 10, .18) !important
+        border-color rgba(99, 0, 10, 0.52) !important
+        background linear-gradient(160deg, #faeacc, #fef0e2) !important
+    .normal-item
+      background rgba(237, 230, 212, .55) !important
+      border-color rgba(91, 60, 34, 0.12) !important
+      opacity 0.68
+    .target-item
+      background rgba(255, 218, 215, .55) !important
+      border-color rgba(180, 10, 50, 0.3) !important
+    .txt
+      font-weight 900
+      font-family inherit
+      font-size 13px
+      line-height 1.3
+    .check-text
+      color #482400
+      font-size 13px
+    .normal-text
+      color #8a7b68
+      font-size 12px
+    .camp-tag
+      height 22px
+      position absolute
+      border-radius 11px
+      right -6px
+      top -10px
+      padding 0 9px
+      line-height 22px
+      font-size 11px
+      font-weight 900
+      color #ffffff
+      box-shadow 0 3px 8px rgba(0, 0, 0, .18)
+    .result-view
+      margin-top 14px
+      padding 14px 16px
+      border-left 3px solid #63000a
+      border-radius 4px
+      background rgba(231, 226, 212, .5)
+      .tit
+        font-size 14px
+        font-weight 900
+        color #5d261f
+        margin-bottom 8px
+      .content
+        font-size 14px
+        color #482400
+    .prompt-view
+      font-size 13px
+      color #6d3a1a
+      font-style italic
+      font-weight 800
+      margin-top 10px
+      padding 10px 14px
+      background rgba(255, 218, 215, .3)
+      border-radius 6px
+
+/* Action button overrides inside vote modal */
+.player-click-modal .btn-folk,
+.player-click-modal .btn-folk:hover,
+.player-click-modal .btn-folk:focus,
+.player-click-modal .btn-folk:after
+  background rgba(91, 47, 18, 0.82) !important
+  border-color rgba(91, 47, 18, 0.9) !important
+  color #ffdcc3 !important
+
+.player-click-modal .btn-error,
+.player-click-modal .btn-error:hover,
+.player-click-modal .btn-error:focus,
+.player-click-modal .btn-error:after
+  background #6b000e !important
+  border-color #6b000e !important
+  color #ffdcc3 !important
+
+.player-click-modal .btn-warning,
+.player-click-modal .btn-warning:hover,
+.player-click-modal .btn-warning:focus,
+.player-click-modal .btn-warning:after
+  background #7a4200 !important
+  border-color #7a4200 !important
+  color #ffdfac !important
+
+/* ─── Legacy .settings selectors (no longer used but kept for safety) ──── */
 .settings .setting-cell
   min-height 38px
 

@@ -160,11 +160,12 @@ export default {
     })
   },
 
-  replayDetail (params) {
+  replayDetail (params, options = {}) {
     return fetch({
       url: urlPrefix + 'game/replay/detail/auth',
       method: 'get',
       params,
+      overHandle: options.overHandle,
     })
   },
 

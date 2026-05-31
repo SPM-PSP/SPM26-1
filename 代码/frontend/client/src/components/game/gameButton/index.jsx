@@ -1,28 +1,17 @@
-import React from "react";
+import React, { useState } from "react";
 import "./index.styl";
 import { withRouter } from "react-router-dom";
 import { inject, observer } from "mobx-react";
 import apiGame from "@api/game";
-import appConfig from "@config";
-import helper from "@helper";
+import { buildReplayPageUrl, waitForReplayReport } from "@common/replay";
 
 import { message, Modal } from "antd";
 
 const { confirm } = Modal;
 
-const buildReplayPageUrl = (gameId) => {
-  const replayUrl = appConfig.replayUrl || `http://${window.location.hostname}:5173`;
-  const url = new URL(replayUrl, window.location.href);
-  url.searchParams.set("gameId", gameId);
-  const token = helper.getToken();
-  if (token) {
-    url.searchParams.set("token", token);
-  }
-  return url.toString();
-};
-
 const Btn = (props) => {
   const { appStore, roomDetail, gameDetail, lookRecord, getRoomDetail, clearGame } = props;
+  const [checkingReplay, setCheckingReplay] = useState(false);
   const isOwner = roomDetail && roomDetail.owner === appStore.user.username;
   const currentRole = gameDetail.roleInfo ? gameDetail.roleInfo.role : null;
   const canRoleNextStage =
@@ -33,7 +22,7 @@ const Btn = (props) => {
   const canOwnerNextStage = isOwner && gameDetail.status === 1;
   const canNextStage = canOwnerNextStage || canRoleNextStage;
 
-  const openReplayPage = () => {
+  const openReplayPage = async () => {
     if (gameDetail.status !== 2) {
       message.error('游戏尚未结束，无法进行复盘分析！');
       return;
@@ -44,7 +33,50 @@ const Btn = (props) => {
       return;
     }
 
-    window.location.href = buildReplayPageUrl(gameDetail._id);
+    if (checkingReplay) {
+      return;
+    }
+
+    const messageKey = `replay-ready-${gameDetail._id}`;
+    setCheckingReplay(true);
+    message.loading({ content: '正在确认复盘文件状态...', key: messageKey, duration: 0 });
+    try {
+      const result = await waitForReplayReport(gameDetail._id, {
+        timeoutMs: 60000,
+        intervalMs: 3000,
+        onWaiting: ({ elapsedMs }) => {
+          const seconds = Math.max(1, Math.ceil(elapsedMs / 1000));
+          message.loading({
+            content: `复盘文件正在生成中，已等待 ${seconds} 秒，请稍候...`,
+            key: messageKey,
+            duration: 0,
+          });
+        },
+      });
+
+      if (result.ready) {
+        message.success({ content: '复盘文件已生成，正在打开复盘页面...', key: messageKey, duration: 1 });
+        window.location.href = buildReplayPageUrl(gameDetail._id);
+        return;
+      }
+
+      if (result.timedOut) {
+        message.warning({
+          content: '复盘文件生成超时，请稍后再试；如果长时间没有生成，请重新触发复盘分析。',
+          key: messageKey,
+          duration: 6,
+        });
+        return;
+      }
+
+      message.error({
+        content: `暂时无法确认复盘状态：${result.error || '请稍后重试'}`,
+        key: messageKey,
+        duration: 5,
+      });
+    } finally {
+      setCheckingReplay(false);
+    }
   };
 
   const nextStage = () => {
@@ -94,7 +126,7 @@ const Btn = (props) => {
           }}
           className="btn-primary btn-record"
         >
-          {gameDetail.status === 2 ? "复盘" : "查看记录"}
+          {gameDetail.status === 2 ? (checkingReplay ? "确认复盘" : "复盘") : "查看记录"}
         </div>
       ) : null}
       <div

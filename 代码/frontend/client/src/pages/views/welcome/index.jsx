@@ -16,6 +16,7 @@ import {
 } from '@ant-design/icons'
 import helper from '@helper'
 import {isMockEnabled} from '@common/mock'
+import {buildReplayPageUrl} from '@common/replay'
 import loginImage from '@assets/images/login.jpg'
 
 const ambientImage =
@@ -84,10 +85,6 @@ const Index = (props) => {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyList, setHistoryList] = useState([])
   const [historyTotal, setHistoryTotal] = useState(0)
-  const [replayModal, setReplayModal] = useState(false)
-  const [replayLoading, setReplayLoading] = useState(false)
-  const [replayDetail, setReplayDetail] = useState(null)
-
   const playerType = [
     {
       label: '房主',
@@ -196,14 +193,11 @@ const Index = (props) => {
       message.info('这一局暂无复盘详情')
       return
     }
-    setReplayModal(true)
-    setReplayLoading(true)
-    setReplayDetail(null)
-    apiGame.replayDetail({ gameId: item.gameId }).then(data => {
-      setReplayDetail(data || null)
-    }).finally(() => {
-      setReplayLoading(false)
-    })
+    if(!item.gameId){
+      message.info('这一局缺少游戏ID，无法打开复盘')
+      return
+    }
+    window.location.href = buildReplayPageUrl(item.gameId)
   }
 
   useEffect(() => {
@@ -464,55 +458,6 @@ const Index = (props) => {
             />
           </div>
         </div>
-      </Modal>
-
-      <Modal
-        title="复盘详情"
-        centered
-        width={760}
-        className="modal-view-wrap welcome-replay-modal"
-        maskClosable={false}
-        visible={replayModal}
-        footer={[
-          <button
-            className="primary-button red-button replay-close-button"
-            key="close"
-            type="button"
-            onClick={() => setReplayModal(false)}
-          >
-            关闭
-          </button>
-        ]}
-        onCancel={() => setReplayModal(false)}
-      >
-        {replayLoading ? (
-          <div className="replay-loading">正在读取复盘详情...</div>
-        ) : replayDetail ? (
-          <div className="replay-detail">
-            <div className="replay-detail-meta">
-              <span>{`房间 #${replayDetail.roomId || '-'}`}</span>
-              <span>{`游戏 #${replayDetail.gameId || '-'}`}</span>
-              <span>{`胜利阵营：${replayDetail.winnerLabel || '未知'}`}</span>
-            </div>
-            {Array.isArray(replayDetail.players) && replayDetail.players.length > 0 ? (
-              <div className="replay-player-list">
-                {replayDetail.players.map((player, index) => (
-                  <span key={`${player.username || index}-${player.position || index}`}>
-                    {`${player.position || '-'}号 ${player.name || player.username || '玩家'}${player.roleName ? ` / ${player.roleName}` : ''}`}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            <pre className="replay-text">
-              {(replayDetail.analysis && replayDetail.analysis.text) ||
-                (replayDetail.analysis && replayDetail.analysis.json ? JSON.stringify(replayDetail.analysis.json, null, 2) : '') ||
-                (replayDetail.gameRecord ? JSON.stringify(replayDetail.gameRecord, null, 2) : '') ||
-                '本局复盘暂时没有文本内容。'}
-            </pre>
-          </div>
-        ) : (
-          <div className="replay-loading">暂无复盘详情</div>
-        )}
       </Modal>
 
     </div>

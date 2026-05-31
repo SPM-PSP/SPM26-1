@@ -36,8 +36,7 @@ import wolfIdentity from "@assets/images/identity/wolf.png"
 
 import constants from "@common/constants";
 import utils from '@utils'
-import appConfig from '@config'
-import helper from '@helper'
+import {buildReplayPageUrl, waitForReplayReport} from '@common/replay'
 import cls from "classnames";
 import {isMockEnabled} from "@common/mock";
 import rulesMarkdownText from "@common/rulesMarkdown";
@@ -76,6 +75,11 @@ const rolePortraitMap = {
   wolf: wolfIdentity,
 }
 
+const countdownStages = [1, 2, 3, 6, 6.5]
+const voteStages = [6, 6.5]
+const isCountdownStageValue = (stage) => countdownStages.includes(Number(stage))
+const isVoteStageValue = (stage) => voteStages.includes(Number(stage))
+
 const getDefaultGameSetting = () => ({
   playerCount: defaultPlayerCount,
   p1: 30,
@@ -87,17 +91,6 @@ const getDefaultGameSetting = () => ({
 })
 
 const getRoomGameSettingKey = (roomId) => `werewolf-room-game-setting:${roomId || 'default'}`
-
-const buildReplayPageUrl = (gameId) => {
-  const replayUrl = appConfig.replayUrl || `http://${window.location.hostname}:5173`
-  const url = new URL(replayUrl, window.location.href)
-  url.searchParams.set('gameId', gameId)
-  const token = helper.getToken()
-  if(token){
-    url.searchParams.set('token', token)
-  }
-  return url.toString()
-}
 
 const normalizeGameSetting = (setting) => {
   const next = {
@@ -251,6 +244,15 @@ const Index = (props) => {
   const realtimeAudioPlayingRef = useRef(false)
   const realtimeStreamPlayersRef = useRef({})
   const realtimeVoiceTimerRef = useRef(null)
+  const playedAiSpeechRef = useRef(new Set())
+  const aiSpeechQueueRef = useRef([])
+  const aiSpeechPlayingRef = useRef(false)
+  const aiSpeechAudioRef = useRef(null)
+  const stageCueAudioRef = useRef(null)
+  const stageCueRequestRef = useRef(0)
+  const stageCueUnlockHandlerRef = useRef(null)
+  const stageCueAutoplayWarnedRef = useRef(false)
+  const aiSpeechFallbackTimerRef = useRef(null)
   const roomDetailRef = useRef({})
   const gameDetailRef = useRef({})
   const rulesContent = useMemo(() => renderRulesMarkdown(rulesMarkdownText), [rulesMarkdownText])
@@ -386,11 +388,15 @@ const Index = (props) => {
 
   useEffect(() => {
     const stage = Number(gameDetail.stage)
-    if(![1, 2, 3].includes(stage)){
+    if(!isCountdownStageValue(stage)){
       setDisplayTimerTime(null)
       return undefined
     }
     if(displayTimerTime === null || displayTimerTime <= 0){
+      if(displayTimerTime === 0 && isVoteStageValue(stage)){
+        const t = setTimeout(() => refreshCurrentGame(), 1000)
+        return () => clearTimeout(t)
+      }
       return undefined
     }
     const timer = setTimeout(() => {
@@ -408,6 +414,29 @@ const Index = (props) => {
     mountedRef.current = false
     if(realtimeVoiceTimerRef.current){
       clearTimeout(realtimeVoiceTimerRef.current)
+    }
+    if(aiSpeechAudioRef.current){
+      aiSpeechAudioRef.current.pause()
+      aiSpeechAudioRef.current.onended = null
+      aiSpeechAudioRef.current.onerror = null
+      aiSpeechAudioRef.current = null
+    }
+    if(stageCueAudioRef.current){
+      stageCueAudioRef.current.audio.pause()
+      stageCueAudioRef.current.audio.onended = null
+      stageCueAudioRef.current.audio.onerror = null
+      URL.revokeObjectURL(stageCueAudioRef.current.url)
+      stageCueAudioRef.current = null
+    }
+    if(stageCueUnlockHandlerRef.current){
+      document.removeEventListener("click", stageCueUnlockHandlerRef.current)
+      document.removeEventListener("keydown", stageCueUnlockHandlerRef.current)
+      document.removeEventListener("touchend", stageCueUnlockHandlerRef.current)
+      stageCueUnlockHandlerRef.current = null
+    }
+    if(aiSpeechFallbackTimerRef.current){
+      clearTimeout(aiSpeechFallbackTimerRef.current)
+      aiSpeechFallbackTimerRef.current = null
     }
     if(voiceStreamRef.current){
       voiceStreamRef.current.getTracks().forEach(track => track.stop())
@@ -600,6 +629,390 @@ const Index = (props) => {
     appendRealtimeAudioStream(data)
   }
 
+  const getAiSpeechAudioDataUrl = (data) => {
+    if(data && data.audioDataUrl){
+      return data.audioDataUrl
+    }
+    if(data && data.audioBase64){
+      return `data:${data.audioMime || "audio/mpeg"};base64,${data.audioBase64}`
+    }
+    return ""
+  }
+
+  const isCurrentAiSpeechGame = (data) => {
+    const latestGame = gameDetailRef.current || {}
+    const latestRoom = roomDetailRef.current || {}
+    const targetGameId = latestGame._id || latestRoom.gameId
+    return !!(
+      data &&
+      data.gameId !== undefined &&
+      targetGameId !== undefined &&
+      String(data.gameId) === String(targetGameId)
+    )
+  }
+
+  const isCurrentStageCue = (data) => {
+    const latestGame = gameDetailRef.current || {}
+    const latestRoom = roomDetailRef.current || {}
+    const targetRoomId = latestGame.roomId || latestRoom._id || roomId
+    const targetGameId = latestGame._id || latestRoom.gameId
+    const roomMatched = data.roomId === undefined || (
+      targetRoomId !== undefined &&
+      String(data.roomId) === String(targetRoomId)
+    )
+    const gameMatched = data.gameId === undefined || (
+      targetGameId !== undefined &&
+      String(data.gameId) === String(targetGameId)
+    )
+    return roomMatched && gameMatched
+  }
+
+  const playStageCue = (data) => {
+    if(!data || !data.text || !isCurrentStageCue(data)){
+      console.warn("stageCue ignored", data)
+      return
+    }
+    const requestId = stageCueRequestRef.current + 1
+    stageCueRequestRef.current = requestId
+    apiVoice.tts(data.text).then(blob => {
+      if(!mountedRef.current || requestId !== stageCueRequestRef.current){
+        return
+      }
+      if(stageCueAudioRef.current){
+        stageCueAudioRef.current.audio.pause()
+        stageCueAudioRef.current.audio.onended = null
+        stageCueAudioRef.current.audio.onerror = null
+        URL.revokeObjectURL(stageCueAudioRef.current.url)
+        stageCueAudioRef.current = null
+      }
+      if(stageCueUnlockHandlerRef.current){
+        document.removeEventListener("click", stageCueUnlockHandlerRef.current)
+        document.removeEventListener("keydown", stageCueUnlockHandlerRef.current)
+        document.removeEventListener("touchend", stageCueUnlockHandlerRef.current)
+        stageCueUnlockHandlerRef.current = null
+      }
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      stageCueAudioRef.current = { audio, url }
+      const cleanup = () => {
+        audio.onended = null
+        audio.onerror = null
+        URL.revokeObjectURL(url)
+        if(stageCueAudioRef.current && stageCueAudioRef.current.audio === audio){
+          stageCueAudioRef.current = null
+        }
+      }
+      audio.onended = cleanup
+      audio.onerror = cleanup
+      const playPromise = audio.play()
+      if(playPromise && playPromise.catch){
+        playPromise.catch(error => {
+          if(error && error.name === "NotAllowedError"){
+            if(!stageCueAutoplayWarnedRef.current){
+              stageCueAutoplayWarnedRef.current = true
+              message.warning("浏览器阻止了自动语音播放，请点击页面后播放阶段提示")
+            }
+            const retryPlay = () => {
+              document.removeEventListener("click", retryPlay)
+              document.removeEventListener("keydown", retryPlay)
+              document.removeEventListener("touchend", retryPlay)
+              stageCueUnlockHandlerRef.current = null
+              const retryPromise = audio.play()
+              if(retryPromise && retryPromise.catch){
+                retryPromise.catch(cleanup)
+              }
+            }
+            stageCueUnlockHandlerRef.current = retryPlay
+            document.addEventListener("click", retryPlay, { once: true })
+            document.addEventListener("keydown", retryPlay, { once: true })
+            document.addEventListener("touchend", retryPlay, { once: true })
+            return
+          }
+          console.warn("stageCue play failed", error)
+          cleanup()
+        })
+      }
+    }).catch(error => {
+      console.warn("stageCue tts failed", error)
+    })
+  }
+
+  const confirmAiSpeechPlayed = (data) => {
+    if(!data || data.gameId === undefined || data.recordId === undefined){
+      return Promise.resolve()
+    }
+    return apiVoice.aiSpeechPlayed({
+      gameId: data.gameId,
+      recordId: data.recordId,
+    }).then(() => {
+      return refreshCurrentGame()
+    }).catch(error => {
+      message.error(error && error.message ? error.message : "AI 发言播放确认失败")
+    })
+  }
+
+  const playNextAiSpeech = () => {
+    if(aiSpeechPlayingRef.current){
+      return
+    }
+    const item = aiSpeechQueueRef.current.shift()
+    if(!item){
+      return
+    }
+    const audioDataUrl = getAiSpeechAudioDataUrl(item)
+    if(!audioDataUrl){
+      confirmAiSpeechPlayed(item).finally(playNextAiSpeech)
+      return
+    }
+
+    aiSpeechPlayingRef.current = true
+    const audio = new Audio(audioDataUrl)
+    aiSpeechAudioRef.current = audio
+    audio.preload = "auto"
+    audio.playsInline = true
+    const speaker = item.speaker || {}
+    setRealtimeVoiceSpeaker(speaker.name || speaker.username || "AI 玩家")
+    if(realtimeVoiceTimerRef.current){
+      clearTimeout(realtimeVoiceTimerRef.current)
+      realtimeVoiceTimerRef.current = null
+    }
+
+    let finished = false
+    const finish = () => {
+      if(finished){
+        return
+      }
+      finished = true
+      audio.onended = null
+      audio.onerror = null
+      if(aiSpeechAudioRef.current === audio){
+        aiSpeechAudioRef.current = null
+      }
+      setRealtimeVoiceSpeaker(null)
+      confirmAiSpeechPlayed(item).finally(() => {
+        aiSpeechPlayingRef.current = false
+        playNextAiSpeech()
+      })
+    }
+
+    audio.onended = finish
+    audio.onerror = finish
+    const playPromise = audio.play()
+    if(playPromise && playPromise.catch){
+      playPromise.catch(finish)
+    }
+  }
+
+  const receiveAiSpeechReady = (data) => {
+    if(!isCurrentAiSpeechGame(data) || data.recordId === undefined){
+      return
+    }
+    if(aiSpeechFallbackTimerRef.current){
+      clearTimeout(aiSpeechFallbackTimerRef.current)
+      aiSpeechFallbackTimerRef.current = null
+    }
+    const key = [data.gameId, data.recordId].join(":")
+    if(playedAiSpeechRef.current.has(key)){
+      return
+    }
+    playedAiSpeechRef.current.add(key)
+    aiSpeechQueueRef.current.push(data)
+    playNextAiSpeech()
+  }
+
+  const isAiSpeaker = (speaker) => /^ai_\d+$/.test((speaker && speaker.username) || "")
+
+  const isSameSpeechSpeaker = (recordItem, speaker) => {
+    const from = recordItem && recordItem.from ? recordItem.from : {}
+    return !!(
+      recordItem &&
+      speaker &&
+      (
+        (speaker.username && from.username === speaker.username) ||
+        (speaker.position && Number(from.position) === Number(speaker.position))
+      )
+    )
+  }
+
+  const isSameSpeechTarget = (a, b) => !!(
+    a &&
+    b &&
+    (
+      (a.username && b.username && a.username === b.username) ||
+      (a.position && b.position && Number(a.position) === Number(b.position))
+    )
+  )
+
+  const getPlayerForSpeechSpeaker = (speaker) => {
+    if(!speaker){
+      return null
+    }
+    return (playerInfo || []).find(item => isSameSpeechTarget(item, speaker)) || null
+  }
+
+  const isSpeechSpeakerOut = (speaker) => {
+    if(!speaker){
+      return false
+    }
+    const player = getPlayerForSpeechSpeaker(speaker)
+    if(player){
+      return isOutPlayer(player)
+    }
+    return Number(speaker.status) === 0
+  }
+
+  const withLatestPlayerInfo = (speaker) => {
+    if(!speaker){
+      return null
+    }
+    const player = getPlayerForSpeechSpeaker(speaker)
+    return player ? {...speaker, ...player} : speaker
+  }
+
+  const getAliveSpeechOrder = (speechTurn) => {
+    const order = speechTurn && Array.isArray(speechTurn.order) ? speechTurn.order : []
+    return order
+      .filter(item => item && !isSpeechSpeakerOut(item))
+      .map(item => withLatestPlayerInfo(item))
+  }
+
+  const getEffectiveSpeechSpeaker = (speechTurn) => {
+    const currentSpeaker = speechTurn && speechTurn.currentSpeaker
+    if(currentSpeaker && !isSpeechSpeakerOut(currentSpeaker)){
+      return withLatestPlayerInfo(currentSpeaker)
+    }
+
+    const order = speechTurn && Array.isArray(speechTurn.order) ? speechTurn.order : []
+    if(order.length < 1){
+      return currentSpeaker || null
+    }
+
+    const currentIndex = Number(speechTurn && speechTurn.currentIndex)
+    const startIndex = Number.isNaN(currentIndex) ? 0 : Math.max(0, currentIndex)
+    for(let i = startIndex; i < order.length; i += 1){
+      if(order[i] && !isSpeechSpeakerOut(order[i])){
+        return withLatestPlayerInfo(order[i])
+      }
+    }
+    for(let i = 0; i < startIndex; i += 1){
+      if(order[i] && !isSpeechSpeakerOut(order[i])){
+        return withLatestPlayerInfo(order[i])
+      }
+    }
+    return currentSpeaker || null
+  }
+
+  const getVisibleSpeechSpeaker = (detail) => {
+    const speechTurn = detail && detail.speechTurn
+    const currentSpeaker = speechTurn && speechTurn.currentSpeaker
+    if(currentSpeaker && (currentSpeaker.isFirstNightLastWords || Number(detail && detail.stage) === 7)){
+      return withLatestPlayerInfo(currentSpeaker)
+    }
+    return getEffectiveSpeechSpeaker(speechTurn)
+  }
+
+  const formatSpeakerName = (speaker) => {
+    if(!speaker){
+      return "玩家"
+    }
+    return `${speaker.position || "?"}号 ${speaker.name || speaker.username || "玩家"}`
+  }
+
+  const getSpeechOrderDirection = (speechTurn) => {
+    const order = speechTurn && Array.isArray(speechTurn.order) ? speechTurn.order : []
+    if(order.length < 2){
+      return ""
+    }
+    const firstPosition = Number(order[0] && order[0].position)
+    const secondPosition = Number(order[1] && order[1].position)
+    if(Number.isNaN(firstPosition) || Number.isNaN(secondPosition)){
+      return ""
+    }
+    const seatCount = Number(defaultSeatCount || 12)
+    const forwardDistance = (secondPosition - firstPosition + seatCount) % seatCount
+    const reverseDistance = (firstPosition - secondPosition + seatCount) % seatCount
+    return forwardDistance <= reverseDistance ? "顺序" : "逆序"
+  }
+
+  const getDaySystemText = (detail, fallbackText) => {
+    const speechTurn = detail && detail.speechTurn
+    const currentSpeaker = speechTurn && speechTurn.currentSpeaker
+    if(currentSpeaker && currentSpeaker.isFirstNightLastWords){
+      return `遗言阶段，轮到 ${formatSpeakerName(currentSpeaker)} 发表遗言。`
+    }
+    if(Number(detail && detail.stage) === 7 && currentSpeaker){
+      return `遗言阶段，轮到 ${formatSpeakerName(currentSpeaker)} 发表遗言。`
+    }
+    if(Number(detail && detail.stage) === 5){
+      const aliveOrder = getAliveSpeechOrder(speechTurn)
+      const visibleSpeaker = getVisibleSpeechSpeaker(detail)
+      const firstSpeaker = aliveOrder[0] || visibleSpeaker || currentSpeaker
+      if(!firstSpeaker){
+        return fallbackText || "发言阶段正在同步发言顺序，请稍候。"
+      }
+      const direction = getSpeechOrderDirection({...speechTurn, order: aliveOrder})
+      const turnText = visibleSpeaker ? `当前轮到 ${formatSpeakerName(visibleSpeaker)} 发言。` : ""
+      return `发言阶段，从 ${formatSpeakerName(firstSpeaker)} 开始${direction || ""}发言。${turnText}`
+    }
+    return fallbackText || "白天讨论阶段开始。使用发言加入会议。"
+  }
+
+  const findCurrentAiSpeechRecord = (detail) => {
+    const currentSpeaker = detail && detail.speechTurn && detail.speechTurn.currentSpeaker
+    if(!isAiSpeaker(currentSpeaker)){
+      return null
+    }
+    const currentStage = Number(detail.stage)
+    const currentDay = Number(detail.day)
+    const records = detail.speechRecords || []
+    for(let index = records.length - 1; index >= 0; index -= 1){
+      const item = records[index]
+      if(!isSameSpeechSpeaker(item, currentSpeaker)){
+        continue
+      }
+      const itemStage = Number(item.stage)
+      const itemDay = Number(item.day)
+      const stageMatched = Number.isNaN(itemStage) || Number.isNaN(currentStage) || itemStage === currentStage
+      const dayMatched = Number.isNaN(itemDay) || Number.isNaN(currentDay) || itemDay === currentDay
+      if(stageMatched && dayMatched && (item._id !== undefined || item.recordId !== undefined || item.id !== undefined)){
+        return item
+      }
+    }
+    return null
+  }
+
+  useEffect(() => {
+    if(aiSpeechFallbackTimerRef.current){
+      clearTimeout(aiSpeechFallbackTimerRef.current)
+      aiSpeechFallbackTimerRef.current = null
+    }
+    const pendingRecord = findCurrentAiSpeechRecord(gameDetail)
+    if(!pendingRecord || !gameDetail._id){
+      return undefined
+    }
+    const recordId = pendingRecord._id !== undefined ? pendingRecord._id : (pendingRecord.recordId !== undefined ? pendingRecord.recordId : pendingRecord.id)
+    const key = [gameDetail._id, recordId].join(":")
+    if(playedAiSpeechRef.current.has(key)){
+      return undefined
+    }
+    aiSpeechFallbackTimerRef.current = setTimeout(() => {
+      if(playedAiSpeechRef.current.has(key)){
+        return
+      }
+      playedAiSpeechRef.current.add(key)
+      confirmAiSpeechPlayed({
+        gameId: gameDetail._id,
+        recordId,
+      })
+    }, 6000)
+    return () => {
+      if(aiSpeechFallbackTimerRef.current){
+        clearTimeout(aiSpeechFallbackTimerRef.current)
+        aiSpeechFallbackTimerRef.current = null
+      }
+    }
+  }, [gameDetail])
+
   const sendRealtimeVoiceChunk = (chunk) => {
     const scope = currentVoiceScopeRef.current || getVoiceScope()
     const sessionId = voiceSessionIdRef.current
@@ -694,7 +1107,8 @@ const Index = (props) => {
     }
     setVoiceSubmitting(true)
     const currentSpeaker = gameDetail.speechTurn && gameDetail.speechTurn.currentSpeaker
-    const isLastWords = Number(gameDetail.stage) === 7 || !!(currentSpeaker && currentSpeaker.isFirstNightLastWords)
+    const isDuskLastWords = Number(gameDetail.stage) === 7
+    const isLastWords = isDuskLastWords || !!(currentSpeaker && currentSpeaker.isFirstNightLastWords)
     const speechParams = {
       roomId: gameDetail.roomId,
       gameId: gameDetail._id,
@@ -703,6 +1117,18 @@ const Index = (props) => {
       const text = result && result.text ? result.text : ''
       if(!text){
         return Promise.reject(new Error('未识别到发言内容'))
+      }
+      // 黄昏审判阶段（stage 7）的遗言走专用接口；首夜遗言（stage 4 day1）仍走发言接口
+      if(isDuskLastWords){
+        return apiGame.saveLastWords({
+          ...speechParams,
+          content: text,
+          userInfo: {
+            username: user.username,
+            name: user.name,
+            position: currentSpeaker && currentSpeaker.position,
+          },
+        })
       }
       return apiVoice.speechText({
         ...speechParams,
@@ -782,6 +1208,14 @@ const Index = (props) => {
       }
       const previousStage = gameDetailRef.current && gameDetailRef.current.stage
       if(previousStage !== undefined && Number(previousStage) !== Number(data.stage)){
+        setTimerTime(null)
+        setDisplayTimerTime(null)
+      }
+      if(data.timerTime !== null && data.timerTime !== undefined && isCountdownStageValue(data.stage)){
+        const nextTimerTime = Number(data.timerTime)
+        setTimerTime(Number.isNaN(nextTimerTime) ? data.timerTime : nextTimerTime)
+        setDisplayTimerTime(Number.isNaN(nextTimerTime) ? data.timerTime : nextTimerTime)
+      } else if(!isCountdownStageValue(data.stage)){
         setTimerTime(null)
         setDisplayTimerTime(null)
       }
@@ -1295,7 +1729,15 @@ const Index = (props) => {
     }
     fetch(params).then(data=>{
       message.success('操作成功！')
-      actionFinish(data)
+      if(data && data.autoAdvanced){
+        setActionPlayer([])
+        setCurrentAction('')
+        setActionResult(null)
+        closeAllModel()
+        refreshCurrentGame()
+      } else {
+        actionFinish(data)
+      }
     })
   }
 
@@ -1369,6 +1811,14 @@ const Index = (props) => {
         receiveRealtimeAudio(msgData)
         return
       }
+      if(msgData && msgData.type === "aiSpeechReady"){
+        receiveAiSpeechReady(msgData)
+        return
+      }
+      if(msgData && msgData.type === "stageCue" && msgData.text){
+        playStageCue(msgData)
+        return
+      }
       if(msgData && msgData.type === "wolfChat"){
         if(
           msgData.gameId === gameDetail._id &&
@@ -1393,6 +1843,18 @@ const Index = (props) => {
       }
       if(msgData && msgData.time !== null && msgData.time !== undefined){
         setTimerTime(msgData.time)
+      }
+      if(msgData && (msgData.stageChange === true || msgData.type === "stageChange")){
+        setActionPlayer([])
+        setCurrentAction('')
+        setActionResult(null)
+        closeAllModel()
+        refreshCurrentGame()
+        return
+      }
+      if(msgData && (msgData.refreshGame === true || msgData.refreshGame === "true" || msgData.refreshGame === 1)){
+        refreshCurrentGame()
+        return
       }
       if(msgData && msgData.type === 'realtimeSpeechText'){
         return
@@ -1496,9 +1958,9 @@ const Index = (props) => {
       </Modal>
 
       <Modal
-        title={<div className="setting-modal-title color-green">游戏设置</div>}
+        title={<div className="setting-modal-title">游戏设置</div>}
         centered
-        className="modal-view-wrap"
+        className="modal-view-wrap setting-modal-wrap"
         maskClosable={false}
         closable={false}
         width={520}
@@ -2219,6 +2681,9 @@ const Index = (props) => {
   const renderDayPlayer = (item, index) => {
     const occupied = !item.empty
     const isDead = occupied && isOutPlayer(item)
+    const visibleSpeaker = Number(gameDetail.stage) === 5 ? getVisibleSpeechSpeaker(gameDetail) : null
+    const isSpeaking = occupied && visibleSpeaker && isSameSpeechTarget(item, visibleSpeaker)
+    const speakingText = visibleSpeaker && visibleSpeaker.isFirstNightLastWords ? "遗言中" : "发言中"
     return (
       <button
         key={item.position}
@@ -2227,6 +2692,7 @@ const Index = (props) => {
           "ready-seat-empty": !occupied,
           "day-player-self": occupied && item.isSelf,
           "day-player-dead": isDead,
+          "day-player-speaking": isSpeaking,
         })}
         type="button"
       >
@@ -2246,12 +2712,12 @@ const Index = (props) => {
         </div>
         <div className="ready-seat-name">{occupied ? item.name : "空缺"}</div>
         <div className="ready-seat-note">
-          {occupied ? (isDead ? "已出局" : (item.isSelf ? "我在场" : "在场")) : "未参局"}
+          {occupied ? (isSpeaking ? speakingText : (isDead ? "已出局" : (item.isSelf ? "我在场" : "在场"))) : "未参局"}
         </div>
         {occupied && (item.roleName || item.campName) ? (
           <div className="day-player-tags">
-            {item.roleName ? <span>{item.roleName}</span> : null}
-            {item.campName ? <span>{item.campName}</span> : null}
+            {item.roleName ? <span className={item.camp === 1 ? "good" : "wolf"}>{item.roleName}</span> : null}
+            {item.campName ? <span className={item.camp === 1 ? "good" : "wolf"}>{item.campName}</span> : null}
           </div>
         ) : null}
       </button>
@@ -2316,9 +2782,12 @@ const Index = (props) => {
   }
 
   const renderDayRoom = () => {
-    const isSpeechStage = Number(gameDetail.stage) === 5
-    const currentSpeaker = gameDetail.speechTurn && gameDetail.speechTurn.currentSpeaker
-    const isFirstNightLastWords = !!(currentSpeaker && currentSpeaker.isFirstNightLastWords)
+    const stageNumber = Number(gameDetail.stage)
+    const isSpeechStage = stageNumber === 5
+    const isVoteStage = isVoteStageValue(stageNumber)
+    const rawCurrentSpeaker = gameDetail.speechTurn && gameDetail.speechTurn.currentSpeaker
+    const currentSpeaker = getVisibleSpeechSpeaker(gameDetail)
+    const isFirstNightLastWords = !!(rawCurrentSpeaker && rawCurrentSpeaker.isFirstNightLastWords)
     const currentUsername = currentRole.username || user.username
     const canSpeak =
       isSpeechStage &&
@@ -2327,9 +2796,19 @@ const Index = (props) => {
       currentSpeaker.username === currentUsername &&
       (isAlivePlayer(currentRole) || isFirstNightLastWords)
     const voteAction = (actionInfo || []).find(item => item.key === "vote")
+    const voteStage = gameDetail.voteStage || {}
+    const voteTotal = Number(voteStage.total || 0)
+    const voteVoted = Number(voteStage.voted || 0)
+    const voteFinished = !!voteStage.finished
+    const voteEligiblePlayers = Array.isArray(voteStage.eligiblePlayers) ? voteStage.eligiblePlayers : []
+    const voteProgressText = voteTotal > 0 ? `${Math.min(voteVoted, voteTotal)}/${voteTotal}` : "同步中"
+    const voteProgressPercent = voteTotal > 0 ? Math.min(100, Math.max(0, (voteVoted / voteTotal) * 100)) : 0
+    const voteCountdownTime = Number(displayTimerTime || 0)
+    const voteCountdownText = isVoteStage ? formatCountdown(voteCountdownTime) : "--:--"
     const broadcastText = (gameDetail.broadcast || []).map(item => item.text).join("")
+    const daySystemText = getDaySystemText(gameDetail, broadcastText)
     const speechTurnText = currentSpeaker ?
-      `轮到 ${currentSpeaker.position}号 ${currentSpeaker.name || "玩家"} 发言` :
+      `轮到 ${formatSpeakerName(currentSpeaker)} ${isFirstNightLastWords ? "发表遗言" : "发言"}` :
       "正在同步发言顺序，请稍候"
 
     return (
@@ -2363,6 +2842,7 @@ const Index = (props) => {
             <div><span>当前阶段</span><strong>{gameDetail.dayTag || "白天"}</strong></div>
             <div><span>存活玩家</span><strong>{(playerInfo || []).filter(item => !isOutPlayer(item)).length}人</strong></div>
             <div><span>我的身份</span><strong>{currentRole.roleName || "未知"}</strong></div>
+            {isVoteStage ? <div><span>投票进度</span><strong>{voteProgressText}</strong></div> : null}
           </div>
           {isSpeechStage ? (
             <div className="ready-rule-card day-speaker-card">
@@ -2383,7 +2863,7 @@ const Index = (props) => {
           <section className="ready-square-card">
             <div className="ready-status-banner">
               <h2>{gameDetail.dayTag || "白天"}</h2>
-              <p>{isSpeechStage ? speechTurnText : (broadcastText || gameDetail.stageName || "天亮了，请按顺序发言并找出狼人。")}</p>
+              <p>{isSpeechStage || isFirstNightLastWords ? daySystemText : (broadcastText || gameDetail.stageName || "天亮了，请按顺序发言并找出狼人。")}</p>
             </div>
             <div className="ready-orbit">
               {dayPlayerSlots.map((item, index) => (
@@ -2433,10 +2913,35 @@ const Index = (props) => {
                 <span>{`${realtimeVoiceSpeaker} 正在实时发言`}</span>
               </div>
             ) : null}
+            {isVoteStage ? (
+              <div className="day-vote-panel">
+                <div className="day-vote-countdown">
+                  <span>{voteFinished ? "投票已完成" : "投票倒计时"}</span>
+                  <strong>{voteCountdownText}</strong>
+                </div>
+                <div className="day-vote-progress">
+                  <div>
+                    <span>投票进度</span>
+                    <strong>{voteProgressText}</strong>
+                  </div>
+                  <i><b style={{ width: `${voteProgressPercent}%` }} /></i>
+                </div>
+                {voteEligiblePlayers.length > 0 ? (
+                  <div className="day-vote-roster">
+                    {voteEligiblePlayers.map(item => (
+                      <span className={item.hasVoted ? "done" : ""} key={item.username || item.position}>
+                        {`${item.position || "?"}号 ${item.name || item.username || "玩家"}`}
+                        <em>{item.hasVoted ? "已投" : "待投"}</em>
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {renderDayDiscussion()}
             <div className="ready-rule-card">
               <strong>系统</strong>
-              <span>{broadcastText || "白天讨论阶段开始。使用发言加入会议。"}</span>
+              <span>{daySystemText}</span>
             </div>
           </section>
         </aside>
@@ -2499,11 +3004,17 @@ const Index = (props) => {
       content.votes ||
       (row && (row.count || row.voteCount || row.total))
     )
+    const targetName = String(content.to && content.to.name || "")
+    const isAbstain = content.action === "abstained" || content.actionName === "弃票" || targetName.indexOf("弃票") > -1
+    const voterCount = parseVoteNameCount(content.from && content.from.name)
+    if(isAbstain && voterCount > 0){
+      return Math.max(Number.isNaN(explicitCount) ? 0 : explicitCount, voterCount)
+    }
     if(!Number.isNaN(explicitCount) && explicitCount > 0){
       return explicitCount
     }
     return parseVoteNameCount(content.to && content.to.name) ||
-      parseVoteNameCount(content.from && content.from.name) ||
+      voterCount ||
       parseVoteNameCount(content.text) ||
       1
   }
@@ -2681,6 +3192,7 @@ const Index = (props) => {
     const broadcastText = (gameDetail.broadcast || []).map(item => item.text).join("")
     const aliveCount = (playerInfo || []).filter(item => !isOutPlayer(item)).length
     const currentSpeaker = gameDetail.speechTurn && gameDetail.speechTurn.currentSpeaker
+    const duskSystemText = getDaySystemText(gameDetail, broadcastText)
     const isSelfExiled = isSamePlayer(exiled, currentRole)
     const isSelfDead = Number(currentRole.status) === 0 || isSelfExiled
     const isCurrentLastWordsSpeaker = isSamePlayer(currentSpeaker, currentRole)
@@ -2750,7 +3262,7 @@ const Index = (props) => {
               <span>黄昏阶段 · 投票结算与放逐公布</span>
             </div>
             <h2>审判阶段结束</h2>
-            <p>{broadcastText || "票型已经归档，村庄等待最后的结算与下一次钟声。"}</p>
+            <p>{currentSpeaker ? duskSystemText : (broadcastText || "票型已经归档，村庄等待最后的结算与下一次钟声。")}</p>
           </section>
 
           <section className="dusk-grid">
@@ -2844,7 +3356,7 @@ const Index = (props) => {
             ) : null}
             <div className="ready-rule-card">
               <strong>系统</strong>
-              <span>{broadcastText || resultText}</span>
+              <span>{currentSpeaker ? duskSystemText : (broadcastText || resultText)}</span>
             </div>
           </section>
         </aside>
@@ -2852,13 +3364,56 @@ const Index = (props) => {
     )
   }
 
-  const loadReplayReport = () => {
+  const loadReplayReport = async () => {
     if(!gameDetail._id){ return }
     if(Number(gameDetail.status) !== 2){
       message.info("本局由房主结束，暂无胜负复盘报告")
       return
     }
-    window.location.href = buildReplayPageUrl(gameDetail._id)
+    if(replayLoading){
+      return
+    }
+
+    const messageKey = `replay-ready-${gameDetail._id}`
+    setReplayLoading(true)
+    message.loading({content: "正在确认复盘文件状态...", key: messageKey, duration: 0})
+    try {
+      const result = await waitForReplayReport(gameDetail._id, {
+        timeoutMs: 60000,
+        intervalMs: 3000,
+        onWaiting: ({elapsedMs}) => {
+          const seconds = Math.max(1, Math.ceil(elapsedMs / 1000))
+          message.loading({
+            content: `复盘文件正在生成中，已等待 ${seconds} 秒，请稍候...`,
+            key: messageKey,
+            duration: 0,
+          })
+        },
+      })
+
+      if(result.ready){
+        message.success({content: "复盘文件已生成，正在打开复盘页面...", key: messageKey, duration: 1})
+        window.location.href = buildReplayPageUrl(gameDetail._id)
+        return
+      }
+
+      if(result.timedOut){
+        message.warning({
+          content: "复盘文件生成超时，请稍后再试；如果长时间没有生成，请重新触发复盘分析。",
+          key: messageKey,
+          duration: 6,
+        })
+        return
+      }
+
+      message.error({
+        content: `暂时无法确认复盘状态：${result.error || "请稍后重试"}`,
+        key: messageKey,
+        duration: 5,
+      })
+    } finally {
+      setReplayLoading(false)
+    }
   }
 
   const gameAgainFromSettlement = () => {
@@ -2986,8 +3541,8 @@ const Index = (props) => {
           <section className="dusk-action-bar settlement-actions">
             <div className="dusk-action-left">
               <button type="button" onClick={() => refreshCurrentGame()}><ReloadOutlined />刷新结算</button>
-              <button type="button" className="active" disabled={isAborted} onClick={loadReplayReport}>
-                <BookOutlined />{isAborted ? "暂无复盘" : "复盘"}
+              <button type="button" className="active" disabled={isAborted || replayLoading} onClick={loadReplayReport}>
+                <BookOutlined />{isAborted ? "暂无复盘" : (replayLoading ? "确认中" : "复盘")}
               </button>
             </div>
             {isOwner ? (
@@ -3041,13 +3596,22 @@ const Index = (props) => {
       {renderReadyModals()}
 
       <Modal
-        title="游戏事件记录"
+        title={(
+          <div className="game-record-modal-title">
+            <BookOutlined />
+            <div>
+              <strong>游戏事件记录</strong>
+              <span>{`第${gameDetail.day || 1}天 · ${gameDetail.stageName || gameDetail.dayTag || "当前阶段"}`}</span>
+            </div>
+          </div>
+        )}
         centered
         closable={false}
+        width={720}
         className="modal-view-wrap game-record-modal"
         maskClosable={false}
         maskStyle={{
-          backgroundColor: 'rgba(0,0,0,0.1)',
+          backgroundColor: 'rgba(30,22,15,0.35)',
         }}
         visible={recordModal}
         footer={[
@@ -3207,6 +3771,15 @@ const Index = (props) => {
                       ) : (
                         <span>操作已记录，请等待阶段刷新。</span>
                       )
+                    }
+                    {
+                      actionResult.voteStatus ? (
+                        <div className="vote-result-status">
+                          <span>{`投票进度：${actionResult.voteStatus.voted || 0}/${actionResult.voteStatus.total || 0}`}</span>
+                          <span>{actionResult.voteStatus.finished ? "本轮投票已完成" : "等待其他玩家投票"}</span>
+                          {actionResult.autoAdvanced ? <span>系统已自动进入下一阶段</span> : null}
+                        </div>
+                      ) : null
                     }
                   </div>
                 </div>

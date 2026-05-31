@@ -58,4 +58,13 @@ export default {
       overHandle: true,
     })
   },
+
+  aiSpeechPlayed (params = {}) {
+    return fetch({
+      url: urlPrefix + 'voice/aiSpeech/played/auth',
+      method: 'post',
+      data: params,
+      overHandle: true,
+    })
+  },
 }

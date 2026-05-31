@@ -128,7 +128,14 @@ const Record = (props) => {
                                 }
                               </div>
                               <div className="action-wrap FBV FBAC FBJE">
-                                <img className="arrow" src={arrowIconMap[content.level]}/>
+                                <img className={cls({
+                                  'arrow': true,
+                                  'arrow-red': content.level === 2,
+                                  'arrow-green': content.level === 3,
+                                  'arrow-blue': content.level === 4,
+                                  'arrow-pink': content.level === 5,
+                                  'arrow-orange': content.level === 6,
+                                })} src={arrowIconMap[content.level]}/>
                                 <div className={cls({
                                   'action-name': true,
                                   'color-red': content.level === 2,
@@ -223,7 +230,14 @@ const Record = (props) => {
                                   'color-pink': content.level === 5,
                                   'color-orange': content.level === 6,
                                 })}>{content.actionName}</div>
-                                <img className="arrow" src={arrowIconMap[content.level]}/>
+                                <img className={cls({
+                                  'arrow': true,
+                                  'arrow-red': content.level === 2,
+                                  'arrow-green': content.level === 3,
+                                  'arrow-blue': content.level === 4,
+                                  'arrow-pink': content.level === 5,
+                                  'arrow-orange': content.level === 6,
+                                })} src={arrowIconMap[content.level]}/>
                               </div>
                               <div className="to-wrap FBAC FBH FBJC">
                                 {

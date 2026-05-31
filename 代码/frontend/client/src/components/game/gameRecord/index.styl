@@ -1,69 +1,150 @@
 .record-view-content-wrap
   width 100%
+  padding 0 26px 4px
+  background linear-gradient(180deg, #efe6d2 0%, #e5d7bd 100%)
+  font-family Georgia, 'Noto Serif SC', 'Noto Serif', serif
   .content-view
-    border-radius 4px
-    border 1px solid #eeeeee
+    border-radius 6px
+    border 1px solid rgba(89, 63, 38, 0.24)
     overflow hidden
-    min-height 500px
+    height min(62vh, 620px)
+    min-height 420px
     position relative
-    margin-left 20px
-    margin-right 20px
-    padding 10px 20px 20px 20px
+    margin 0
+    padding 18px 24px 24px
+    background #f7f0e0
+    background-image radial-gradient(rgba(115, 86, 49, 0.12) 0.8px, transparent 0.8px)
+    background-size 9px 9px
+    box-shadow inset 0 0 0 1px rgba(255,255,255,0.44), inset 0 -18px 28px rgba(78,50,25,0.06)
+    color #30291f
     .record-cell
       min-height 20px
-      padding-top 4px
-      padding-bottom 4px
+      padding 5px 0
+      position relative
       .txt
         font-weight bold
-        font-size 14px
+        font-size 15px
+        line-height 24px
+        letter-spacing 0
       .cell-title
         text-align center
         font-weight bold
         font-size 20px
-        line-height 28px
-        margin-top 8px
-        margin-bottom 8px
+        line-height 32px
+        margin 12px 0 14px
+        color #5d261f
+        text-shadow 0 1px 0 rgba(255,255,255,0.7)
+        position relative
+        &:before,&:after
+          content ""
+          display inline-block
+          width 54px
+          height 1px
+          margin 0 12px 6px
+          background linear-gradient(90deg, transparent, rgba(93,38,31,0.45), transparent)
       .cell-normal
-        font-size 14px
+        font-size 15px
         font-weight bold
-        line-height 20px
+        line-height 25px
+        color #30291f
+      .color-red
+        color #8f251c!important
+      .color-green
+        color #3f6c39!important
+      .color-blue
+        color #385f9d!important
+      .color-pink
+        color #8a3f65!important
+      .color-orange
+        color #9a612a!important
+      .color-main
+        color #385f9d!important
       .action-cell,.vote-cell
-        min-height 48px
+        min-height 58px
         width 100%
         position relative
+        padding 8px 10px
+        margin 4px 0
+        border-radius 6px
+        background rgba(255,250,238,0.56)
+        border 1px solid rgba(96,70,42,0.12)
         .from-wrap,.to-wrap
           width 40%
+          min-width 0
+          flex-wrap wrap
           .icon
-            width 40px
-            height 40px
+            width 38px
+            height 38px
+            border-radius 50%
+            background #d8c8a9
+            padding 3px
+            box-shadow 0 2px 5px rgba(50,34,20,0.16)
         .action-wrap
           width 20%
+          min-width 92px
           .arrow
-            height 32px
+            height 30px
+            opacity 0.92
+          .arrow-red
+            filter saturate(0.58) sepia(0.15) brightness(0.78)
+          .arrow-green
+            filter saturate(0.48) sepia(0.18) hue-rotate(15deg) brightness(0.74)
+          .arrow-blue
+            filter saturate(0.5) sepia(0.1) brightness(0.76)
+          .arrow-pink
+            filter saturate(0.42) sepia(0.2) brightness(0.8)
+          .arrow-orange
+            filter saturate(0.52) sepia(0.22) brightness(0.82)
           .action-name
-            font-size 14px
-            line-height 16px
+            font-size 15px
+            line-height 18px
             font-weight bold
         .dead-grey
           width 100%
           height 100%
           position absolute
-          background-color black
-          opacity 0.5
+          left 0
+          top 0
+          border-radius 6px
+          background-color #1b1510
+          opacity 0.38
         .dead-text
           width 100%
           height 100%
           position absolute
-          color white
+          left 0
+          top 0
+          color #f5ead3
           font-weight bold
           font-size 20px
           text-align center
+          letter-spacing 0
 
       .vote-cell
-        min-height 24px
+        min-height 40px
         .from-wrap
           width 55%
         .to-wrap
           width 25%
+  .content-view:before
+    content ""
+    position sticky
+    display block
+    top -18px
+    height 6px
+    margin -18px -24px 12px
+    background linear-gradient(90deg, rgba(93,38,31,0), rgba(93,38,31,0.32), rgba(93,38,31,0))
+    z-index 1
   .content-view-scroll
-    overflow-y scroll
+    overflow-y auto
+    scrollbar-width thin
+    scrollbar-color #8d7558 rgba(102,74,43,0.12)
+  .content-view-scroll::-webkit-scrollbar
+    width 10px
+  .content-view-scroll::-webkit-scrollbar-track
+    background rgba(102,74,43,0.12)
+    border-radius 10px
+  .content-view-scroll::-webkit-scrollbar-thumb
+    background #8d7558
+    border-radius 10px
+    border 2px solid #f7f0e0

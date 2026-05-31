@@ -222,6 +222,9 @@ const getMockGame = () => {
   const broadcast = getMockBroadcast(stageInfo)
   const hasVoted = mockState.votes.some(item => item.from === currentRole.username && item.stage === stageInfo.stage)
   const hasAssaulted = mockState.actions.some(item => item.from === currentRole.username && item.stage === 2 && item.action === 'assault')
+  const isVoteStage = [6, 6.5].includes(stageInfo.stage)
+  const voteEligiblePlayers = mockPlayers.filter(item => item.status === 1)
+  const votedPlayers = new Set((mockState.votes || []).filter(item => item.stage === stageInfo.stage).map(item => item.from))
   const roleSkills = mockSkillMap[currentRole.role] || []
   const skill = roleSkills.map(item => {
     if (item.key === 'assault') {
@@ -298,6 +301,19 @@ const getMockGame = () => {
     action: [
       { key: 'vote', name: '投票', show: [6, 6.5].includes(stageInfo.stage), canUse: [6, 6.5].includes(stageInfo.stage) && !hasVoted },
     ],
+    timerTime: [1, 2, 3, 5, 6, 6.5].includes(stageInfo.stage) ? 30 : null,
+    voteStage: isVoteStage ? {
+      stage: stageInfo.stage,
+      total: voteEligiblePlayers.length,
+      voted: votedPlayers.size,
+      finished: voteEligiblePlayers.length > 0 && votedPlayers.size >= voteEligiblePlayers.length,
+      eligiblePlayers: voteEligiblePlayers.map(item => ({
+        username: item.username,
+        name: item.name,
+        position: item.position,
+        hasVoted: votedPlayers.has(item.username),
+      })),
+    } : null,
     broadcast: [
       { text: broadcast, level: stageInfo.stage === 7 && mockState.exileResult && !mockState.exileResult.noOut ? 2 : 4 },
     ],
@@ -754,10 +770,18 @@ export const mockFetch = (config = {}) => {
           action: 'vote',
         })
         mockState.exileResult = null
+        const voteEligiblePlayers = mockPlayers.filter(item => item.status === 1)
+        const votedPlayers = new Set((mockState.votes || []).filter(item => item.stage === mockState.stage).map(item => item.from))
         resolve({
           username: target.username,
           name: target.name,
           position: target.position,
+          voteStatus: {
+            total: voteEligiblePlayers.length,
+            voted: votedPlayers.size,
+            finished: voteEligiblePlayers.length > 0 && votedPlayers.size >= voteEligiblePlayers.length,
+          },
+          autoAdvanced: false,
         })
         return
       }
@@ -1045,6 +1069,15 @@ export const mockFetch = (config = {}) => {
           recordId: record._id,
           from: record.from,
           nextSpeaker: null,
+        })
+        return
+      }
+
+      if (url === '/api/voice/aiSpeech/played/auth') {
+        resolve({
+          recordId: config.data && config.data.recordId,
+          nextSpeaker: null,
+          finished: false,
         })
         return
       }

@@ -8,6 +8,7 @@ const sectionNav = [
   { id: "evidence", label: "票型与发言", icon: "history_edu" },
   { id: "mistakes", label: "关键失误", icon: "warning" },
   { id: "recommendations", label: "策略建议", icon: "school" },
+  { id: "actions", label: "行动项", icon: "task_alt" },
 ];
 
 function goBack() {
@@ -33,7 +34,9 @@ const voteRounds = computed(() => reportData.value.voteRounds || []);
 const speechIssues = computed(() => reportData.value.speechIssues || []);
 const skillEvaluations = computed(() => reportData.value.skillEvaluations || []);
 const mistakes = computed(() => reportData.value.mistakes || []);
+const recommendationLayers = computed(() => reportData.value.recommendationLayers || []);
 const strategyRecommendations = computed(() => reportData.value.strategyRecommendations || []);
+const actionItems = computed(() => reportData.value.actionItems || []);
 </script>
 
 <template>
@@ -154,8 +157,19 @@ const strategyRecommendations = computed(() => reportData.value.strategyRecommen
                 :key="`${skill.title}-${skill.detail}`"
                 class="rounded-[22px] bg-parchment p-5"
               >
-                <p class="font-headline text-xl font-bold text-[#513318]">{{ skill.title }}</p>
-                <p class="mt-3 text-base leading-7 text-[#5c503d]">
+                <div class="flex flex-wrap items-center gap-2">
+                  <p class="font-headline text-xl font-bold text-[#513318]">{{ skill.title }}</p>
+                  <span v-if="skill.phase" class="rounded-full border border-[#d9cfbf] px-2.5 py-1 text-xs text-[#6f6754]">
+                    {{ skill.phase }}
+                  </span>
+                </div>
+                <div v-if="skill.detailRows?.length" class="mt-4 space-y-3">
+                  <div v-for="row in skill.detailRows" :key="row.key" class="rounded-[16px] bg-[#fffaf2] px-4 py-3">
+                    <p class="text-xs font-semibold text-[#8a7b67]">{{ row.label }}</p>
+                    <p class="mt-1 text-[15px] leading-7 text-[#5c503d]">{{ row.value }}</p>
+                  </div>
+                </div>
+                <p v-else class="mt-3 text-base leading-7 text-[#5c503d]">
                   {{ skill.detail }}
                 </p>
               </div>
@@ -221,12 +235,21 @@ const strategyRecommendations = computed(() => reportData.value.strategyRecommen
                   <span class="rounded-full bg-[#f5d0cc] px-3 py-1 text-xs font-semibold text-[#8a1b1e]">
                     {{ issue.player }}
                   </span>
+                  <span v-if="issue.phase" class="rounded-full border border-[#d9cfbf] px-3 py-1 text-xs text-[#6f6754]">
+                    {{ issue.phase }}
+                  </span>
                 </div>
                 <p class="mt-4 text-xs uppercase tracking-[0.2em] text-[#8a7b67]">识别到的问题</p>
                 <p class="mt-3 border-l-2 border-[#d6c5b7] pl-4 text-[16px] leading-8 text-[#513318]">
                   {{ issue.issue }}
                 </p>
-                <p v-if="issue.reason" class="mt-4 text-[15px] leading-7 text-[#5f5643]">{{ issue.reason }}</p>
+                <div v-if="issue.detailRows?.length" class="mt-4 space-y-3">
+                  <div v-for="row in issue.detailRows" :key="row.key" class="rounded-[16px] bg-[#fffaf2] px-4 py-3">
+                    <p class="text-xs font-semibold text-[#8a7b67]">{{ row.label }}</p>
+                    <p class="mt-1 text-[15px] leading-7 text-[#5f5643]">{{ row.value }}</p>
+                  </div>
+                </div>
+                <p v-else-if="issue.reason" class="mt-4 text-[15px] leading-7 text-[#5f5643]">{{ issue.reason }}</p>
               </div>
               <p v-if="!speechIssues.length" class="rounded-[22px] bg-parchment p-5 text-sm text-[#8a7b67]">
                 本次报告未标记发言问题。
@@ -252,6 +275,12 @@ const strategyRecommendations = computed(() => reportData.value.strategyRecommen
               <div>
                 <p class="text-xs uppercase tracking-[0.2em] text-[#8a7b67]">{{ mistake.title }}</p>
                 <p class="mt-2 text-[15px] leading-7 text-[#5f5643]">{{ mistake.detail }}</p>
+                <div v-if="mistake.detailRows?.length" class="mt-4 space-y-3">
+                  <div v-for="row in mistake.detailRows" :key="row.key" class="rounded-[16px] bg-[#fffaf2] px-4 py-3">
+                    <p class="text-xs font-semibold text-[#8a7b67]">{{ row.label }}</p>
+                    <p class="mt-1 text-[15px] leading-7 text-[#5f5643]">{{ row.value }}</p>
+                  </div>
+                </div>
               </div>
             </article>
             <p v-if="!mistakes.length" class="rounded-[22px] bg-paper p-5 text-sm text-[#8a7b67]">
@@ -266,20 +295,89 @@ const strategyRecommendations = computed(() => reportData.value.strategyRecommen
               <span class="material-symbols-outlined text-[28px] text-[#6d3900]">school</span>
               <h2 class="font-headline text-3xl font-bold italic text-[#6d3900]">策略建议</h2>
             </div>
+            <div v-if="recommendationLayers.length" class="mt-8 space-y-6">
+              <section
+                v-for="layer in recommendationLayers"
+                :key="layer.key"
+                class="rounded-[24px] bg-paper p-5"
+              >
+                <h3 class="font-headline text-2xl font-bold text-[#513318]">{{ layer.title }}</h3>
+                <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <article
+                    v-for="item in layer.items"
+                    :key="`${layer.key}-${item.target}-${item.problem}`"
+                    class="rounded-[20px] border border-[#e6dccc] bg-parchment p-5"
+                  >
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="rounded-full bg-[#e8dfcf] px-3 py-1 text-xs font-semibold text-[#513318]">
+                        {{ item.target }}
+                      </span>
+                      <span v-if="item.phase" class="rounded-full border border-[#d9cfbf] px-3 py-1 text-xs text-[#6f6754]">
+                        {{ item.phase }}
+                      </span>
+                    </div>
+                    <p class="mt-4 text-[15px] leading-7 text-[#5f5643]">{{ item.problem }}</p>
+                    <div v-if="item.detailRows?.length" class="mt-4 space-y-3">
+                      <div v-for="row in item.detailRows" :key="row.key" class="rounded-[16px] bg-[#fffaf2] px-4 py-3">
+                        <p class="text-xs font-semibold text-[#8a7b67]">{{ row.label }}</p>
+                        <p class="mt-1 text-[15px] leading-7 text-[#5f5643]">{{ row.value }}</p>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+              </section>
+            </div>
             <div class="mt-8 grid gap-4 md:grid-cols-2">
               <div
-                v-for="item in strategyRecommendations"
-                :key="item"
+                v-for="(item, index) in strategyRecommendations"
+                :key="`${index}-${item}`"
                 class="rounded-[22px] bg-paper p-5"
               >
+                <p class="mb-2 text-xs uppercase tracking-[0.2em] text-[#8a7b67]">汇总建议 {{ index + 1 }}</p>
                 <p class="text-[15px] leading-7 text-[#5f5643]">{{ item }}</p>
               </div>
-              <p v-if="!strategyRecommendations.length" class="rounded-[22px] bg-paper p-5 text-sm text-[#8a7b67] md:col-span-2">
+              <p v-if="!strategyRecommendations.length && !recommendationLayers.length" class="rounded-[22px] bg-paper p-5 text-sm text-[#8a7b67] md:col-span-2">
                 本次报告未提供策略建议。
               </p>
             </div>
           </article>
-          <!-- 行动项模块已按当前复盘页面展示需求隐藏。 -->
+        </section>
+
+        <section id="actions">
+          <article class="rounded-[28px] border border-[#eadfce] bg-paper p-7 shadow-vellum md:p-9">
+            <div class="flex items-center gap-3">
+              <span class="material-symbols-outlined text-[28px] text-forest">task_alt</span>
+              <h2 class="font-headline text-3xl font-bold italic text-forest">行动项</h2>
+            </div>
+            <div class="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <article
+                v-for="item in actionItems"
+                :key="`${item.owner}-${item.task}`"
+                class="rounded-[22px] bg-parchment p-5"
+              >
+                <div class="flex items-center justify-between gap-3">
+                  <span class="rounded-full bg-[#e8dfcf] px-3 py-1 text-xs font-semibold text-[#513318]">
+                    {{ item.owner }}
+                  </span>
+                </div>
+                <h3 class="mt-4 font-headline text-xl font-bold text-[#513318]">{{ item.task }}</h3>
+                <div v-if="item.basis || item.deliverable" class="mt-4 space-y-3">
+                  <div v-if="item.basis" class="rounded-[16px] bg-[#fffaf2] px-4 py-3">
+                    <p class="text-xs font-semibold text-[#8a7b67]">依据</p>
+                    <p class="mt-1 text-[15px] leading-7 text-[#5f5643]">{{ item.basis }}</p>
+                  </div>
+                  <div v-if="item.deliverable" class="rounded-[16px] bg-[#fffaf2] px-4 py-3">
+                    <p class="text-xs font-semibold text-[#8a7b67]">产出</p>
+                    <p class="mt-1 text-[15px] leading-7 text-[#5f5643]">{{ item.deliverable }}</p>
+                  </div>
+                </div>
+                <p v-else class="mt-4 text-[15px] leading-7 text-[#5f5643]">{{ item.raw }}</p>
+              </article>
+              <p v-if="!actionItems.length" class="rounded-[22px] bg-parchment p-5 text-sm text-[#8a7b67] md:col-span-2 xl:col-span-4">
+                本次报告未提供行动项。
+              </p>
+            </div>
+          </article>
         </section>
       </div>
     </main>
