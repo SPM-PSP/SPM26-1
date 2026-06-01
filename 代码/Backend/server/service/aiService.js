@@ -312,7 +312,9 @@ module.exports = app => {
       if(!gameInstance || gameInstance.status !== 1){
         return $helper.wrapResult(true, [])
       }
-      if(gameInstance.stage === 5 || gameInstance.stage === 7){
+      const stageNumber = Number(gameInstance.stage)
+      const isSpeechStage = stageNumber === 5 || stageNumber === 7 || (stageNumber === 4 && Number(gameInstance.day) === 1)
+      if(stageNumber === 5 || stageNumber === 7){
         const pendingPlaybackResult = await $service.gameService.getPendingAiSpeechPlayback(gameInstance)
         if(pendingPlaybackResult.result && pendingPlaybackResult.data){
           return $helper.wrapResult(true, [{
@@ -328,7 +330,7 @@ module.exports = app => {
         username: { $like: 'ai_%' },
         status: 1
       }, {}, { sort: { position: 1 } })
-      if((!aiPlayers || aiPlayers.length < 1) && gameInstance.stage !== 5 && gameInstance.stage !== 7){
+      if((!aiPlayers || aiPlayers.length < 1) && !isSpeechStage){
         return $helper.wrapResult(true, [])
       }
 
@@ -353,7 +355,7 @@ module.exports = app => {
       })
       let currentSpeechLockKey = null
       let speechTurnState = null
-      if(gameInstance.stage === 5 || gameInstance.stage === 7){
+      if(isSpeechStage){
         const turnResult = await $service.gameService.getSpeechTurnState(gameInstance)
         if(!turnResult.result || !turnResult.data || turnResult.data.finished || !turnResult.data.currentSpeaker){
           return $helper.wrapResult(true, [])
@@ -363,7 +365,7 @@ module.exports = app => {
           return $helper.wrapResult(true, [])
         }
         const speechLockKey = [
-          gameInstance.stage === 7 ? 'ai-last-words' : 'ai-speech',
+          stageNumber === 7 ? 'ai-last-words' : 'ai-speech',
           gameInstance._id,
           gameInstance.day,
           turnResult.data.currentIndex,
@@ -375,7 +377,7 @@ module.exports = app => {
         }
         app.$nodeCache.set(speechLockKey, 1, 120)
         let currentAi = (aiPlayers || []).find(item => item.username === turnResult.data.currentSpeaker.username)
-        if(!currentAi && (gameInstance.stage === 5 || gameInstance.stage === 7)){
+        if(!currentAi && isSpeechStage){
           currentAi = await $service.baseService.queryOne(player, {
             roomId: gameInstance.roomId,
             gameId: gameInstance._id,
@@ -583,6 +585,7 @@ module.exports = app => {
             audioDataUrl: audioBase64 ? ('data:' + audioMime + ';base64,' + audioBase64) : '',
             playbackRequired,
             playbackStatus: playbackRequired ? 'pending' : 'skipped',
+            speechTurnIndex: speechTurnState ? speechTurnState.currentIndex : undefined,
             ttsError,
             from: {
               username: actor.username,
@@ -635,6 +638,42 @@ module.exports = app => {
         }
         
         return savedRecord
+      }
+
+      const scheduleAiSpeechPlaybackFallback = (savedRecord, speechText) => {
+        if(!savedRecord || !savedRecord._id){
+          return
+        }
+        const fallbackKey = 'ai-speech-playback-fallback-' + savedRecord._id
+        if(app.$nodeCache.get(fallbackKey)){
+          return
+        }
+        app.$nodeCache.set(fallbackKey, 1, 180)
+        const textLength = String(speechText || '').length
+        const delayMs = Math.min(45000, Math.max(8000, textLength * 180 + 3000))
+        setTimeout(async () => {
+          try {
+            const latestGame = await $service.baseService.queryById($model.game, gameInstance._id)
+            if(!latestGame || Number(latestGame.status) !== 1){
+              return
+            }
+            if(Number(latestGame.stage) !== Number(gameInstance.stage) || Number(latestGame.day) !== Number(gameInstance.day)){
+              return
+            }
+            const latestRecord = await $service.baseService.queryById(record, savedRecord._id)
+            const latestContent = latestRecord && latestRecord.content ? latestRecord.content : null
+            if(!latestContent || latestContent.playbackStatus !== 'pending'){
+              return
+            }
+            await $service.gameService.completeAiSpeechPlayback(latestGame, savedRecord._id)
+          } catch (error) {
+            if(app.$log4 && app.$log4.errorLogger){
+              app.$log4.errorLogger.error('[AI Service] AI发言播放兜底推进失败: ' + error.toString())
+            }
+          } finally {
+            app.$nodeCache.del(fallbackKey)
+          }
+        }, delayMs)
       }
 
       const results = []
@@ -720,6 +759,8 @@ module.exports = app => {
           actionName = 'assault'
         } else if(gameInstance.stage === 3 && actor.role === 'witch'){
           stageName = 'night_action'
+        } else if(stageNumber === 4 && speechTurnState){
+          stageName = 'speech'
         } else if(gameInstance.stage === 5){
           stageName = 'speech'
         } else if(gameInstance.stage === 7){
@@ -786,6 +827,7 @@ module.exports = app => {
             }
           })
           if(savedSpeechRecord && savedSpeechRecord.content && savedSpeechRecord.content.playbackRequired){
+            scheduleAiSpeechPlaybackFallback(savedSpeechRecord, text)
             results.push({
               aiId: actor.username,
               success: true,
@@ -796,7 +838,7 @@ module.exports = app => {
             })
             continue
           }
-          const advanceResult = await $service.gameService.advanceSpeechTurn(gameInstance)
+          const advanceResult = await $service.gameService.advanceSpeechTurn(gameInstance, actor.username, speechTurnState ? speechTurnState.currentIndex : null)
           if(advanceResult.result){
             if(advanceResult.data.finished && stageName !== 'lastWords'){
               await $service.gameService.moveToNextStage(gameInstance._id)
@@ -995,7 +1037,9 @@ module.exports = app => {
           }
         }
         
-        const targetKey = actionName === 'vote' ? decision.voteTarget : decision.skillTarget
+        const targetKey = actionName === 'vote'
+          ? (decision.voteTarget || decision.skillTarget || decision.target || decision.targetPlayer || (decision.vote && decision.vote.target))
+          : (decision.skillTarget || decision.target || decision.targetPlayer)
         const targetPlayer = await getTargetPlayer(targetKey)
         if(!targetPlayer){
           results.push({ aiId: actor.username, success: false, error: 'target not found' })
@@ -1032,7 +1076,7 @@ module.exports = app => {
           role: 'predictor'
         })
         if(!predictor || predictor.status === 0){
-          return $helper.wrapResult(true, true)
+          return $helper.wrapResult(true, false)
         }
         if(!isAiId(predictor.username)){
           return $helper.wrapResult(true, false)
@@ -1085,7 +1129,7 @@ module.exports = app => {
           role: 'witch'
         })
         if(!witch || witch.status === 0){
-          return $helper.wrapResult(true, true)
+          return $helper.wrapResult(true, false)
         }
         return $helper.wrapResult(true, isAiId(witch.username))
       }

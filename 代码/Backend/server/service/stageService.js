@@ -200,6 +200,20 @@
     if(killAction && killAction.to){
       let killTarget = killAction.to
       let killPlayer = await $service.baseService.queryOne(player,{roomId: gameInstance.roomId, gameId: gameInstance._id, username: killTarget})
+      if(saveAction && saveAction.to === killTarget && killPlayer){
+        await $service.baseService.delete(gameTag, {
+          roomId: gameInstance.roomId,
+          gameId: gameInstance._id,
+          day: gameInstance.day,
+          mode: 1,
+          desc: 'assault',
+          target: killTarget
+        })
+        await $service.baseService.updateById(player, killPlayer._id, {
+          status: 1,
+          outReason: null
+        })
+      }
       if(!saveAction){
         let tagObject = {
           roomId: gameInstance.roomId,
@@ -501,7 +515,22 @@
     let randomOrder = Math.floor(Math.random() * 2 ) + 1 // 闅忔満鍙戣█椤哄簭
     let targetPlayer = alivePlayer[randomPosition]
     const firstNightDeadSpeakers = []
+    let firstNightLastWordsDone = false
     if(gameInstance.day === 1){
+      const firstNightLastWordsOrder = await $service.baseService.queryOne(gameTag, {
+        roomId: gameInstance.roomId,
+        gameId: gameInstance._id,
+        day: 1,
+        desc: 'firstNightLastWordsOrder',
+        mode: 2
+      })
+      if(firstNightLastWordsOrder){
+        const firstNightOrder = Array.isArray(firstNightLastWordsOrder.value2) ? firstNightLastWordsOrder.value2 : []
+        const firstNightIndex = Number(firstNightLastWordsOrder.value3 && firstNightLastWordsOrder.value3.currentIndex !== undefined ? firstNightLastWordsOrder.value3.currentIndex : 0)
+        firstNightLastWordsDone = firstNightIndex >= firstNightOrder.length
+      }
+    }
+    if(gameInstance.day === 1 && !firstNightLastWordsDone){
       const deadTags = await $service.baseService.query(gameTag, {
         roomId: gameInstance.roomId,
         gameId: gameInstance._id,
@@ -603,18 +632,41 @@
    * 鎶曠エ闃舵
    * @returns {Promise<void>}
    */
-  async voteStage (id, stageNumber = 6) {
+  async voteStage (id, stageNumber = 6, options = {}) {
     const { $service, $helper, $model, $support } = app
     const { game, player, record, action, gameTag } = $model
     if(!id){
       return $helper.wrapResult(false, 'gameId为空', -1)
     }
     let gameInstance = await $service.baseService.queryById(game, id)
+    const logVoteStage = (message, meta) => {
+      console.log('[voteStage] ' + message, meta || '')
+    }
 
     let needPk
-    let voteActions = await $service.baseService.query(action, {roomId: gameInstance.roomId, gameId: gameInstance._id, day: gameInstance.day, stage: stageNumber, action: 'vote'})
+    const settledTag = await $service.baseService.queryOne(gameTag, {
+      roomId: gameInstance.roomId,
+      gameId: gameInstance._id,
+      day: gameInstance.day,
+      stage: stageNumber,
+      desc: 'voteSettled',
+      mode: 4
+    })
+    if(settledTag){
+      logVoteStage('skip duplicated settlement', {
+        gameId: gameInstance._id,
+        roomId: gameInstance.roomId,
+        day: gameInstance.day,
+        stage: stageNumber,
+        settledTagId: settledTag._id
+      })
+      return $helper.wrapResult(true, settledTag.value || null)
+    }
+
+    let voteActions = await $service.baseService.query(action, {roomId: gameInstance.roomId, gameId: gameInstance._id, day: gameInstance.day, stage: stageNumber, action: 'vote'}, {}, { sort: { _id: 1 } })
     voteActions = voteActions || []
     let alivePlayers = await $service.baseService.query(player,{gameId: gameInstance._id, roomId: gameInstance.roomId, status: 1},{}, {sort: { position: 1 }})
+    alivePlayers = alivePlayers || []
 
     if(stageNumber === 6.5 && gameInstance.flatTicket === 2){
       let pkTag = await $service.baseService.queryOne(gameTag, {
@@ -632,6 +684,33 @@
         }
       })
       alivePlayers = leftPlayers
+    }
+
+    const eligibleUsernames = alivePlayers.map(item => item.username)
+    const firstVoteByPlayer = {}
+    voteActions.forEach(item => {
+      if(item && item.from && eligibleUsernames.includes(item.from) && !firstVoteByPlayer[item.from]){
+        firstVoteByPlayer[item.from] = item
+      }
+    })
+    voteActions = eligibleUsernames
+      .map(username => firstVoteByPlayer[username])
+      .filter(Boolean)
+    const votedCount = voteActions.length
+    const totalVoteCount = eligibleUsernames.length
+    if(totalVoteCount > 0 && votedCount < totalVoteCount && !options.forceSettle){
+      logVoteStage('blocked settlement because vote is not complete', {
+        gameId: gameInstance._id,
+        roomId: gameInstance.roomId,
+        day: gameInstance.day,
+        stage: stageNumber,
+        total: totalVoteCount,
+        voted: votedCount,
+        missing: alivePlayers
+          .filter(item => !firstVoteByPlayer[item.username])
+          .map(item => ({ username: item.username, name: item.name, position: item.position }))
+      })
+      return $helper.wrapResult(false, '投票尚未完成，不能结算审判阶段', -1)
     }
 
     let voteResultMap = {}
@@ -1020,10 +1099,31 @@
             target: 'pkPlayer',
           }
           await $service.baseService.save(gameTag, pkTagObject)
-          // 杩涘叆鍒?.5闃舵锛坧k闃舵锛?          needPk = 'Y'
+        // 杩涘叆鍒?.5闃舵锛坧k闃舵锛?          needPk = 'Y'
         }
       }
     }
+
+    await $service.baseService.save(gameTag, {
+      roomId: gameInstance.roomId,
+      gameId: gameInstance._id,
+      day: gameInstance.day,
+      stage: stageNumber,
+      dayStatus: gameInstance.stage < 4 ? 1 : 2,
+      desc: 'voteSettled',
+      mode: 4,
+      target: 'voteSettled',
+      value: needPk || '',
+      value2: voteActions.map(item => ({
+        from: item.from,
+        to: item.to
+      })),
+      value3: {
+        total: totalVoteCount,
+        voted: votedCount,
+        settledAt: new Date().toISOString()
+      }
+    })
 
     await $service.gameService.settleGameOver(gameInstance._id)
     return $helper.wrapResult(true, needPk)

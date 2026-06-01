@@ -236,28 +236,64 @@ const initWs = function () {
     'realtimeSpeechAudio',
     'realtimeSpeechText'
   ]
+  const summarizeWsMessage = (data) => {
+    if(!data || typeof data !== 'object'){
+      return data
+    }
+    const summary = {
+      type: data.type,
+      roomId: data.roomId,
+      gameId: data.gameId,
+      stage: data.stage,
+      speechType: data.speechType,
+      senderUsername: data.senderUsername,
+      senderName: data.senderName,
+      timestamp: data.timestamp
+    }
+    if(data.text){
+      const text = String(data.text)
+      summary.textLength = text.length
+      summary.textPreview = text.slice(0, 80)
+    }
+    if(data.audioData){
+      summary.audioDataLength = String(data.audioData).length
+      summary.mimeType = data.mimeType
+    }
+    return summary
+  }
   const relayToRoom = (connection, message) => {
     const roomPath = getRoomPath(connection)
     server.connections.forEach(function (conn) {
       if(getRoomPath(conn) === roomPath){
-        conn.sendText(message)
+        try {
+          if(conn.readyState === undefined || conn.readyState === 1){
+            conn.sendText(message)
+          }
+        } catch (error) {
+          console.warn('[ws] relay skipped closed connection:', error.message || error.toString())
+        }
       }
     })
   }
   const server = ws
     .createServer(function (connection) {
       connection.on('text', function (str) {
-        console.log('Received ' + str);
         try {
           const data = JSON.parse(str)
+          console.log('[ws] received:', summarizeWsMessage(data))
           if(data && relayTypes.includes(data.type)){
             relayToRoom(connection, JSON.stringify(data))
             return
           }
         } catch (e) {
+          console.log('[ws] received non-json message length:', String(str || '').length)
           // Non-JSON messages keep the old echo behavior.
         }
-        connection.sendText(str.toUpperCase() + '!!!');
+        try {
+          connection.sendText(str.toUpperCase() + '!!!');
+        } catch (error) {
+          console.warn('[ws] echo failed:', error.message || error.toString())
+        }
       });
       connection.on('close', function (code, reason) {
         console.log('Connection closed');

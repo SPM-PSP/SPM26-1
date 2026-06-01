@@ -9,7 +9,7 @@ function getRoleConfig(roomId, playerCount) {
       { position: 1, role: 'predictor' },
       { position: 2, role: 'wolf' },
       { position: 3, role: 'wolf' },
-      { position: 5, role: 'witch' }
+      { position: 6, role: 'witch' }
     ],
     '9': [
       { position: 8, role: 'wolf' }

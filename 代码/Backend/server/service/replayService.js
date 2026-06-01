@@ -3,7 +3,7 @@ const fs = require('fs')
 const path = require('path')
 
 module.exports = app => {
-  const replayJobs = new Set()
+  const replayJobs = new Map()
   const getReplayDir = (outputDir = 'replay_analysis') => path.resolve(outputDir)
   const getReplayIndexPath = (outputDir = 'replay_analysis') => path.join(getReplayDir(outputDir), 'replay_index.json')
 
@@ -92,6 +92,13 @@ module.exports = app => {
   const getReplayIndexByGameId = (gameId, outputDir = 'replay_analysis') => {
     const items = readReplayIndex(outputDir)
     return items.find(item => String(item.gameId) === String(gameId)) || null
+  }
+
+  const hasAnalysisFiles = (analysisFiles) => {
+    if(!analysisFiles || !analysisFiles.json || !analysisFiles.text){
+      return false
+    }
+    return fs.existsSync(path.resolve(analysisFiles.json)) && fs.existsSync(path.resolve(analysisFiles.text))
   }
 
   const findGeneratedAnalysisFilesSince = (outputDir = 'replay_analysis', startedAt = 0) => {
@@ -230,11 +237,13 @@ module.exports = app => {
     const { game, player, record, action, gameTag } = $model
 
     try {
+      const gameIdValue = gameInstance._id || gameInstance.id
+      const roomIdValue = gameInstance.roomId || gameInstance.room_id
       // 获取游戏基本信息
       const winnerLabel = gameInstance.winner === 1 ? '好人阵营' : gameInstance.winner === 0 ? '狼人阵营' : '未知'
       const gameRecord = {
-        game_id: gameInstance._id,
-        room_id: gameInstance.roomId,
+        game_id: gameIdValue,
+        room_id: roomIdValue,
         start_time: gameInstance.createdAt || new Date().toISOString(),
         end_time: gameInstance.updatedAt || new Date().toISOString(),
         player_count: gameInstance.playerCount,
@@ -250,8 +259,8 @@ module.exports = app => {
 
       // 获取玩家最终状态
       const players = await $service.baseService.query(player, {
-        roomId: gameInstance.roomId,
-        gameId: gameInstance._id
+        roomId: roomIdValue,
+        gameId: gameIdValue
       })
 
       gameRecord.final_result.final_state.players = {}
@@ -268,8 +277,8 @@ module.exports = app => {
 
       // 获取游戏事件记录
       const records = await $service.baseService.query(record, {
-        roomId: gameInstance.roomId,
-        gameId: gameInstance._id
+        roomId: roomIdValue,
+        gameId: gameIdValue
       }, {}, { sort: { _id: 1 } })
 
       gameRecord.events = []
@@ -287,8 +296,8 @@ module.exports = app => {
 
       // 获取投票记录
       const actions = await $service.baseService.query(action, {
-        roomId: gameInstance.roomId,
-        gameId: gameInstance._id
+        roomId: roomIdValue,
+        gameId: gameIdValue
       }, {}, { sort: { _id: 1 } })
 
       gameRecord.game_stats = {
@@ -417,8 +426,12 @@ module.exports = app => {
         // 统计投票
         const voteActions = dayActions.filter(a => a.action === 'vote')
         const voteCounts = {}
+        const voteCountsByName = {}
         voteActions.forEach(v => {
           voteCounts[v.to] = (voteCounts[v.to] || 0) + 1
+          const targetProfile = getProfile(v.to)
+          const targetName = targetProfile && targetProfile.name ? targetProfile.name : v.to
+          voteCountsByName[targetName] = (voteCountsByName[targetName] || 0) + 1
         })
         
         // 优先使用真实放逐记录。不能只按最高票推断，否则平票也会被误写成出局。
@@ -452,8 +465,10 @@ module.exports = app => {
           votes: dayActionSamples.filter(item => item.action === 'vote'),
           vote_results: {
             vote_counts: voteCounts,
+            vote_counts_by_name: voteCountsByName,
             voted_out: votedOutInfo,
-            voted_out_name: votedOutInfo ? ((votedOutInfo.position || '') + '号' + (votedOutInfo.name ? '（' + votedOutInfo.name + '）' : '')) : null
+            voted_out_name: votedOutInfo ? ((votedOutInfo.position || '') + '号' + (votedOutInfo.name ? '（' + votedOutInfo.name + '）' : '')) : null,
+            voted_out_display: votedOutInfo ? ((votedOutInfo.name || votedOut) + '（' + ((votedOutInfo.role && ({ wolf: '狼人', predictor: '预言家', witch: '女巫', hunter: '猎人', villager: '平民' })[votedOutInfo.role]) || votedOutInfo.role || '未知身份') + '）') : '无玩家出局'
           }
         })
       }
@@ -481,9 +496,11 @@ module.exports = app => {
     }
 
     try {
-      // 生成游戏记录
-      const existingReplay = getReplayIndexByGameId(gameInstance._id, options.outputDir || 'replay_analysis')
-      if(existingReplay && options.force !== true){
+      const gameId = String(gameInstance._id || gameInstance.id)
+      const outputDir = options.outputDir || 'replay_analysis'
+
+      const existingReplay = getReplayIndexByGameId(gameId, outputDir)
+      if(existingReplay && options.force !== true && hasAnalysisFiles(existingReplay.analysisFiles)){
         return $helper.wrapResult(true, {
           game_record: null,
           analysis_files: existingReplay.analysisFiles,
@@ -493,71 +510,90 @@ module.exports = app => {
         })
       }
 
-      const gameRecord = await generateGameRecord(gameInstance)
-
-      // 准备AI配置
-      const aiConfig = options.enableAI ? getAiConfig(options) : null
-
-      // 调用AI复盘服务
-      const requestData = {
-        game_record: gameRecord,
-        ai_config: aiConfig,
-        output_dir: options.outputDir || 'replay_analysis',
-        desensitize: options.desensitize !== false
+      if(replayJobs.has(gameId) && options.force !== true){
+        return replayJobs.get(gameId)
       }
 
-      const startedAt = Date.now()
-      const result = await post('/analyze', requestData)
-      
-      if (result.result) {
-        const analysisData = result.data || {}
-        const analysisFiles = analysisData.result
-        const replayIndex = upsertReplayIndex(
-          gameRecord,
-          analysisFiles,
-          analysisData.timestamp,
-          options.outputDir || 'replay_analysis'
-        )
-        return $helper.wrapResult(true, {
+      const jobPromise = (async () => {
+        const gameRecord = await generateGameRecord(gameInstance)
+
+        // 准备AI配置
+        const aiConfig = options.enableAI ? getAiConfig(options) : null
+
+        // 调用AI复盘服务
+        const requestData = {
           game_record: gameRecord,
-          analysis_files: analysisFiles,
-          replay_index: replayIndex,
-          timestamp: analysisData.timestamp
-        })
-      } else {
-        const recoveredFiles = findGeneratedAnalysisFilesSince(options.outputDir || 'replay_analysis', startedAt)
-        if(recoveredFiles){
+          ai_config: aiConfig,
+          output_dir: outputDir,
+          desensitize: options.desensitize !== false
+        }
+
+        const startedAt = Date.now()
+        const result = await post('/analyze', requestData)
+
+        if (result.result) {
+          const analysisData = result.data || {}
+          const analysisFiles = analysisData.result
           const replayIndex = upsertReplayIndex(
             gameRecord,
-            recoveredFiles,
-            recoveredFiles.timestamp,
-            options.outputDir || 'replay_analysis'
+            analysisFiles,
+            analysisData.timestamp,
+            outputDir
           )
+          if(!replayIndex){
+            return $helper.wrapResult(false, '复盘文件已生成，但索引写入失败：game_id为空', -1)
+          }
           return $helper.wrapResult(true, {
             game_record: gameRecord,
-            analysis_files: recoveredFiles,
+            analysis_files: analysisFiles,
             replay_index: replayIndex,
-            timestamp: recoveredFiles.timestamp,
-            recovered: true
+            timestamp: analysisData.timestamp
           })
+        } else {
+          const recoveredFiles = findGeneratedAnalysisFilesSince(outputDir, startedAt)
+          if(recoveredFiles){
+            const replayIndex = upsertReplayIndex(
+              gameRecord,
+              recoveredFiles,
+              recoveredFiles.timestamp,
+              outputDir
+            )
+            if(!replayIndex){
+              return $helper.wrapResult(false, '复盘文件已恢复，但索引写入失败：game_id为空', -1)
+            }
+            return $helper.wrapResult(true, {
+              game_record: gameRecord,
+              analysis_files: recoveredFiles,
+              replay_index: replayIndex,
+              timestamp: recoveredFiles.timestamp,
+              recovered: true
+            })
+          }
+          return result
         }
-        return result
-      }
+      })()
+
+      replayJobs.set(gameId, jobPromise)
+      const jobResult = await jobPromise
+      return jobResult
     } catch (error) {
       return $helper.wrapResult(false, '复盘分析失败: ' + error.message, -1)
+    } finally {
+      const gameId = String(gameInstance._id || gameInstance.id)
+      replayJobs.delete(gameId)
     }
   }
 
   const ensureGameReplay = async (gameInstance, options = {}) => {
     const { $helper } = app
-    if(!gameInstance || !gameInstance._id){
+    if(!gameInstance || (!gameInstance._id && !gameInstance.id)){
       return $helper.wrapResult(false, 'gameInstance为空', -1)
     }
 
-    const gameId = String(gameInstance._id)
+    const gameId = String(gameInstance._id || gameInstance.id)
     const outputDir = options.outputDir || 'replay_analysis'
     const existingReplay = getReplayIndexByGameId(gameId, outputDir)
-    if(existingReplay){
+    if(existingReplay && hasAnalysisFiles(existingReplay.analysisFiles)){
       console.log('[ReplayAuto] skip existing replay, gameId=' + gameId)
       return $helper.wrapResult(true, {
         replay_index: existingReplay,
@@ -567,13 +603,9 @@ module.exports = app => {
 
     if(replayJobs.has(gameId)){
       console.log('[ReplayAuto] skip running replay job, gameId=' + gameId)
-      return $helper.wrapResult(true, {
-        gameId,
-        running: true
-      })
+      return replayJobs.get(gameId)
     }
 
-    replayJobs.add(gameId)
     try {
       console.log('[ReplayAuto] start replay generation, gameId=' + gameId)
       const result = await analyzeGame(gameInstance, {

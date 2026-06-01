@@ -88,20 +88,79 @@ module.exports = app => ({
   async getSpeechTurnState(gameInstance) {
     const { $service, $helper, $model } = app
     const { gameTag, player } = $model
-    if(!gameInstance || (gameInstance.stage !== 5 && gameInstance.stage !== 7)){
+    const stageNumber = Number(gameInstance && gameInstance.stage)
+    const isFirstNightDeathSpeechStage = stageNumber === 4 && Number(gameInstance.day) === 1
+    if(!gameInstance || (stageNumber !== 5 && stageNumber !== 7 && !isFirstNightDeathSpeechStage)){
       return $helper.wrapResult(true, null)
     }
     // 根据阶段选择不同的desc
-    const desc = gameInstance.stage === 7 ? 'lastWordsOrder' : 'speakOrder'
+    const desc = stageNumber === 7 ? 'lastWordsOrder' : isFirstNightDeathSpeechStage ? 'firstNightLastWordsOrder' : 'speakOrder'
     let orderTag = await $service.baseService.queryOne(gameTag, {
       roomId: gameInstance.roomId,
       gameId: gameInstance._id,
       day: gameInstance.day,
       desc: desc,
       mode: 2
-    })
+    }, {}, { sort: { _id: -1 } })
     if(!orderTag){
-      return $helper.wrapResult(false, '发言顺序不存在', -1)
+      if(isFirstNightDeathSpeechStage){
+        const deadTags = await $service.baseService.query(gameTag, {
+          roomId: gameInstance.roomId,
+          gameId: gameInstance._id,
+          day: 1,
+          stage: { $in: [2, 3, 4] },
+          mode: 1
+        }, {}, { sort: { position: 1 } })
+        const addedDead = {}
+        const firstNightDeadSpeakers = []
+        for(let i = 0; i < (deadTags || []).length; i++){
+          const tag = deadTags[i]
+          if(!tag.target || addedDead[tag.target]){
+            continue
+          }
+          const deadPlayer = await $service.baseService.queryOne(player, {
+            roomId: gameInstance.roomId,
+            gameId: gameInstance._id,
+            username: tag.target,
+            status: 0
+          })
+          if(deadPlayer){
+            firstNightDeadSpeakers.push({
+              username: deadPlayer.username,
+              name: deadPlayer.name,
+              position: deadPlayer.position,
+              isFirstNightLastWords: true
+            })
+            addedDead[tag.target] = true
+          }
+        }
+        if(firstNightDeadSpeakers.length < 1){
+          return $helper.wrapResult(true, {
+            orderTag: null,
+            order: [],
+            currentIndex: 0,
+            currentSpeaker: null,
+            finished: true
+          })
+        }
+        orderTag = await $service.baseService.save(gameTag, {
+          roomId: gameInstance.roomId,
+          gameId: gameInstance._id,
+          day: gameInstance.day,
+          stage: 4,
+          dayStatus: 2,
+          desc,
+          mode: 2,
+          value: 'asc',
+          target: firstNightDeadSpeakers[0].username,
+          name: firstNightDeadSpeakers[0].name,
+          position: firstNightDeadSpeakers[0].position,
+          value2: firstNightDeadSpeakers,
+          value3: { currentIndex: 0 }
+        })
+      } else {
+        return $helper.wrapResult(false, '发言顺序不存在', -1)
+      }
     }
     let order = Array.isArray(orderTag.value2) ? orderTag.value2 : []
     if(order.length < 1){
@@ -130,7 +189,7 @@ module.exports = app => ({
         })
       }
     }
-    const currentIndex = Number(orderTag.value3 && orderTag.value3.currentIndex ? orderTag.value3.currentIndex : 0)
+    const currentIndex = Number(orderTag.value3 && orderTag.value3.currentIndex !== undefined ? orderTag.value3.currentIndex : 0)
     return $helper.wrapResult(true, {
       orderTag,
       order,
@@ -140,32 +199,66 @@ module.exports = app => ({
     })
   },
 
-  async advanceSpeechTurn(gameInstance) {
-    const { $service, $helper, $model } = app
+  async advanceSpeechTurn(gameInstance, expectedUsername = null, expectedIndex = null) {
+    const { $service, $helper, $model, $nodeCache } = app
     const { gameTag } = $model
-    const turnResult = await this.getSpeechTurnState(gameInstance)
-    if(!turnResult.result){
-      return turnResult
+    const lockKey = gameInstance ? ('speech-advance-lock-' + gameInstance._id + '-' + gameInstance.day + '-' + gameInstance.stage) : null
+    if(lockKey && $nodeCache.get(lockKey)){
+      const latestStateResult = await this.getSpeechTurnState(gameInstance)
+      return $helper.wrapResult(true, Object.assign({}, latestStateResult.data || {}, { locked: true }))
     }
-    const state = turnResult.data
-    if(!state || !state.orderTag){
-      return $helper.wrapResult(true, { finished: true, currentSpeaker: null })
+    if(lockKey){
+      $nodeCache.set(lockKey, 1, 5)
     }
-    const nextIndex = state.currentIndex + 1
-    await $service.baseService.updateById(gameTag, state.orderTag._id, {
-      value3: { currentIndex: nextIndex }
-    })
-    return $helper.wrapResult(true, {
-      finished: nextIndex >= state.order.length,
-      currentSpeaker: state.order[nextIndex] || null,
-      currentIndex: nextIndex
-    })
+    try {
+      const turnResult = await this.getSpeechTurnState(gameInstance)
+      if(!turnResult.result){
+        return turnResult
+      }
+      const state = turnResult.data
+      if(!state || !state.orderTag){
+        return $helper.wrapResult(true, { finished: true, currentSpeaker: null })
+      }
+      const currentSpeaker = state.currentSpeaker
+      if(expectedIndex !== null && expectedIndex !== undefined && state.currentIndex !== Number(expectedIndex)){
+        return $helper.wrapResult(true, {
+          finished: state.finished,
+          currentSpeaker,
+          currentIndex: state.currentIndex,
+          skipped: true,
+          staleIndex: true
+        })
+      }
+      if(expectedUsername && (!currentSpeaker || currentSpeaker.username !== expectedUsername)){
+        return $helper.wrapResult(true, {
+          finished: state.finished,
+          currentSpeaker,
+          currentIndex: state.currentIndex,
+          skipped: true
+        })
+      }
+      const nextIndex = state.currentIndex + 1
+      await $service.baseService.updateById(gameTag, state.orderTag._id, {
+        value3: { currentIndex: nextIndex }
+      })
+      return $helper.wrapResult(true, {
+        finished: nextIndex >= state.order.length,
+        currentSpeaker: state.order[nextIndex] || null,
+        currentIndex: nextIndex
+      })
+    } finally {
+      if(lockKey){
+        $nodeCache.del(lockKey)
+      }
+    }
   },
 
   async getPendingAiSpeechPlayback(gameInstance) {
     const { $service, $helper, $model } = app
     const { record } = $model
-    if(!gameInstance || (gameInstance.stage !== 5 && gameInstance.stage !== 7)){
+    const stageNumber = Number(gameInstance && gameInstance.stage)
+    const isFirstNightDeathSpeechStage = stageNumber === 4 && Number(gameInstance.day) === 1
+    if(!gameInstance || (stageNumber !== 5 && stageNumber !== 7 && !isFirstNightDeathSpeechStage)){
       return $helper.wrapResult(true, null)
     }
     const records = await $service.baseService.query(record, {
@@ -187,7 +280,9 @@ module.exports = app => ({
   async completeAiSpeechPlayback(gameInstance, recordId) {
     const { $service, $helper, $model, $ws } = app
     const { record, game } = $model
-    if(!gameInstance || (gameInstance.stage !== 5 && gameInstance.stage !== 7)){
+    const stageNumber = Number(gameInstance && gameInstance.stage)
+    const isFirstNightDeathSpeechStage = stageNumber === 4 && Number(gameInstance.day) === 1
+    if(!gameInstance || (stageNumber !== 5 && stageNumber !== 7 && !isFirstNightDeathSpeechStage)){
       return $helper.wrapResult(false, '当前阶段不需要确认AI语音播放', -1)
     }
     const pendingResult = await this.getPendingAiSpeechPlayback(gameInstance)
@@ -207,7 +302,9 @@ module.exports = app => ({
     })
     await $service.baseService.updateById(record, pending._id, { content })
 
-    const advanceResult = await this.advanceSpeechTurn(gameInstance)
+    const pendingContent = pending.content || {}
+    const pendingSpeaker = pendingContent.from && pendingContent.from.username ? pendingContent.from.username : null
+    const advanceResult = await this.advanceSpeechTurn(gameInstance, pendingSpeaker, pendingContent.speechTurnIndex)
     $ws.connections.forEach(function (conn) {
       let url = '/lrs/' + gameInstance.roomId
       if(conn.path === url){
@@ -216,7 +313,7 @@ module.exports = app => ({
     })
 
     if(advanceResult.result && advanceResult.data){
-      if(advanceResult.data.finished && gameInstance.stage !== 7){
+      if(advanceResult.data.finished && Number(gameInstance.stage) !== 7){
         setImmediate(async () => {
           await $service.gameService.moveToNextStage(gameInstance._id)
         })
@@ -233,7 +330,8 @@ module.exports = app => ({
   async getVoteStageStatus(gameInstance) {
     const { $service, $helper, $model } = app
     const { player, action, gameTag } = $model
-    if(!gameInstance || (gameInstance.stage !== 6 && gameInstance.stage !== 6.5)){
+    const stageNumber = gameInstance ? Number(gameInstance.stage) : null
+    if(!gameInstance || (stageNumber !== 6 && stageNumber !== 6.5)){
       return $helper.wrapResult(true, null)
     }
 
@@ -245,7 +343,7 @@ module.exports = app => ({
     alivePlayers = alivePlayers || []
 
     let eligiblePlayers = alivePlayers
-    if(gameInstance.stage === 6.5 && gameInstance.flatTicket === 2){
+    if(stageNumber === 6.5 && gameInstance.flatTicket === 2){
       const pkTag = await $service.baseService.queryOne(gameTag, {
         roomId: gameInstance.roomId,
         gameId: gameInstance._id,
@@ -261,7 +359,7 @@ module.exports = app => ({
       roomId: gameInstance.roomId,
       gameId: gameInstance._id,
       day: gameInstance.day,
-      stage: gameInstance.stage,
+      stage: stageNumber,
       action: 'vote'
     }, {}, { sort: { _id: 1 } })
     voteActions = voteActions || []
@@ -274,7 +372,7 @@ module.exports = app => ({
     const eligibleUsernames = eligiblePlayers.map(item => item.username)
     const votedCount = eligibleUsernames.filter(username => votedSet[username]).length
     return $helper.wrapResult(true, {
-      stage: gameInstance.stage,
+      stage: stageNumber,
       total: eligibleUsernames.length,
       voted: votedCount,
       finished: eligibleUsernames.length > 0 && votedCount >= eligibleUsernames.length,
@@ -289,7 +387,8 @@ module.exports = app => ({
 
   async tryAutoAdvanceVoteStage(gameInstance) {
     const { $service, $helper, $nodeCache } = app
-    if(!gameInstance || (gameInstance.stage !== 6 && gameInstance.stage !== 6.5)){
+    const stageNumber = gameInstance ? Number(gameInstance.stage) : null
+    if(!gameInstance || (stageNumber !== 6 && stageNumber !== 6.5)){
       return $helper.wrapResult(true, { advanced: false })
     }
     const statusResult = await this.getVoteStageStatus(gameInstance)
@@ -298,9 +397,17 @@ module.exports = app => ({
     }
     const status = statusResult.data
     if(!status || !status.finished){
+      console.log('[tryAutoAdvanceVoteStage] vote not finished, skip auto advance', {
+        gameId: gameInstance._id,
+        roomId: gameInstance.roomId,
+        day: gameInstance.day,
+        stage: stageNumber,
+        total: status && status.total,
+        voted: status && status.voted
+      })
       return $helper.wrapResult(true, { advanced: false, voteStatus: status })
     }
-    const lockKey = 'vote-auto-advance-' + gameInstance._id + '-' + gameInstance.day + '-' + gameInstance.stage
+    const lockKey = 'vote-auto-advance-' + gameInstance._id + '-' + gameInstance.day + '-' + stageNumber
     if($nodeCache.get(lockKey)){
       return $helper.wrapResult(true, { advanced: false, locked: true, voteStatus: status })
     }
@@ -308,10 +415,20 @@ module.exports = app => ({
     if(app.$timer[gameInstance._id]){
       $nodeCache.set('game-time-' + gameInstance._id, -1)
       clearInterval(app.$timer[gameInstance._id])
+      delete app.$timer[gameInstance._id]
     }
+    console.log('[tryAutoAdvanceVoteStage] vote finished, auto advance', {
+      gameId: gameInstance._id,
+      roomId: gameInstance.roomId,
+      day: gameInstance.day,
+      stage: stageNumber,
+      total: status.total,
+      voted: status.voted
+    })
     const moveResult = await $service.gameService.moveToNextStage(gameInstance._id)
     return $helper.wrapResult(moveResult.result, {
       advanced: moveResult.result,
+      gameOver: moveResult.data === 'GAME_OVER',
       voteStatus: status
     }, moveResult.errorCode)
   },
@@ -578,7 +695,7 @@ module.exports = app => ({
       let voteTag = await $service.baseService.queryOne(gameTag,{roomId: gameInstance.roomId, gameId: gameInstance._id, day: gameInstance.day, stage: stage, mode: 1})
       if(!voteTag){
         let info = []
-        info.push({text:'平票，今天没有玩家出局，没有遗言', level: 1})
+        info.push({text:'进入审判阶段，今天没有玩家被放逐', level: 1})
         return $helper.wrapResult(true, info)
       } else {
         let info = []
@@ -586,7 +703,7 @@ module.exports = app => ({
         info.push({text:'被投票', level: 1})
         info.push({text:'出局', level: 2})
         info.push({text:'，等待玩家发动技能', level: 1})
-        info.push({text:'，等待玩家发表遗言。', level: 1})
+        info.push({text:'，进入审判阶段。', level: 1})
         return $helper.wrapResult(true, info)
       }
     }
@@ -963,6 +1080,14 @@ module.exports = app => ({
       let url = '/lrs/' + gameInstance.roomId
       if(conn.path === url){
         conn.sendText('gameOver')
+        conn.sendText(JSON.stringify({
+          type: 'stageCue',
+          roomId: gameInstance.roomId,
+          gameId: gameInstance._id,
+          day: gameInstance.day,
+          stage: 'gameOver',
+          text: '游戏结算，' + (camp === 0 ? '狼人阵营' : '好人阵营') + '获得胜利。'
+        }))
       }
     })
     return $helper.wrapResult(true , 'Y')
@@ -973,13 +1098,20 @@ module.exports = app => ({
    * @param gameId
    * @returns {Promise<{result}>}
    */
-  async moveToNextStage (gameId) {
+  async moveToNextStage (gameId, options = {}) {
     const { $service, $helper, $model, $ws, $nodeCache } = app
     const { game, record } = $model
 
     if(!gameId || gameId === ''){
       return $helper.wrapResult(false, 'gameId为空！', -1)
     }
+
+    const moveLockKey = 'stage-move-lock-' + gameId
+    if($nodeCache.get(moveLockKey)){
+      console.log('[moveToNextStage] duplicated move blocked', { gameId })
+      return $helper.wrapResult(true, { advanced: false, locked: true })
+    }
+    $nodeCache.set(moveLockKey, 1, 3)
 
     let gameInstance = await $service.baseService.queryById(game, gameId)
     let stage = gameInstance.stage
@@ -999,8 +1131,6 @@ module.exports = app => ({
 
     if( stage === 1){
       const predictorSettleResult = await $service.stageService.predictorStage(gameInstance._id)
-      // 结算预言家是否空过
-      let settleResult = await $service.stageService.predictorStage(gameInstance._id)
       if(!predictorSettleResult.result){
         return predictorSettleResult
       }
@@ -1012,34 +1142,46 @@ module.exports = app => ({
       }
     } else if(stage === 3){
       const witchSettleResult = await $service.stageService.witchStage(gameInstance._id)
-      // 结算女巫的操作结果
-      let settleResult = await $service.stageService.witchStage(gameInstance._id)
       if(!witchSettleResult.result){
         return witchSettleResult
       }
       await $service.gameService.settleGameOver(gameInstance._id)
+      const afterWitchGame = await $service.baseService.queryById(game, gameInstance._id)
+      if(afterWitchGame && Number(afterWitchGame.status) === 2){
+        return $helper.wrapResult(true, 'GAME_OVER')
+      }
     } else if (stage === 4) {
       const preSpeakSettleResult = await $service.stageService.preSpeakStage(gameInstance._id)
-      // 天亮 => 发言环节 , 生成发言顺序等信息
-      let settleResult = await $service.stageService.preSpeakStage(gameInstance._id)
       if(!preSpeakSettleResult.result){
         return preSpeakSettleResult
       }
     } else if (stage === 6) {
-      // 投票 => 遗言/pk加赛 ,需要整理票型， 结算死亡玩家
-      const voteSettleResult = await $service.stageService.voteStage(gameInstance._id, 6)
+      // 投票 => 审判/pk加赛，需要整理票型，结算死亡玩家
+      const voteSettleResult = await $service.stageService.voteStage(gameInstance._id, 6, {
+        forceSettle: !!options.forceVoteSettlement
+      })
       if(!voteSettleResult.result){
         return voteSettleResult
+      }
+      const afterVoteGame = await $service.baseService.queryById(game, gameInstance._id)
+      if(afterVoteGame && Number(afterVoteGame.status) === 2){
+        return $helper.wrapResult(true, 'GAME_OVER')
       }
       if(voteSettleResult.result && voteSettleResult.data === 'Y'){
         // 需要pk
         nextStage = 6.5
       }
     } else if (stage === 6.5){
-      // 投票pk加赛 => 遗言 ,需要整理票型， 结算死亡玩家
-      const pkVoteSettleResult = await $service.stageService.voteStage(gameInstance._id, 6.5)
+      // 投票pk加赛 => 审判，需要整理票型，结算死亡玩家
+      const pkVoteSettleResult = await $service.stageService.voteStage(gameInstance._id, 6.5, {
+        forceSettle: !!options.forceVoteSettlement
+      })
       if(!pkVoteSettleResult.result){
         return pkVoteSettleResult
+      }
+      const afterPkVoteGame = await $service.baseService.queryById(game, gameInstance._id)
+      if(afterPkVoteGame && Number(afterPkVoteGame.status) === 2){
+        return $helper.wrapResult(true, 'GAME_OVER')
       }
       nextStage = 7
     }
@@ -1047,7 +1189,7 @@ module.exports = app => ({
     // 修改游戏状态
     var nextStageUpdate = {stage: nextStage}
     
-    // 如果进入遗言阶段，初始化遗言发言轮次
+    // 如果进入审判阶段，初始化投票出局玩家发言轮次
     var nextStageUpdate = {stage: nextStage}
 
     if(nextStage === 7){
@@ -1055,8 +1197,7 @@ module.exports = app => ({
       if(!lastWordsResult.result){
         return lastWordsResult
       }
-      // 无论有没有死亡玩家都进入遗言阶段，让房主自己控制
-      console.log('🎤 进入遗言阶段，房主可以手动控制游戏流程')
+      console.log('进入审判阶段，房主可以手动控制游戏流程')
     }
     if(nextStage === 0){
       nextStageUpdate.day = gameInstance.day + 1
@@ -1077,15 +1218,10 @@ module.exports = app => ({
       await $service.baseService.save(record, recordObject)
     }
     await $service.baseService.updateById(game, gameInstance._id, nextStageUpdate)
-    $ws.connections.forEach(function (conn) {
-      let url = '/lrs/' + gameInstance.roomId
-      if(conn.path === url){
-        conn.sendText('stageChange')
-      }
-    })
 
     // 倒计时 timer
     let updateGame = await $service.baseService.queryById(game, gameId)
+    const updateStageNumber = Number(updateGame.stage)
     setImmediate(async () => {
       try {
         let latestGame = await $service.baseService.queryById(game, gameId)
@@ -1106,6 +1242,7 @@ module.exports = app => ({
           $nodeCache.set('game-time-' + latestGame._id, -1)
           if(app.$timer[latestGame._id]){
             clearInterval(app.$timer[latestGame._id])
+            delete app.$timer[latestGame._id]
           }
           await $service.gameService.moveToNextStage(gameId)
         }
@@ -1113,36 +1250,55 @@ module.exports = app => ({
         app.$log4.errorLogger.error('[gameService] async run ai for stage failed: ' + e.toString())
       }
     })
-    if(updateGame.stage === 1 || updateGame.stage === 2 || updateGame.stage === 3 || updateGame.stage === 6 || updateGame.stage === 6.5){
+    const hasStageTimer = updateStageNumber === 1 || updateStageNumber === 2 || updateStageNumber === 3 || updateStageNumber === 6 || updateStageNumber === 6.5
+    if(hasStageTimer){
     //if(updateGame.stage === 1 || updateGame.stage === 2 || updateGame.stage === 3){
       // 预言家
-      var legacyTimerSeconds = updateGame.stage === 1 ? gameInstance.p1 : 30
-      let stageTimerSeconds = updateGame.stage === 1 ? gameInstance.p1 : 30
-      if(updateGame.stage === 2){
+      var legacyTimerSeconds = updateStageNumber === 1 ? gameInstance.p1 : 30
+      let stageTimerSeconds = updateStageNumber === 1 ? gameInstance.p1 : 30
+      if(updateStageNumber === 2){
         stageTimerSeconds = gameInstance.p2 || 30
       }
-      if(updateGame.stage === 3){
+      if(updateStageNumber === 3){
         stageTimerSeconds = gameInstance.p3 || 30
       }
-      if(updateGame.stage === 6 || updateGame.stage === 6.5){
-        stageTimerSeconds = 30
+      if(updateStageNumber === 6 || updateStageNumber === 6.5){
+        stageTimerSeconds = 45
       }
 
       if(app.$timer[gameInstance._id]){
         clearInterval(app.$timer[gameInstance._id])
+        delete app.$timer[gameInstance._id]
       }
 
       $nodeCache.set('game-time-' + gameInstance._id, stageTimerSeconds)
       app.$timer[gameInstance._id] = setInterval(function (){
-        let time =  $nodeCache.get('game-time-' + gameInstance._id)
+        let time = Number($nodeCache.get('game-time-' + gameInstance._id))
         if(time <= 0){
           // 清掉定时器
           $nodeCache.set('game-time-' + gameInstance._id, -1)
           clearInterval(app.$timer[gameInstance._id])
           delete app.$timer[gameInstance._id]
           $service.baseService.queryById(game, gameInstance._id).then(latestGame => {
-            if(latestGame && latestGame.stage === updateGame.stage){
-              $service.gameService.moveToNextStage(gameInstance._id)
+            if(
+              latestGame &&
+              Number(latestGame.stage) === updateStageNumber &&
+              Number(latestGame.day) === Number(updateGame.day)
+            ){
+              const forceVoteSettlement = updateStageNumber === 6 || updateStageNumber === 6.5
+              $service.gameService.moveToNextStage(gameInstance._id, {
+                forceVoteSettlement
+              }).then(result => {
+                if(!result.result){
+                  console.log('[stageTimer] auto move blocked', {
+                    gameId: gameInstance._id,
+                    roomId: gameInstance.roomId,
+                    day: latestGame.day,
+                    stage: updateStageNumber,
+                    errorMessage: result.errorMessage
+                  })
+                }
+              })
             }
           })
         } else {
@@ -1161,18 +1317,62 @@ module.exports = app => ({
       }, 1000)
     }
 
-    // 发送刷新消息，时间设为0表示无倒计时
-    let data = {
-      'refreshGame': false,
-      time: 0,
+    const stageCueTextMap = {
+      0: '天黑请闭眼。',
+      1: '预言家请睁眼，请选择你要查验的玩家。',
+      2: '狼人请睁眼，请选择你要袭击的玩家。',
+      3: '女巫请睁眼，请选择是否使用药水。',
+      4: '天亮了。',
+      5: '发言环节开始。',
+      6: '投票环节开始，请开始投票。',
+      6.5: '加赛投票环节开始。',
+      7: '审判阶段开始。'
     }
+    const stageCueText = stageCueTextMap[updateStageNumber]
+
     $ws.connections.forEach(function (conn) {
       let url = '/lrs/' + gameInstance.roomId
       if(conn.path === url){
-        conn.sendText(JSON.stringify(data))
+        conn.sendText('stageChange')
+        if(stageCueText){
+          conn.sendText(JSON.stringify({
+            type: 'stageCue',
+            roomId: gameInstance.roomId,
+            gameId: gameInstance._id,
+            day: updateGame.day,
+            stage: updateStageNumber,
+            text: stageCueText
+          }))
+        }
       }
     })
 
+    if(!hasStageTimer){
+      // 发送刷新消息，时间设为0表示无倒计时
+      let data = {
+        'refreshGame': false,
+        time: 0,
+      }
+      $ws.connections.forEach(function (conn) {
+        let url = '/lrs/' + gameInstance.roomId
+        if(conn.path === url){
+          conn.sendText(JSON.stringify(data))
+        }
+      })
+    } else {
+      let data = {
+        'refreshGame': false,
+        'time': $nodeCache.get('game-time-' + gameInstance._id),
+      }
+      $ws.connections.forEach(function (conn) {
+        let url = '/lrs/' + gameInstance.roomId
+        if(conn.path === url){
+          conn.sendText(JSON.stringify(data))
+        }
+      })
+    }
+
+    $nodeCache.del(moveLockKey)
     return $helper.wrapResult(true,'Y')
   }
 })

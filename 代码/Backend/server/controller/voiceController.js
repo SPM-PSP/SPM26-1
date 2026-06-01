@@ -49,7 +49,8 @@ module.exports = app => ({
         ctx.body = $helper.Result.fail(-1, 'game not found')
         return
       }
-      if(gameInstance.stage !== 5){
+      const stageNumber = Number(gameInstance.stage)
+      if(stageNumber !== 5 && !(stageNumber === 4 && Number(gameInstance.day) === 1)){
         ctx.body = $helper.Result.fail(-1, 'current stage does not allow speech')
         return
       }
@@ -100,6 +101,7 @@ module.exports = app => ({
           source: 'human',
           text: sttResult.text,
           level: 4,
+          speechTurnIndex: turnResult.data ? turnResult.data.currentIndex : undefined,
           from: {
             username: currentPlayer.username,
             name: currentPlayer.name,
@@ -161,7 +163,11 @@ module.exports = app => ({
         }
       }
 
-      const advanceResult = await $service.gameService.advanceSpeechTurn(gameInstance)
+      const advanceResult = await $service.gameService.advanceSpeechTurn(
+        gameInstance,
+        currentPlayer.username,
+        turnResult.data ? turnResult.data.currentIndex : null
+      )
 
       $ws.connections.forEach(function (conn) {
         let url = '/lrs/' + gameInstance.roomId
