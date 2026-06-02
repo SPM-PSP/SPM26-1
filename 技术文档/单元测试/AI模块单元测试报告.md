@@ -5,7 +5,7 @@
 **测试日期**：2026-06-01  
 **测试人员**：沈矜娴  
 **测试类型**：自动化单元测试  
-**测试命令**：`npm run test:ai`  
+**测试命令**：`python -m pytest tests/test_ai_player.py -q`  
 **测试文件**：`代码/AI-Wolf/tests/test_ai_player.py`  
 **测试规模**：41 个 pytest 测试函数，其中 1 个角色标准化参数化测试展开为 7 个用例，实际执行合计 47 个自动化单元测试用例。  
   
@@ -32,12 +32,11 @@
 
 | 项目 | 内容 |
 | ---- | ---- |
-| 测试命令 | `cd 代码/AI-Wolf && npm run test:ai` |
-| 实际执行命令 | `npm run test:ai` |
-| pytest 命令 | `uv run pytest tests/test_ai_player.py -q` |
+| 测试命令 | `cd 代码/AI-Wolf && python -m pytest tests/test_ai_player.py -q` |
+| 实际执行命令 | `python -m pytest tests/test_ai_player.py -q` |
 | 测试文件 | `代码/AI-Wolf/tests/test_ai_player.py` |
 | pytest 配置 | `代码/AI-Wolf/pytest.ini` |
-| 依赖配置 | `代码/AI-Wolf/pyproject.toml` 中 `dev = ["pytest>=9.0.3"]` |
+| 依赖配置 | `pytest>=9.0.3` |
 
 ---
 
@@ -46,7 +45,7 @@
 | 项目 | 内容 |
 | ---- | ---- |
 | 运行环境 | Windows PowerShell |
-| Python 环境 | `uv` 管理的 `AI-Wolf` 项目环境 |
+| Python 环境 | 已激活的 conda 环境 |
 | 测试框架 | `pytest 9.0.3` |
 | 外部大模型 API | 使用 `FakeLLMGateway.generate_json()` 返回固定数据或抛异常，不真实调用外部模型 |
 | 数据库依赖 | 使用 `InMemoryMemoryRepository`，不连接真实数据库 |
@@ -135,22 +134,11 @@
 
 ## 五、命令输出
 
-### 5.1 `pytest` 直接执行
 
 ```text
-uv run pytest tests/test_ai_player.py -q
+python -m pytest tests/test_ai_player.py -q
 ...............................................                          [100%]
-47 passed, 29 warnings in 1.35s
-```
-
-### 5.2 `npm run test:ai` 执行
-
-```text
-> wolfmind@0.1.0 test:ai
-> uv run pytest tests/test_ai_player.py -q
-
-...............................................                          [100%]
-47 passed, 29 warnings in 1.43s
+47 passed, 29 warnings
 ```
 
 说明：测试过程中出现 29 条 `PydanticDeprecatedSince20` 警告，原因是当前模型类仍使用 Pydantic V1 风格的 `class Config`。该警告不影响本次单元测试通过，但建议后续迁移到 Pydantic V2 的 `ConfigDict`。
