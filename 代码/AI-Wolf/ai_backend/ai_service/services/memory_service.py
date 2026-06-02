@@ -64,8 +64,16 @@ class MemoryService:
 
     def _coerce_event_type(self, value: object) -> EventType:
         raw = str(value or "").strip().lower()
+        aliases = {
+            "lastwords": EventType.LAST_WORDS,
+            "last_words": EventType.LAST_WORDS,
+            "last-words": EventType.LAST_WORDS,
+            "遗言": EventType.LAST_WORDS,
+        }
+        if raw in aliases:
+            return aliases[raw]
         for item in EventType:
-            if item.value == raw:
+            if item.value.lower() == raw:
                 return item
         return EventType.SYSTEM
 

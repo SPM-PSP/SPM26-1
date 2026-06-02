@@ -30,4 +30,5 @@ class EventType(str, Enum):
     VOTE = "vote"
     SKILL = "skill"
     DEATH = "death"
+    LAST_WORDS = "lastWords"
     SYSTEM = "system"

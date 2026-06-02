@@ -77,7 +77,7 @@ class InvokeService:
                 "- privateVision.poisonAvailable 表示毒药是否可用。\n"
                 "- 你可以救、毒、双动或过。\n"
                 "- nightAction.saveTarget 只能填 nightDeathCandidate。\n"
-                "- nightAction.poisonTarget 填毒药目标。\n"
+                "- nightAction.poisonTarget 填毒药目标，但不能选择 nightDeathCandidate。\n"
                 "- 若同夜救人并下毒，两字段都要填。\n"
                 "- 如果不该行动或不能行动，两字段留空并说明原因。\n"
             )
@@ -183,22 +183,34 @@ class InvokeService:
         normalized_role: str | None,
     ) -> dict[str, object]:
         allowed_keys = self._allowed_private_vision_keys(req, normalized_role)
+        public_context_keys = {
+            "actualStage",
+            "isLastWords",
+            "speechContext",
+            "selfSeat",
+            "selfDisplayName",
+            "playerSeats",
+            "playerDisplayNames",
+        }
         if not allowed_keys:
-            if req.private_vision:
+            unexpected_keys = sorted(set(req.private_vision.keys()) - public_context_keys)
+            if unexpected_keys:
                 logger.warning(
                     "Dropping unexpected privateVision for prompt; game_id=%s ai_id=%s role=%s stage=%s keys=%s",
                     req.game_id,
                     req.ai_id,
                     normalized_role,
                     req.stage.value,
-                    sorted(req.private_vision.keys()),
+                    unexpected_keys,
                 )
             return {}
 
         sanitized = {
             key: value for key, value in req.private_vision.items() if key in allowed_keys
         }
-        dropped = sorted(set(req.private_vision.keys()) - set(sanitized.keys()))
+        dropped = sorted(
+            set(req.private_vision.keys()) - set(sanitized.keys()) - public_context_keys
+        )
         if dropped:
             logger.warning(
                 "Dropped privateVision keys for prompt; game_id=%s ai_id=%s role=%s stage=%s dropped=%s",
@@ -259,11 +271,41 @@ class InvokeService:
             )
         return sanitized_events
 
+    def _public_context_from_request(self, req: AgentInvokeRequest) -> dict[str, object]:
+        legacy_private_context = req.private_vision or {}
+        player_seats = req.player_seats or legacy_private_context.get("playerSeats") or {}
+        player_display_names = (
+            req.player_display_names
+            or legacy_private_context.get("playerDisplayNames")
+            or {}
+        )
+        self_seat = req.self_seat
+        if self_seat is None:
+            self_seat = legacy_private_context.get("selfSeat")
+        self_display_name = (
+            req.self_display_name
+            or legacy_private_context.get("selfDisplayName")
+            or player_display_names.get(req.ai_id)
+        )
+        actual_stage = req.actual_stage or legacy_private_context.get("actualStage")
+        is_last_words = req.is_last_words or bool(legacy_private_context.get("isLastWords"))
+        speech_context = req.speech_context or legacy_private_context.get("speechContext") or {}
+
+        return {
+            "actualStage": actual_stage,
+            "isLastWords": is_last_words,
+            "speechContext": speech_context,
+            "selfSeat": self_seat,
+            "selfDisplayName": self_display_name,
+            "playerSeats": player_seats,
+            "playerDisplayNames": player_display_names,
+        }
+
     def _fallback_public_speech(self, req: AgentInvokeRequest) -> str:
         if req.stage == InvokeStage.SPEECH:
-            return "目前公开信息还不够，我先保留判断，等大家多聊一点再看。"
+            return "我先给一个临时判断：重点看发言和投票不一致的人，尤其是谁在关键票上没有交代清楚。"
         if req.stage == InvokeStage.VOTE:
-            return "基于目前公开信息，我先做一个保守判断。"
+            return "基于目前公开信息，我会投给当前最需要解释票型和发言的人。"
         if req.stage == InvokeStage.DEATH_SHOT:
             return "我会基于公开信息做最后的判断。"
         return ""
@@ -287,6 +329,16 @@ class InvokeService:
         ]
         if any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in patterns):
             return True
+
+        if normalized_role == "werewolf" and req.stage in {InvokeStage.SPEECH, InvokeStage.VOTE}:
+            werewolf_leak_patterns = [
+                r"(我是|我承认|我确实是|我的身份是).{0,6}(狼人|狼)",
+                r"(昨晚|今晚).{0,12}(刀|击杀|杀了)",
+                r"(狼队友|狼队|队友).{0,12}(是|有|包括|协商|商量)",
+                r"(我们|咱们).{0,8}(狼队|狼人)",
+            ]
+            if any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in werewolf_leak_patterns):
+                return True
 
         return False
 
@@ -322,6 +374,8 @@ class InvokeService:
             f"{persona_prompt}\n\n"
             "基础规则：\n"
             "- 只能使用当前玩家可见的信息。\n"
+            "- publicContext 是公开对局上下文，可用于确认你的真实座位号、显示名、当前真实环节和是否遗言。\n"
+            "- publicContext.speechContext 若存在，优先用它判断本轮发言起点、方向、当前发言人和完整发言顺序；不要从自然语言公告里猜“第一个发言的人”。\n"
             "- 如果提供了 privateVision，可以用于你的私下判断，但不能把 privateVision 本身当成公开信息说出来。\n"
             "- 决策要符合你的角色动机、当前阶段目标和胜利条件。\n"
             "- 不要输出空泛总结，优先输出可执行判断。\n\n"
@@ -343,12 +397,17 @@ class InvokeService:
             "真人玩家发言风格：\n"
             "- speechText 要像真人玩家在狼人杀桌上的自然发言，不要像总结报告、判决书、教程或机器人分析。\n"
             "- speechText 通常为 2-5 句，允许有口语化停顿、转折和不确定表达，但不要啰嗦。\n"
-            "- 发言可以包含：先表态、再给一两个具体依据、最后点一个想听发言或想重点观察的人。\n"
+            "- 发言必须先给当前立场或倾向，再给一两个具体依据，最后可以点一个想追问或想重点观察的人。\n"
             "- 不要每次都使用固定模板，例如“我认为...因为...所以...”。句式要有变化。\n"
-            "- 可以使用自然口语词，例如“我有点在意”“这点我没太听懂”“先不站死”“我想再听一下”“这里有点怪”。\n"
+            "- 可以使用自然口语词，例如“我有点在意”“这点我没太听懂”“先不站死”“这里有点怪”。\n"
             "- 允许适度表达犹豫、保留、反问或压力感，但不要戏剧化表演，不要过度情绪化。\n"
             "- 发言要围绕当前局势中的具体玩家、具体发言、投票或行为，不要只说泛泛的‘信息不足’。\n"
             "- 如果证据不足，可以保留意见，但仍要给出当前最想观察或最怀疑的方向。\n"
+            "- 不要把“想听听别人发言”当成主要结论；每次公开发言至少要点名一个具体玩家或一组具体票型/行为。\n"
+            "- 除第一天首个发言且没有任何公开事件外，speechText 不能只说观察、信息不足、再听听，必须输出一个当下判断。\n"
+            "- 称呼玩家时优先使用 playerDisplayNames 里的显示名和 playerSeats 里的座位号，不要把 aiId 当成座位号。\n"
+            "- 只有当 speechContext.speechOrder 明确显示某玩家排在第一，或公开事件明确记录其第一位发言，才可以说该玩家是“第一个发言的人”。\n"
+            "- 如果 publicContext.isLastWords 为 true，这是你的遗言：要交代最后判断、怀疑对象、可托付的信息或投票建议，不要再说等后面听发言。\n"
             "- 不要自称“逻辑型玩家”“保守型玩家”“激进型玩家”“AI玩家”。\n\n"
             
             "只返回一个 JSON 对象，结构如下：\n"
@@ -376,8 +435,8 @@ class InvokeService:
             "- speechText 禁止出现“我是AI/作为AI/作为逻辑型玩家/根据我的推理过程”等元叙事。\n"
             "- speechText 禁止无收益泄露 privateVision、隐藏身份、狼人队友、夜间私密信息；只有符合身份暴露规则时，才允许有限度声明身份或技能信息。\n"
             "- speechText 和 explain 只能基于输入里真实存在的信息，不能编造不存在的发言、票型、行为和身份线索。\n"
-            "- 如果当前信息不足，允许直接承认“不确定”，并给出保守建议；不要为了显得合理而补充虚假分析。\n"
-            "- speechText 最好包含：当前立场 + 一个依据 + 一个追问/建议目标。\n"
+            "- 如果当前信息不足，允许直接承认“不确定”，但仍要给出一个基于真实公开信息的临时倾向；不要为了显得合理而补充虚假分析。\n"
+            "- speechText 必须包含：当前立场 + 一个依据 + 一个追问/建议目标。\n"
             "- 当 candidateTargets 非空时，voteTarget 和 skillTarget 必须从中选择。\n"
             "- night_action 阶段仅填写合法的 nightAction 字段。\n"
             "- death_shot 阶段只有猎人可以输出 shoot 行为。\n"
@@ -387,6 +446,7 @@ class InvokeService:
         memory_hints: dict[str, object] = {}
         if checked_targets:
             memory_hints["alreadyCheckedTargets"] = checked_targets
+        public_context = self._public_context_from_request(req)
         prompt_private_vision = self._sanitize_private_vision_for_prompt(req, normalized_role)
         prompt_visible_events = self._sanitize_visible_events_for_prompt(req)
         user_payload = {
@@ -394,6 +454,7 @@ class InvokeService:
             "gameId": req.game_id,
             "aiId": req.ai_id,
             "stage": req.stage.value,
+            "publicContext": public_context,
             "role": normalized_role,
             "persona": req.persona.value if req.persona else None,
             "alivePlayers": req.alive_players,
@@ -537,7 +598,10 @@ class InvokeService:
                 save_target = death_target if save_target and antidote_available and death_target else None
 
             poison_target = night_action.poison_target if poison_available else None
-            legal_poison_targets = self._legal_targets_excluding(req, [req.ai_id])
+            poison_excluded_targets = [req.ai_id]
+            if death_target:
+                poison_excluded_targets.append(death_target)
+            legal_poison_targets = self._legal_targets_excluding(req, poison_excluded_targets)
             if poison_target not in legal_poison_targets:
                 poison_target = None
 
@@ -545,7 +609,7 @@ class InvokeService:
                 skill_type = "save_and_poison"
                 skill_target = poison_target
             elif save_target:
-                skill_type = "save"
+                skill_type = "antidote"
                 skill_target = save_target
             elif poison_target:
                 skill_type = "poison"
@@ -652,7 +716,10 @@ class InvokeService:
     def _validate_decision(self, req: AgentInvokeRequest, decision: AgentDecision) -> AgentDecision:
         explain = list(decision.explain or [])
         if req.stage == InvokeStage.SPEECH:
-            speech_text = decision.speech_text or "I need one more round of discussion before committing."
+            speech_text = (
+                decision.speech_text
+                or "我先给一个临时判断：重点看发言和投票不一致的人，尤其是谁在关键票上没有交代清楚。"
+            )
             result = decision.model_copy(
                 update={
                     "action_type": "speech",
@@ -711,7 +778,7 @@ class InvokeService:
                 vote_target = legal_targets[0] if legal_targets else None
             decision = AgentDecision(
                 actionType="vote",
-                speechText="I do not have enough reliable signal yet, so I will vote for the most discussable target.",
+                speechText="我现在先按公开票型和发言压力投，投给最需要解释自己行为的人。",
                 voteTarget=vote_target,
                 confidence=0.35,
                 explain=["fallback_vote_due_to_timeout_or_error"],
@@ -829,7 +896,7 @@ class InvokeService:
         else:
             decision = AgentDecision(
                 actionType="speech",
-                speechText="I need one more round of information, so I will make a cautious public statement first.",
+                speechText="我先给一个临时判断：重点看发言和投票不一致的人，尤其是谁在关键票上没有交代清楚。",
                 confidence=0.40,
                 explain=["fallback_speech_due_to_timeout_or_error"],
             )

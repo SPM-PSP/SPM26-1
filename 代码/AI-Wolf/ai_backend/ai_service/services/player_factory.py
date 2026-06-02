@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from threading import Lock
 
 from ai_backend.ai_service.domain.enums import PersonaType
@@ -29,14 +30,19 @@ class PlayerFactoryService:
         self._game_llm_configs: dict[str, dict[str, LLMInvokeConfig]] = {}
         self._lock = Lock()
 
+    def _provider_value(self, provider: object) -> str:
+        if isinstance(provider, Enum):
+            return str(provider.value)
+        return str(provider)
+
     def _resolve_model(self, request: GeneratePlayersRequest) -> tuple[str, str, str | None]:
         policy = request.model_policy
         if policy and policy.provider:
-            provider = str(policy.provider)
+            provider = self._provider_value(policy.provider)
             model_name = policy.model_name or self._default_model_name(provider)
             return provider, model_name, policy.base_url
 
-        provider = str(config.model_provider)
+        provider = self._provider_value(config.model_provider)
         model_name = self._default_model_name(provider)
         base_url = None
         if provider == "openai":

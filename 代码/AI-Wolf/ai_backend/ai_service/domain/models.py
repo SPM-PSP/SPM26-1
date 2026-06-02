@@ -30,8 +30,11 @@ class ModelPolicy(BaseModel):
     """Model binding policy for generated AI players."""
 
     provider: ModelProvider | str | None = None
-    model_name: str | None = None
-    base_url: str | None = None
+    model_name: str | None = Field(default=None, alias="modelName")
+    base_url: str | None = Field(default=None, alias="baseUrl")
+
+    class Config:
+        populate_by_name = True
 
 
 class AgentProfile(BaseModel):
@@ -321,6 +324,15 @@ class AgentInvokeRequest(BaseModel):
     visible_events: list[dict[str, Any]] = Field(default_factory=list, alias="visibleEvents")
     alive_players: list[str] = Field(default_factory=list, alias="alivePlayers")
     candidate_targets: list[str] = Field(default_factory=list, alias="candidateTargets")
+    actual_stage: str | None = Field(default=None, alias="actualStage")
+    is_last_words: bool = Field(default=False, alias="isLastWords")
+    speech_context: dict[str, Any] = Field(default_factory=dict, alias="speechContext")
+    self_seat: int | None = Field(default=None, alias="selfSeat")
+    self_display_name: str | None = Field(default=None, alias="selfDisplayName")
+    player_seats: dict[str, int] = Field(default_factory=dict, alias="playerSeats")
+    player_display_names: dict[str, str] = Field(
+        default_factory=dict, alias="playerDisplayNames"
+    )
     private_vision: dict[str, Any] = Field(default_factory=dict, alias="privateVision")
     callback_url: str | None = Field(default=None, alias="callbackUrl")
     async_mode: bool = Field(default=True, alias="asyncMode")
