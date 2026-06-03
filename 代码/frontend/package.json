@@ -1,21 +1,98 @@
 {
-  "name": "wolfmind-frontend",
+  "name": "gy-lsp-lcoco",
+  "version": "1.0.0",
+  "description": "简易版狼人杀",
   "private": true,
-  "version": "0.1.0",
-  "type": "module",
+  "author": "goyoung",
+  "remark": "",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "kill": "kill `lsof -t -i:6001`",
+    "clear": "rimraf ./logs/*",
+    "server": "cross-env NODE_ENV=development node app.js",
+    "prd": "cross-env NODE_ENV=production pm2 start app.js -n lrs",
+    "front": "node node_modules/react-app-rewired/bin/index.js start",
+    "front:mock": "node node_modules/cross-env/src/bin/cross-env.js REACT_APP_MOCK=true node node_modules/react-app-rewired/bin/index.js start",
+    "front:old:mock": "node node_modules/cross-env/src/bin/cross-env.js PORT=6004 CLIENT_DIR=client_5.6 REACT_APP_MOCK=true BROWSER=none node node_modules/react-app-rewired/bin/index.js start",
+    "dev": "npm run server & npm run front",
+    "build": "rimraf ./dist & cross-env NODE_OPTIONS=--openssl-legacy-provider react-app-rewired build",
+    "test:frontend": "node node_modules/jest-cli/bin/jest.js --config jest.frontend.config.js --watchAll=false"
   },
   "dependencies": {
-    "vue": "^3.5.13"
+    "antd": "4.16.0",
+    "axios": "^0.26.0",
+    "babel-plugin-import": "^1.13.0",
+    "chalk": "^4.1.2",
+    "classnames": "^2.3.1",
+    "cross-env": "^7.0.3",
+    "customize-cra": "^0.9.1",
+    "js-cookie": "^3.0.1",
+    "jsonwebtoken": "^8.5.1",
+    "koa": "^2.7.0",
+    "koa-body": "^4.1.1",
+    "koa-favicon": "^2.1.0",
+    "koa-json": "^2.0.2",
+    "koa-log4": "^2.3.2",
+    "koa-logger": "^3.2.0",
+    "koa-onerror": "^4.1.0",
+    "koa-router": "^7.4.0",
+    "koa-session": "^6.2.0",
+    "koa-static": "^5.0.0",
+    "koa-views": "^6.2.0",
+    "koa2-cors": "^2.0.6",
+    "less": "^3.11.1",
+    "less-loader": "^5.0.0",
+    "lodash": "^4.17.15",
+    "log4js": "^6.3.0",
+    "mysql2": "^3.14.1",
+    "node-cache": "^5.1.2",
+    "node-schedule": "^2.1.0",
+    "nodejs-websocket": "^1.7.2",
+    "nodemailer": "^6.5.0",
+    "react-app-rewire-hot-loader": "^2.0.1",
+    "react-app-rewired": "^2.1.5",
+    "react-document-title": "^2.0.3",
+    "react-dom": "^17.0.2",
+    "react-error-overlay": "6.0.9",
+    "react-hot-loader": "^4.12.21",
+    "react-router-dom": "^5.2.0",
+    "react-scripts": "4.0.3",
+    "react-websocket": "^2.1.0",
+    "sequelize": "^6.37.7",
+    "stylus": "^0.54.7",
+    "stylus-loader": "^3.0.2",
+    "urlparse": "0.0.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.2.1",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.5.3",
-    "tailwindcss": "^3.4.17",
-    "vite": "^6.2.0"
+    "apidoc": "^1.2.0",
+    "mobx-react": "^7.5.0",
+    "nodemon": "^1.19.1",
+    "rimraf": "^3.0.2"
+  },
+  "jest": {
+    "testMatch": ["<rootDir>/tests/test_*.js"],
+    "testPathIgnorePatterns": ["<rootDir>/tests/__mocks__/"],
+    "moduleNameMapper": {
+      "^@config$": "<rootDir>/client/src/config/index.js",
+      "^@common/(.*)$": "<rootDir>/client/src/common/$1",
+      "^@helper$": "<rootDir>/client/src/helper/index.js",
+      "^@store/(.*)$": "<rootDir>/client/src/store/$1",
+      "^@assets/(.*)$": "<rootDir>/tests/__mocks__/fileMock.js",
+      "\\.(png|jpg|jpeg|gif|svg|ico)$": "<rootDir>/tests/__mocks__/fileMock.js",
+      "\\.styl$": "<rootDir>/tests/__mocks__/styleMock.js",
+      "^vue$": "<rootDir>/tests/__mocks__/vue.js",
+      "\\.txt\\?raw$": "<rootDir>/tests/__mocks__/textMock.js"
+    }
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   }
 }
