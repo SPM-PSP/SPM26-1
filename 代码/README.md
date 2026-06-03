@@ -38,12 +38,7 @@
 │   ├── .env.example                  # AI 模块环境变量模板
 │   ├── pyproject.toml                # Python 依赖配置
 │   └── 接口文档.md                   # AI Service 接口文档
-└── frontend/                         # Vue/Vite 复盘展示前端，并保留一份主游戏前端源码
-    ├── src/                          # 当前 Vite 入口，复盘报告展示页
-    │   ├── App.vue
-    │   ├── main.js
-    │   ├── style.css
-    │   └── data/                     # 复盘报告适配器、mock 数据和样本文本
+└── frontend/                         # 主游戏前端和复盘展示前端
     ├── client/                       # 主游戏前端源码：登录、房间、对局、语音、复盘跳转
     │   ├── config/                   # 代理、复盘前端地址、WebSocket 地址等
     │   ├── public/
@@ -55,11 +50,25 @@
     │       ├── pages/                # 登录、房间、欢迎页等页面
     │       ├── router/               # 路由配置
     │       └── store/                # 前端状态
-    ├── dist/                         # 前端构建产物，运行产物不建议提交
-    ├── index.html
-    ├── package.json
-    ├── vite.config.js
-    └── tailwind.config.js
+    ├── public/                       # 主游戏前端构建产物
+    ├── replay-frontend/              # Vue/Vite 复盘展示前端
+    │   ├── src/
+    │   │   ├── App.vue
+    │   │   ├── main.js
+    │   │   ├── style.css
+    │   │   └── data/                 # 复盘报告适配器、mock 数据和样本文本
+    │   ├── dist/                     # 复盘前端构建产物
+    │   ├── index.html
+    │   ├── package.json
+    │   ├── vite.config.js
+    │   └── tailwind.config.js
+    ├── tests/                        # 前端单元测试
+    ├── .env.development              # 主游戏前端开发环境配置
+    ├── .env.production               # 主游戏前端生产环境配置
+    ├── README.md                     # 前端运行说明
+    ├── config-overrides.js           # 主游戏前端构建配置覆盖
+    ├── jest.frontend.config.js       # 前端测试配置
+    └── package.json                  # 主游戏前端依赖与脚本
 ```
 
 ## 运行环境
@@ -146,6 +155,13 @@ npm install
 ```bash
 cd /home/yangceh/SPM26-1/代码/frontend/replay-frontend
 npm install
+```
+
+### 测试脚本
+
+```bash
+cd /home/yangceh/SPM26-1/代码/frontend
+npm run test:frontend
 ```
 
 
