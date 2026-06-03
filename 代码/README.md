@@ -33,18 +33,10 @@
 │   │   │   ├── repositories/         # 记忆仓储
 │   │   │   ├── routers/              # bootstrap、players、memory、invoke 等接口
 │   │   │   └── services/             # AI 生成、记忆、人格、LLM、狼人团队共识服务
-│   │   ├── api_server.py             # AI 独立控制台后端，默认端口 8000
-│   │   ├── main.py                   # 命令行启动一局 AI 对局
-│   │   ├── game_service.py           # AI 对局运行封装
 │   │   ├── config.py                 # .env 配置加载
-│   │   ├── core/                     # 游戏引擎、日志、经验库和工具
-│   │   ├── models/                   # 角色行为和结构化输出
-│   │   ├── prompts/                  # 主持人与角色提示词
-│   │   └── analysis/                 # AI 对局日志分析流水线
 │   ├── tests/                        # AI 模块 pytest 测试
 │   ├── .env.example                  # AI 模块环境变量模板
 │   ├── pyproject.toml                # Python 依赖配置
-│   ├── package.json                  # AI 模块辅助脚本
 │   └── 接口文档.md                   # AI Service 接口文档
 └── frontend/                         # Vue/Vite 复盘展示前端，并保留一份主游戏前端源码
     ├── src/                          # 当前 Vite 入口，复盘报告展示页
