@@ -1,0 +1,27 @@
+[project]
+name = "spm26-ai-service"
+version = "0.1.0"
+description = "AI Service for SPM26 online werewolf game"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.110.0",
+    "openai>=1.0.0",
+    "pydantic>=2.0.0",
+    "typing-extensions>=4.5.0",
+    "uvicorn[standard]>=0.27.0",
+]
+
+[project.optional-dependencies]
+local-hf = [
+    "accelerate>=0.30.0",
+    "bitsandbytes>=0.43.0",
+    "huggingface-hub>=0.31.0",
+    "safetensors>=0.4.3",
+    "torch>=2.2.0",
+    "transformers>=4.41.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
