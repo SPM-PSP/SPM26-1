@@ -1,0 +1,101 @@
+{
+  "port": "6001",
+  "log": {
+    "rootPath": "./logs",
+    "prdRootPath": "../logs/gy-lsp-lcoco",
+    "level": "on"
+  },
+  "mysqldb": {
+    "local":{
+      "servername": "localhost",
+      "database": "werewolf",
+      "port": 27017,
+      "user": "werewolf_admin",
+      "pass": "123456"
+    },
+    "dev": {
+      "servername": "",
+      "database": "",
+      "port": 27017,
+      "user": "",
+      "pass": ""
+    },
+    "prd": {
+      "servername": "120.48.51.123",
+      "database": "werewolf",
+      "port": 27017,
+      "user": "werewolf_admin",
+      "pass": "123456"
+    }
+  },
+  "mysql": {
+    "local": {
+      "host": "127.0.0.1",
+      "database": "werewolf",
+      "port": 3306,
+      "user": "root",
+      "pass": "password",
+      "timezone": "+08:00",
+      "logSql": false,
+      "sync": false,
+      "alter": false
+    },
+    "dev": {
+      "host": "127.0.0.1",
+      "database": "werewolf",
+      "port": 3306,
+      "user": "root",
+      "pass": "",
+      "timezone": "+08:00",
+      "logSql": false,
+      "sync": false,
+      "alter": false
+    },
+    "prd": {
+      "host": "127.0.0.1",
+      "database": "werewolf",
+      "port": 3306,
+      "user": "root",
+      "pass": "",
+      "timezone": "+08:00",
+      "logSql": false,
+      "sync": false,
+      "alter": false
+    }
+  },
+  "schedule": {
+    "use": true,
+    "mode": "cron"
+  },
+  "crypto": {
+    "secret": "werewolf"
+  },
+  "jwt": {
+    "resetWhenReload": true,
+    "secret": "werewolf"
+  },
+  "aiService": {
+    "baseUrl": "http://127.0.0.1:8001",
+    "timeout": 60000
+  },
+  "aiReplayService": {
+    "baseUrl": "http://127.0.0.1:8002",
+    "timeout": 180000
+  },
+  "aiReplayModel": {
+    "apiKey": "111",
+    "baseUrl": "111",
+    "model": "111",
+    "timeout": 90
+  },    
+  "voiceService": {
+    "apiKey": "111",
+    "uid": "werewolf-voice-user",
+    "sttUrl": "111",
+    "sttResourceId": "volc.bigasr.auc_turbo",
+    "ttsUrl": "111",
+    "ttsResourceId": "seed-tts-2.0",
+    "ttsSpeaker": "111",
+    "timeout": 90000
+  }
+}
