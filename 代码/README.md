@@ -20,11 +20,12 @@
 │   │   ├── schedule/                 # 定时任务
 │   │   └── service/                  # 业务服务
 │   ├── sql/                          # MySQL 建表和初始化脚本
-│   ├── ai_replay_service.py          # Python 复盘 HTTP 服务，默认端口 8002
-│   ├── ai_replayer.py                # 复盘分析工具
-│   └── replay_ai_backend/            # AI 复盘相关后端文件
-├── AI-Wolf/                          # AI Service 模块
-│   ├── ai_backend/                   # Python/FastAPI
+│   └── AI-Replay/                    # AI 复盘相关后端文件
+│       ├── ai_replay_service.py      # Python 复盘 HTTP 服务，默认端口 8002
+│       ├── ai_replayer.py            # 复盘分析工具
+│       └── replay_analysis/          # AI 复盘相关分析文件
+├── AI-Wolf/                          # AI 玩家与多智能体对局模块
+│   ├── ai_backend/                   # Python/FastAPI 
 │   │   ├── ai_service/               # 给主游戏后端调用的 AI Service，默认端口 8001
 │   │   │   ├── app.py                # AI Service FastAPI 入口
 │   │   │   ├── domain/               # 枚举和 Pydantic 结构
@@ -32,40 +33,41 @@
 │   │   │   ├── repositories/         # 记忆仓储
 │   │   │   ├── routers/              # bootstrap、players、memory、invoke 等接口
 │   │   │   └── services/             # AI 生成、记忆、人格、LLM、狼人团队共识服务
-│   │   └── config.py                 # .env 配置加载，提供模型与服务运行配置
+│   │   ├── api_server.py             # AI 独立控制台后端，默认端口 8000
+│   │   ├── main.py                   # 命令行启动一局 AI 对局
+│   │   ├── game_service.py           # AI 对局运行封装
+│   │   ├── config.py                 # .env 配置加载
+│   │   ├── core/                     # 游戏引擎、日志、经验库和工具
+│   │   ├── models/                   # 角色行为和结构化输出
+│   │   ├── prompts/                  # 主持人与角色提示词
+│   │   └── analysis/                 # AI 对局日志分析流水线
 │   ├── tests/                        # AI 模块 pytest 测试
 │   ├── .env.example                  # AI 模块环境变量模板
-│   ├── requirements.txt              # AI Service pip 依赖
 │   ├── pyproject.toml                # Python 依赖配置
 │   ├── package.json                  # AI 模块辅助脚本
-│   ├── Dockerfile                    # AI Service 容器构建文件
-│   ├── docker-compose.yml            # AI Service 容器启动配置
 │   └── 接口文档.md                   # AI Service 接口文档
-├── frontend/                         # Vue/Vite 复盘展示前端，并保留一份主游戏前端源码
-│   ├── src/                          # 当前 Vite 入口，复盘报告展示页
-│   │   ├── App.vue
-│   │   ├── main.js
-│   │   ├── style.css
-│   │   └── data/                     # 复盘报告适配器、mock 数据和样本文本
-│   ├── client/                       # 主游戏前端源码：登录、房间、对局、语音、复盘跳转
-│   │   ├── config/                   # 代理、复盘前端地址、WebSocket 地址等
-│   │   ├── public/
-│   │   └── src/
-│   │       ├── api/                  # 后端 API 封装
-│   │       ├── assets/               # 角色、身份、登录页等静态资源
-│   │       ├── common/               # fetch、常量、规则、复盘跳转工具
-│   │       ├── components/           # 通用组件和游戏组件
-│   │       ├── pages/                # 登录、房间、欢迎页等页面
-│   │       ├── router/               # 路由配置
-│   │       └── store/                # 前端状态
-│   ├── dist/                         # 前端构建产物，运行产物不建议提交
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js
-│   └── tailwind.config.js
-└── utils/                            # 复盘工具复用模块
-    ├── ai_replayer.py                # 可被复盘服务复用的分析工具
-    └── ai_replayer_API.md
+└── frontend/                         # Vue/Vite 复盘展示前端，并保留一份主游戏前端源码
+    ├── src/                          # 当前 Vite 入口，复盘报告展示页
+    │   ├── App.vue
+    │   ├── main.js
+    │   ├── style.css
+    │   └── data/                     # 复盘报告适配器、mock 数据和样本文本
+    ├── client/                       # 主游戏前端源码：登录、房间、对局、语音、复盘跳转
+    │   ├── config/                   # 代理、复盘前端地址、WebSocket 地址等
+    │   ├── public/
+    │   └── src/
+    │       ├── api/                  # 后端 API 封装
+    │       ├── assets/               # 角色、身份、登录页等静态资源
+    │       ├── common/               # fetch、常量、规则、复盘跳转工具
+    │       ├── components/           # 通用组件和游戏组件
+    │       ├── pages/                # 登录、房间、欢迎页等页面
+    │       ├── router/               # 路由配置
+    │       └── store/                # 前端状态
+    ├── dist/                         # 前端构建产物，运行产物不建议提交
+    ├── index.html
+    ├── package.json
+    ├── vite.config.js
+    └── tailwind.config.js
 ```
 
 ## 运行环境
@@ -162,7 +164,7 @@ python -m pytest tests/test_ai_player.py -q
 
 ## AI 复盘服务
 
-复盘服务位于 `Backend/ai_replay_service.py`，基于 Flask 实现，对主游戏后端暴露 HTTP 分析接口。它会调用 `Backend/ai_replayer.py` 生成结构化 JSON 和可读文本报告，输出到 `Backend/replay_analysis/`。
+复盘服务位于 `AI-Replay/ai_replay_service.py`，基于 Flask 实现，对主游戏后端暴露 HTTP 分析接口。它会调用 `AI-Replay/ai_replayer.py` 生成结构化 JSON 和可读文本报告，输出到 `AI-Replay/replay_analysis/`。
 
 ### 安装与启动
 
